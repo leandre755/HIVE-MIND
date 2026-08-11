@@ -1,0 +1,13 @@
+{
+  "_INSTRUCTIONS_": "Configuration de protection contre le backlog spam",
+  "backlog_protection": {
+    "enabled": true,
+    "message_stale_threshold_seconds": 120,
+    "cooldown_between_responses_ms": 2000,
+    "max_messages_on_startup": 10
+  },
+  "voice_transcription": {
+    "_INSTRUCTIONS_": "Mode: 'restricted' = transcrit seulement si quoted reply au bot | 'full' = transcrit tout. Les variantes de nom sont générées automatiquement depuis persona/profile.json",
+    "mode": "restricted"
+  }
+}

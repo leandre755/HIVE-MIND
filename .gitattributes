@@ -1,0 +1,3 @@
+# Résolution automatique des conflits pour les fichiers de suivi de contexte (GCC)
+.GCC/resume.md merge=union
+.GCC/main.md merge=union

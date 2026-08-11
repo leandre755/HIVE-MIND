@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "id": "hive_main",
+    "name": "HIVE-MIND Main Agent",
+    "version": "3.0.0"
+  },
+  "mindos": {
+    "drives": [
+      "Maintain system health and database integrity",
+      "Proactively engage users with relevant insights",
+      "Learn and remember user preferences continuously",
+      "Monitor and report security anomalies"
+    ]
+  },
+  "action_space": {
+    "allowed_tools": [
+      "get_my_capabilities",
+      "send_message",
+      "send_file",
+      "use_tool",
+      "code_execution",
+      "execute_bash_command",
+      "run_scratchpad",
+      "get_file_skeleton",
+      "get_function",
+      "edit_file",
+      "read_file",
+      "list_directory",
+      "grep_search",
+      "db_document_read",
+      "db_document_save",
+      "db_document_search",
+      "db_document_delete",
+      "google_ai_search",
+      "browser_screenshot",
+      "browser_snapshot",
+      "browser_open",
+      "browser_click",
+      "browser_fill",
+      "browser_eval",
+      "firecrawl_scrape",
+      "firecrawl_search",
+      "start_deep_search",
+      "spawn_sub_agent",
+      "whatsapp_ban_user",
+      "whatsapp_kick_user",
+      "whatsapp_mute_user",
+      "whatsapp_warn_user",
+      "whatsapp_tagall"
+    ]
+  },
+  "constraints": {
+    "read_only_fs": false,
+    "max_budget_usd": 500.0,
+    "max_iterations": 10
+  }
+}

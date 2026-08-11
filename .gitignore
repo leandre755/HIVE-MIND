@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
+.env
+git_credential.json
+
+# Session & Auth
+auth_info/
+session_test_admin/
+session_test_user/
+
+
+# Generated files
+logs/
+temp/
+coverage/
+*.log
+.hive-mind.pid
+
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+.GCC/
+downloads/
+hm_storage/tmp_download/
+.GCC/main.md
+.codex/AGENTS.md
+CLAUDE.md
+GEMINI.md
+graphify-out/
+gemini.md
+storage_hm/hn2.png
+storage_hm/hn3.png
+storage_hm/test_document.pdf
+storage_hm/test.png
+storage_hm/screenshots/screenshot_fallback_1778789503976.png
+storage_hm/screenshots/smoke-test.png
+session/
+.agents
+# Generated test artifacts
+Sandbox1/
+TEST_RESULT/
+e2e_battery_report.md
+storage_hm/benchmark_test/
+storage_hm/portfolio_site/
+storage_hm/screenshots/*.png
+analysis_results.txt
+analyze_graph.py
+docs/
+scratch/
+src/scratch/
+llm_as_validator/
+llm_as_juge/
+tui-connection.json.agents/
+tui-connection.json
+.commandcode/taste/taste.md
+excalidraw/

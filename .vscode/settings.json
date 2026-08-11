@@ -1,0 +1,14 @@
+{
+  "jest.jestCommandLine": "npm test --",
+  "jest.rootPath": ".",
+  "jest.disabledWorkspaceFolders": [],
+  "jest.shell": "/bin/bash",
+  "jest.runMode": "on-demand",
+  "jest.nodeEnv": {
+    "NODE_OPTIONS": "--experimental-vm-modules --no-warnings",
+    "NODE_ENV": "test",
+    "SUPABASE_URL": "http://localhost:54321",
+    "SUPABASE_KEY": "dummy",
+    "REDIS_URL": "redis://localhost:6379"
+  }
+}

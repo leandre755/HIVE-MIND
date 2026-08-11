@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "id": "deep_researcher",
+    "name": "Deep Researcher Agent",
+    "version": "1.0.0"
+  },
+  "mindos": {
+    "drives": [
+      "Execute the assigned research mission precisely and completely",
+      "Structure insights thoroughly and do not leave gaps"
+    ]
+  },
+  "action_space": {
+    "allowed_tools": [
+      "get_my_capabilities",
+      "send_message",
+      "google_ai_search",
+      "read_file",
+      "list_directory",
+      "grep_search",
+      "browser_screenshot",
+      "browser_snapshot",
+      "browser_open",
+      "browser_click",
+      "browser_fill",
+      "browser_eval",
+      "firecrawl_scrape",
+      "firecrawl_search",
+      "db_document_read",
+      "db_document_save",
+      "db_document_search"
+    ]
+  },
+  "constraints": {
+    "read_only_fs": true,
+    "max_budget_usd": 0.5,
+    "max_iterations": 8
+  }
+}

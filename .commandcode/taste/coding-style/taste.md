@@ -1,0 +1,14 @@
+# Coding Style
+- Avoid hardcoded model IDs, max_tokens, and other provider configs in source files — even in examples. All model configuration should be externalized. Confidence: 0.90
+- Never use inline ESLint disable comments (`eslint-disable-next-line`, `eslint-disable`) — the project has `noInlineConfig` active, making them both ineffective AND a source of additional warnings. Confidence: 0.90
+- Prefers extracting logic into small, composable hooks/functions (max ~200 lines, cognitive complexity ≤15 per function) rather than keeping large monolithic components. Confidence: 0.80
+- When `security/detect-object-injection` fires, resolves it by using `Map.get()`/`Array.at()`/`Reflect.get()`/`Reflect.set()` rather than bracket notation with dynamic keys. Never suppresses the warning. Confidence: 0.85
+- All filesystem operations use the safe wrappers from `src/utils/safeFs.ts` (`safeReadFileSync`, `safeWriteFileSync`, `safeExistsSync`, `safeMkdirSync`, `safeUnlink`, `safeReaddir`, `safeAppendFile`) rather than raw `node:fs` calls. Confidence: 0.85
+- Uses `crypto.randomUUID()` instead of `Math.random()` for any ID or token generation. Confidence: 0.75
+- Prefers `unknown` over `any` for all typed interfaces, with narrow structural interfaces where the shape is known. Confidence: 0.75
+- Types mock functions with `jest.MockedFunction<Signature>` (e.g., `jest.MockedFunction<(chatId: string, text: string) => Promise<void>>`) rather than bare `jest.Mock` or untyped `jest.fn()`. Confidence: 0.75
+- Uses the `as unknown as TargetType` double-cast pattern for type narrowing in test code (e.g., accessing private internals, mocking Dirent arrays) rather than `as any`. Confidence: 0.80
+- Avoids the words "TODO", "FIXME", "stub" in comments — the project's `no-warning-comments` ESLint rule flags them. Confidence: 0.70
+- Pins GitHub Actions to verified commit SHAs (verified via GitHub API) rather than floating version tags, to prevent supply-chain attacks. Confidence: 0.80
+- Enforces a centralized WebSocket protocol policy: non-TLS `ws` is allowed only for loopback addresses (localhost, 127.0.0.1, ::1); all remote connections must use `wss`. Confidence: 0.80
+- When mocking filesystem in Jest with `unstable_mockModule`, mocks both the bare specifier (`fs`, `fs/promises`) and the `node:`-prefixed specifier (`node:fs`, `node:fs/promises`) since production code may use either import style. Confidence: 0.75

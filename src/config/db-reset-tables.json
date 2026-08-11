@@ -1,0 +1,18 @@
+[
+  "relationships",
+  "entities",
+  "agent_actions",
+  "action_scores",
+  "autonomous_goals",
+  "bot_tools",
+  "facts",
+  "user_warnings",
+  "group_member_history",
+  "group_whitelist",
+  "group_filters",
+  "group_configs",
+  "reminders",
+  "memories",
+  "group_admins",
+  "groups"
+]

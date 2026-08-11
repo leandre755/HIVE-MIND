@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.GCC
+graphify-out
+*.log
+eslint_report.json
+eslint_tui_errors.json

@@ -1,0 +1,72 @@
+name: Jules PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: jules-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: write
+  statuses: write
+
+jobs:
+  review:
+    name: Validate and Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: TypeScript Compilation Check
+        run: npx tsc --noEmit
+
+      - name: Get Changed Files
+        id: changed-files
+        uses: tj-actions/changed-files@2d756ea4c53f7f6b397767d8723b3a10a9f35bf2
+        with:
+          files: |
+            **/*.ts
+            **/*.tsx
+            **/*.js
+            **/*.jsx
+
+      - name: ESLint Quality Check
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          npx eslint ${{ steps.changed-files.outputs.all_changed_files }}
+
+      - name: Jules PR Reviewer
+        uses: sanjay3290/jules-pr-reviewer@66c23eff45e2103fb3d2d6873ba073e6e281ef31
+        continue-on-error: true
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          rules_file: JULES.md
+          extra_instructions: |
+            Tu es Jules, l'agent IA officiel de revue de code de ce projet.
+            Lorsque tu laisses un commentaire ou une revue de code sur une Pull Request, commence impérativement tes messages en te présentant clairement comme Jules (ex: "Bonjour, ici Jules !", "Jules à l'appareil :" ou en signant par "— Jules" à la fin).
+            S'il te plaît, analyse les modifications apportées en appliquant et en vérifiant le respect strict du protocole de règles fourni.
+            Vérifie impérativement l'intégrité de la PR : compare le code modifié avec les revendications textuelles (titre, description de la PR et fichier .GCC/resume.md). Si la PR prétend apporter des modifications de code ou implémenter une session mais ne modifie aucun fichier source correspondant et se limite à de la documentation ou des tests vides, rejette-la et demande une ré-exécution.
+
+      - name: Enable Auto-Merge
+        if: github.event.pull_request.draft == false
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge --auto --merge "$PR_URL" || echo "L'auto-merge n'a pas pu être configuré automatiquement."

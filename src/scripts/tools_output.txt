@@ -1,0 +1,70 @@
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[VoiceProvider] 🎙️ 4 adaptateurs initialisés
+[ServiceContainer] 🔄 Création singleton: embeddings
+[ServiceContainer] 🔄 Création EmbeddingsService singleton...
+[Swarm] 🐝 Dispatcher Initialized
+[MCP Plugin] Fetching tools from connected servers...
+[MCP Plugin] Loaded 0 MCP tools.
+- **admin_soft_delete** : Supprime logiquement un utilisateur (soft delete). Le compte est marqué comme inactif mais pas effacé. SUPER ADMIN REQUIS.
+- **admin_restore** : Restaure un utilisateur précédemment supprimé (soft delete). SUPER ADMIN REQUIS.
+- **admin_list_deleted** : Liste les utilisateurs supprimés (soft deleted). SUPER ADMIN REQUIS.
+- **admin_check_deleted** : Vérifie si un utilisateur est dans l'état supprimé. SUPER ADMIN REQUIS.
+- **admin_antidelete** : Active ou désactive l'anti-delete pour un groupe. Quand activé, les messages supprimés sont automatiquement repostés. ADMIN REQUIS.
+- **admin_show_deleted** : Affiche les messages récemment supprimés dans le groupe. ADMIN REQUIS.
+- **execute_bash_command** : Exécute une commande bash sur la machine locale dans un shell persistant.
+- **edit_file** : Modifie un fichier en remplaçant une chaîne exacte (old_string) par une nouvelle (new_string). CRITIQUE : old_string DOIT être unique dans le fichier. Incluez 3 à 5 lignes de contexte avant et après pour garantir l'unicité. N'édite qu'une seule occurrence à la fois.
+- **list_directory** : Liste les fichiers et dossiers dans un répertoire spécifié (limité à 1000 éléments).
+- **grep_search** : Recherche une chaîne de caractères ou une expression régulière dans les fichiers en utilisant ripgrep ou grep.
+- **read_file** : Lit le contenu d'un fichier avec les numéros de ligne (limité à 800 lignes à la fois).
+- **run_scratchpad** : Invoque un processus "Scratchpad" isolé pour effectuer des recherches ou des lectures complexes. Il travaille en arrière-plan et renvoie un résumé. Utilise-le quand tu dois chercher à travers beaucoup de fichiers ou exécuter plusieurs commandes de lecture pour comprendre un système complexe.
+- **spawn_sub_agent** : Crée un sous-agent autonome (Swarm) avec un rôle spécifique et des outils précis pour accomplir une mission complexe en arrière-plan. Utilise-le pour déléguer les tâches longues ou nécessitant une spécialisation pointue (ex: vérifier des faits, analyser du code, générer un rapport de recherche complexe).
+- **remember_fact** : Mémorise un fait important sur l'utilisateur pour s'en souvenir plus tard. Utilise cette fonction quand l'utilisateur te demande de te rappeler quelque chose ou quand il partage une information personnelle importante.
+- **recall_fact** : Rappelle un fait spécifique mémorisé sur l'utilisateur. Utilise cette fonction quand l'utilisateur demande si tu te souviens de quelque chose.
+- **list_facts** : Liste tous les faits connus sur l'utilisateur. Utilise cette fonction quand l'utilisateur demande ce que tu sais sur lui.
+- **forget_fact** : Oublie un fait spécifique sur l'utilisateur. Utilise cette fonction quand l'utilisateur demande d'oublier une information.
+- **react_to_message** : Met une réaction (emoji) sur le message. À utiliser pour confirmer (👍), aimer (❤️) ou rire (😂) au lieu de répondre par du texte.
+- **create_poll** : Crée un sondage natif. Si le réseau de destination ne supporte pas les sondages natifs, le transport adaptera le format.
+- **send_contact** : Envoie une fiche contact (VCard). Si le réseau ne le supporte pas, il enverra du texte formaté.
+- **send_message** : Envoie un message. Peut être utilisé pour parler sur le réseau courant, OU pour envoyer un message sur un autre réseau à un autre utilisateur (omni-channel).
+- **send_file** : Envoie un fichier (image, vidéo, document) sur le réseau cible. Universel (Discord, Telegram, WhatsApp).
+- **get_my_capabilities** : Liste TOUTES les fonctionnalités, plugins et outils dont je dispose. À utiliser quand l'utilisateur demande "Que sais-tu faire ?" ou "Liste tes fonctions", car ta mémoire courante peut être incomplète.
+- **use_tool** : Outil Méta-Exécutif. Permet d'exécuter N'IMPORTE QUEL outil de ta liste de capacités (récupérée via get_my_capabilities), même si cet outil n'est pas actif dans ton contexte actuel. Utilise ceci pour contourner les limitations de mémoire.
+- **os_system_info** : Affiche les informations système (CPU, RAM, Uptime).
+- **os_shutdown** : Arrête le bot (Process Exit). SUPER-ADMIN REQUIS.
+- **os_update_pull** : Effectue un Git Pull pour mettre à jour le bot. SUPER-ADMIN REQUIS.
+- **text_to_speech** : Convertir du texte en audio vocal. Supporte plusieurs voix (Gemini: Aoede, Charon, Kore, etc.).
+- **generate_daily_pulse** : Génère un résumé audio narratif (Podcast/Journal) de l'activité récente du groupe. À utiliser quand l'utilisateur demande : "Quoi de neuf ?", "Résumé de la journée ?", "Lance le Daily Pulse", ou "Fais le journal".
+- **send_email** : Envoie un email à un destinataire.
+- **find_product** : Cherche des produits à acheter en ligne. À utiliser pour des demandes comme "Je veux acheter...", "Trouve un prix pour...", "Quel est le meilleur...".
+- **translate_text** : Traduire du texte d'une langue à une autre. Peut traduire un message cité ou du texte fourni.
+- **firecrawl_scrape** : Scrape une URL unique pour obtenir son contenu en Markdown propre (max 25k caractères). Idéal pour lire un article, une documentation spécifique ou le contenu complet d'une page web.
+- **firecrawl_crawl** : Crawl un site web complet à partir d'une URL de base pour extraire en masse le contenu de toutes ses sous-pages liées (concaténé jusqu'à 30k caractères). Très utile pour "ingurgiter" tout un centre d'aide ou un petit site web.
+- **firecrawl_map** : Obtient le plan structurel d'un site web sous forme de liste des URLs existantes (limité aux 100 premiers liens). Utile si tu cherches une page précise (ex: contact, tarifs) mais que tu ne connais pas son URL exacte.
+- **firecrawl_search** : Recherche votre requête sur le web (type moteur de recherche) et scrape automatiquement les meilleurs résultats sous forme de Markdown. Le meilleur outil pour s'informer sur l'actualité récente ou un sujet général.
+- **firecrawl_extract** : Scrape une ou plusieurs URLs et en extrait intelligemment uniquement les données précises demandées dans le `prompt`, renvoyées sous un format structuré (JSON).
+- **start_deep_search** : Lance une investigation approfondie sur un sujet complexe. À utiliser QUAND l'utilisateur demande un "rapport", une "analyse complète", ou "cherche en profondeur". Durée estimée : 2-3 minutes.
+- **duckduck_search** : Recherche sur le web via DuckDuckGo pour vérifier des faits, actualités, etc.
+- **google_ai_search** : Recherche web intelligente via Google AI Mode. Renvoie une synthèse sourcée. Idéal pour vérification de faits, actualités, veille technologique, questions nécessitant des données récentes.
+- **search_wikipedia** : Rechercher des informations sur Wikipedia. Utilise cette fonction quand l'utilisateur demande des infos encyclopédiques.
+- **gm_filter_add** : Ajoute un filtre de mot-clé au groupe. ADMIN REQUIS.
+- **gm_filter_list** : Liste les filtres actifs du groupe.
+- **gm_filter_remove** : Supprime un filtre par son numéro. ADMIN REQUIS.
+- **gm_whitelist_add** : Ajoute un utilisateur à la whitelist (exempté du filtrage). ADMIN REQUIS.
+- **gm_config** : Configure les paramètres du groupe (warnings, auto-ban). ADMIN REQUIS.
+- **gm_warnings_reset** : Réinitialise les warnings d'un utilisateur. ADMIN REQUIS.
+- **gm_tagall** : Mentionne tous les membres du groupe. BOT ADMIN REQUIS.
+- **gm_ban_user** : Bannit un utilisateur. ADMIN REQUIS.
+- **gm_add_user** : Génère un lien d'invitation pour ajouter un membre (Contournement limitation WhatsApp).
+- **gm_mute_user** : Mute temporairement un utilisateur (le bot ignorera ses messages pendant X minutes). ADMIN REQUIS.
+- **gm_mission** : Affiche la mission du bot dans ce groupe.
+- **gm_setmission** : Définit la mission du bot dans ce groupe. ADMIN REQUIS.
+- **gm_mygroups** : Liste tous les groupes où tu es admin.
+- **gm_groupstats** : Affiche les statistiques du groupe actuel.
+- **gm_unmute_user** : Retire le mute d'un utilisateur. ADMIN REQUIS.
+- **gm_promote** : Promeut un membre au rang d'administrateur du groupe. BOT ADMIN REQUIS.
+- **gm_demote** : Retire les droits administrateur d'un membre. BOT ADMIN REQUIS.
+- **gm_groupinfo** : Affiche les informations détaillées du groupe (admins, membres, description).
+- **gm_kick_user** : Expulse un utilisateur (Kick simple sans ban DB). ADMIN REQUIS.
+- **gm_warn_user** : Donne un avertissement officiel à un utilisateur. (Auto-ban au 3ème). ADMIN REQUIS.
+- **gm_lock_group** : Verrouille/Déverrouille le groupe (Seuls les admins peuvent parler). ADMIN REQUIS.
+- **create_sticker** : Créer un sticker à partir d'une image ou vidéo jointe au message ou citée. L'utilisateur doit envoyer ou répondre à une image/vidéo.

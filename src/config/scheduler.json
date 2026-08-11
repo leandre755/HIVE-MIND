@@ -1,0 +1,133 @@
+{
+  "_INSTRUCTIONS_": "Configurez les tâches automatiques du bot ici",
+  "enabled": true,
+  "timezone": "Europe/Paris",
+  "jobs": [
+    {
+      "name": "dailyGreeting",
+      "description": "Message matinal dans les groupes actifs",
+      "cron": "0 8 * * *",
+      "enabled": true,
+      "target": {
+        "type": "groups",
+        "filter": "active_last_24h"
+      }
+    },
+    {
+      "name": "reminderCheck",
+      "description": "Vérifier les rappels utilisateurs",
+      "cron": "* * * * *",
+      "enabled": true
+    },
+    {
+      "name": "inactivityPing",
+      "description": "Relance les conversations inactives depuis 3 jours",
+      "cron": "0 14 * * *",
+      "enabled": false,
+      "target": {
+        "type": "private",
+        "filter": "inactive_3_days"
+      }
+    },
+    {
+      "name": "memoryCleanup",
+      "description": "Nettoie et résume les vieux souvenirs (garbage collection)",
+      "cron": "0 3 * * *",
+      "enabled": true,
+      "comment": "Exécuté à 3h du matin pour éviter la charge"
+    },
+    {
+      "name": "tempCleanup",
+      "description": "Nettoye les fichiers temporaires > 1 heure (Audio, Images)",
+      "cron": "0 * * * *",
+      "enabled": true
+    },
+    {
+      "name": "memoryEventScanner",
+      "description": "Scanne la mémoire épistémique pour extraire automatiquement les rendez-vous et rappels planifiés.",
+      "cron": "*/30 * * * *",
+      "enabled": true,
+      "comment": "S'exécute toutes les 30 minutes"
+    },
+    {
+      "name": "memoryConsolidation",
+      "description": "Synthétise le contexte Redis (Working Memory) vers Supabase et extrait les connaissances du graphe.",
+      "cron": "0 4 * * *",
+      "enabled": true,
+      "comment": "Exécuté à 4h pour consolider après le cleanup de 3h"
+    },
+    {
+      "name": "cognitiveDream",
+      "description": "Analyse des logs d'actions pour l'auto-apprentissage (Self-Reflection).",
+      "cron": "30 4 * * *",
+      "enabled": true,
+      "comment": "Exécuté après la consolidation pour apprendre de la journée passée"
+    },
+    {
+      "name": "memoryDecay",
+      "description": "Applique le cycle de décroissance aux souvenirs (archivage intelligent).",
+      "cron": "45 4 * * *",
+      "enabled": true,
+      "comment": "Exécuté après cognitiveDream pour archiver les souvenirs non-importants"
+    },
+    {
+      "name": "socialCueScan",
+      "description": "Analyse le sentiment des groupes actifs pour détecter les signaux d'intervention.",
+      "cron": "*/15 8-22 * * *",
+      "enabled": true,
+      "comment": "Exécuté toutes les 15 min de 8h à 22h"
+    },
+    {
+      "name": "goalExecution",
+      "description": "Vérifie et exécute les objectifs autonomes planifiés.",
+      "cron": "*/10 * * * *",
+      "enabled": true,
+      "comment": "Exécuté toutes les 10 min, 24/7"
+    },
+    {
+      "name": "dbHealthCheck",
+      "description": "Vérifie la santé de la base de données (taille, performance, indexes)",
+      "cron": "0 6 * * *",
+      "enabled": true,
+      "comment": "Exécuté tous les jours à 6h du matin"
+    },
+    {
+      "name": "dbPerformanceAnalysis",
+      "description": "Analyse les métriques de performance DB (requêtes lentes, temps de réponse)",
+      "cron": "0 * * * *",
+      "enabled": true,
+      "comment": "Exécuté toutes les heures"
+    },
+    {
+      "name": "dbWeeklyReport",
+      "description": "Génère un rapport hebdomadaire complet de santé DB",
+      "cron": "0 8 * * 0",
+      "enabled": true,
+      "comment": "Exécuté tous les dimanches à 8h"
+    },
+    {
+      "name": "dbCleanup",
+      "description": "Nettoie les anciennes données (>90 jours) pour éviter le swelling",
+      "cron": "0 2 * * 0",
+      "enabled": true,
+      "comment": "Exécuté tous les dimanches à 2h du matin"
+    },
+    {
+      "name": "consciousPulse",
+      "description": "True Heartbeat: Watchdog des actions en cours et relance du réveil.",
+      "cron": "*/5 * * * *",
+      "enabled": true
+    }
+  ],
+  "triggers": {
+    "onKeyword": {
+      "enabled": true,
+      "keywords": ["codage", "javascript", "python", "ia", "bot"],
+      "probability": 0.3
+    },
+    "onMention": {
+      "enabled": true,
+      "replyDelay": "1000-3000"
+    }
+  }
+}

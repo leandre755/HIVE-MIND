@@ -1,0 +1,99 @@
+#!/bin/sh
+echo "[Pre-Commit] Démarrage des 8 couches de validation Zero-Slop..."
+
+# 1. Scan Anti-Fuite de Secrets et Fichiers Critiques (.env)
+echo "[Pre-Commit] 1/8 - Scan Anti-Fuite de Secrets et fichiers .env..."
+STAGED_ENV=$(git diff --cached --name-only | grep -E '^\.env(\.|$)' | grep -v '\.env\.example' || true)
+if [ -n "$STAGED_ENV" ]; then
+  echo "[Erreur Pre-Commit] Tentative de commit d'un fichier .env réel : $STAGED_ENV"
+  echo "[Info] Seul .env.example est autorisé dans Git."
+  exit 1
+fi
+
+# Détection de motifs de clés privées et jetons d'accès
+STAGED_SECRETS=$(git diff --cached -S "PRIVATE KEY" -S "AKIA[0-9A-Z]{16}" -S "sk-[a-zA-Z0-9]{32,}" --name-only 2>/dev/null | grep -v '\.husky/pre-commit' || true)
+if [ -n "$STAGED_SECRETS" ]; then
+  echo "[Erreur Pre-Commit] Motif de clé privée ou jeton d'accès identifié dans : $STAGED_SECRETS"
+  exit 1
+fi
+
+# Détection et Interdiction Stricte des Commentaires d'Inhibition (Zero-Slop Rule 17)
+STAGED_SUPPRESSIONS=$(git diff --cached -S "eslint-disable" -S "@ts-ignore" -S "@ts-nocheck" -S "@ts-expect-error" --name-only 2>/dev/null | grep -v '\.husky/pre-commit' || true)
+if [ -n "$STAGED_SUPPRESSIONS" ]; then
+  echo "[Erreur Pre-Commit] Interdiction Zero-Slop : Des commentaires de masquage (eslint-disable, @ts-ignore, @ts-nocheck) ont été détectés dans :"
+  echo "$STAGED_SUPPRESSIONS"
+  echo "[Info] Vous devez corriger le problème à la source dans le code au lieu d'ajouter un commentaire d'inhibition."
+  exit 1
+fi
+
+# Protection des Fichiers de Configuration et Dépendances Critiques (permissions.json)
+PROTECTED_MODIFIED=$(git diff --cached --name-only | grep -E '^(eslint\.config\.js|\.husky/pre-commit|\.dependency-cruiser\.cjs|knip\.json|tsconfig\.json|package\.json|package-lock\.json)$' || true)
+if [ -n "$PROTECTED_MODIFIED" ] && [ "$ALLOW_CONFIG_EDIT" != "1" ]; then
+  echo "[Pre-Commit Protection] Fichier protégé modifié : $PROTECTED_MODIFIED"
+  echo "[Info] Fichier protégé par permissions.json. Pour valider cette modification, utilisez : ALLOW_CONFIG_EDIT=1 git commit"
+  exit 1
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --verbose || {
+    echo "[Erreur Pre-Commit] Gitleaks a détecté un secret dans les fichiers indexés !"
+    exit 1
+  }
+fi
+
+# 2. Audit des Dépendances (CVEs) - BLOQUANT sur high/critical
+echo "[Pre-Commit] 2/8 - Audit des dépendances (npm audit high/critical)..."
+npx npm audit --audit-level=high --omit=dev || {
+  echo "[Erreur Pre-Commit] Des vulnérabilités high/critical ont été détectées dans les dépendances de production."
+  echo "[Info] Corrigez-les avec 'npm audit fix' ou mettez à jour les paquets concernés avant de committer."
+  exit 1
+}
+
+# 3. Linter Ultra-Rapide Rust (Oxlint ~10ms) - Zéro warning toléré
+echo "[Pre-Commit] 3/8 - Linter Rust Ultra-Rapide (Oxlint, zéro warning toléré)..."
+npx oxlint --quiet --deny-warnings src/ || {
+  echo "[Erreur Pre-Commit] Oxlint a bloqué une erreur ou un warning (syntaxe, anti-pattern) !"
+  exit 1
+}
+
+# 4. Formatage de Code (Prettier)
+echo "[Pre-Commit] 4/8 - Vérification du formatage de code (Prettier)..."
+npx prettier --check "src/**/*.{ts,tsx,json,md}" || {
+  echo "[Erreur Pre-Commit] Le code n'est pas correctement formaté d'après Prettier."
+  echo "[Info] Lancez 'npx prettier --write .' pour corriger automatiquement."
+  exit 1
+}
+
+# 5. Compilation TypeScript Globale
+echo "[Pre-Commit] 5/8 - Compilation TypeScript (npx tsc --noEmit)..."
+npx tsc --noEmit || {
+  echo "[Erreur Pre-Commit] Échec de la compilation TypeScript."
+  exit 1
+}
+
+# 6. Architecture & Dépendances Circulaires (STRICT: dependency-cruiser)
+echo "[Pre-Commit] 6/8 - Architecture & Cycles de dépendances (dependency-cruiser)..."
+npx depcruise --validate .dependency-cruiser.cjs src || {
+  echo "[Erreur Pre-Commit] Violation d'architecture ou dépendance circulaire détectée par dependency-cruiser !"
+  exit 1
+}
+
+# 7. Audit ESLint complet (SonarJS + Security + import-x) - Zéro warning toléré
+echo "[Pre-Commit] 7/8 - Audit ESLint complet (SonarJS + Security + import-x, zéro warning toléré)..."
+npx eslint . --max-warnings=0 || {
+  echo "[Erreur Pre-Commit] ESLint a détecté des erreurs ou des warnings (linter, sécurité)."
+  exit 1
+}
+
+# 8. Scan SAST Sécurité via Semgrep
+UV_BIN="$HOME/.local/bin/uv"
+if [ -x "$UV_BIN" ] || command -v uv >/dev/null 2>&1; then
+  EXECUTABLE=$(command -v uv 2>/dev/null || echo "$UV_BIN")
+  echo "[Pre-Commit] 8/8 - Scan SAST Sécurité (Semgrep)..."
+  $EXECUTABLE run --with semgrep semgrep scan --config auto --quiet --error || {
+    echo "[Erreur Pre-Commit] Semgrep a identifié une vulnérabilité SAST dans le code !"
+    exit 1
+  }
+fi
+
+echo "[Pre-Commit] Les 8 couches de validation (Anti-leak, npm audit, Oxlint, Prettier, TypeScript, Depcruise, ESLint, Semgrep) sont validées."
