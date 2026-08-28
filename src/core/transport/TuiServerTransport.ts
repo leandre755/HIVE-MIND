@@ -13,7 +13,7 @@ import {
   type StickerPayload,
   type VisualResponsePayload,
   type VoicePayload,
-} from '../../tui/transport/HiveTransport.js';
+} from './tui/HiveTransport.js';
 import type { MessageData } from '../types/BotTypes.js';
 
 /** Commandes acceptées depuis un client TUI authentifié. */

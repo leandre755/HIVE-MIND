@@ -221,5 +221,54 @@ Rédiger un second document autonome simulant l'exécution d'une tâche complexe
 - [ ] **Livrable 2** : Document de simulation sur 30 heures comparant la Théorie vs la Réalité avec métriques et détections d'anomalies de runtime.
 - [ ] Aucune omission de sous-système ou de fichier critique lors de l'investigation.
 
+## Follow-up — 2026-08-28T02:35:00Z
+
+Extract and decouple the interactive terminal UI (`src/tui/`, 136 files, React/Ink) from HIVE-MIND into its own standalone repository at `/home/omni/Code/HIVE-MIND-TUI`, leaving HIVE-MIND Core as a clean, lightweight headless daemon.
+
+Working directory: /home/omni/Code/HIVE-MIND
+Integrity mode: development
+
+## Requirements
+
+### R1. Core Transport Decoupling & Server Isolation
+Relocate `src/tui/transport/HiveTransport.ts` into `src/core/transport/tui/HiveTransport.ts` within HIVE-MIND. Update all Core imports (`TuiServerTransport.ts`, `TransportManager.ts`, `PermissionManager.ts`, `tui_websocket.test.ts`) so that HIVE-MIND Core retains full WebSocket server capability without any import or dependency pointing to `src/tui/`.
+
+### R2. Standalone TUI Repository Construction
+Initialize a standalone git repository at `/home/omni/Code/HIVE-MIND-TUI`. Migrate all 136 UI files from `src/tui/` into `src/`. Provide dedicated `package.json`, `tsconfig.json`, `eslint.config.js`, and self-contained utilities (`safeFs.ts`, `errors.ts`). Decouple `providerStatus.ts` from backend modules so the TUI client is 100% independent.
+
+### R3. Monorepo Pruning & Dependency Cleanup
+Delete the `src/tui/` directory from HIVE-MIND. Prune all React and Ink dependencies (`@jrichman/ink`, `ink`, `ink-gradient`, `ink-spinner`, `ink-text-input`, `react`, `@xterm/headless`, `lowlight`, `clipboardy`) from HIVE-MIND's `package.json`. Verify that HIVE-MIND builds and runs tests cleanly with zero remaining TUI dependencies.
+
+### R4. Cross-Process WebSocket Verification
+Verify bidirectional communication between the running HIVE-MIND daemon (serving on WebSocket via `tui-connection.json`) and the standalone TUI application.
+
+## Acceptance Criteria
+
+### Core Decoupling
+- [ ] `npx tsc --noEmit` in `/home/omni/Code/HIVE-MIND` passes with 0 errors.
+- [ ] `NODE_OPTIONS='--experimental-vm-modules' npx jest src/tests/integration/tui_websocket.test.ts --forceExit` passes 100%.
+- [ ] `grep -rn "src/tui" src/core/` returns 0 results.
+
+### Standalone TUI Repository
+- [ ] Directory `/home/omni/Code/HIVE-MIND-TUI` is a standalone git repository with valid `package.json`, `tsconfig.json`, and `eslint.config.js`.
+- [ ] `npm install && npx tsc --noEmit` in `/home/omni/Code/HIVE-MIND-TUI` passes with 0 errors.
+- [ ] `npx eslint src/` in `/home/omni/Code/HIVE-MIND-TUI` passes with 0 errors and 0 warnings.
+- [ ] No imports of `src/providers` or `src/services` remain in the TUI codebase.
+
+### HIVE-MIND Cleanup
+- [ ] Directory `src/tui/` is removed from `/home/omni/Code/HIVE-MIND`.
+- [ ] All Ink/React packages are removed from HIVE-MIND `package.json`.
+- [ ] `npm test` in `/home/omni/Code/HIVE-MIND` runs all suites green with 0 regressions.
+
+### E2E Protocol Validation
+- [ ] Starting HIVE-MIND generates `tui-connection.json`.
+- [ ] Starting `HIVE-MIND-TUI` connects to the daemon, receives status and events, and can submit user messages.
+
+## Verification Resources
+- Core WebSocket test: `src/tests/integration/tui_websocket.test.ts`
+- Core full suite: `npm test`
+- Task breakdown: `tasks/plan.md` and `tasks/todo.md`
+
+
 
 

@@ -26,6 +26,7 @@ Thumbs.db
 
 # IDE
 .idea/
+.claude/
 *.swp
 .GCC/
 downloads/
@@ -62,3 +63,4 @@ tui-connection.json.agents/
 tui-connection.json
 .commandcode/taste/taste.md
 excalidraw/
+/.lake

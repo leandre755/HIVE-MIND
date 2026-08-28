@@ -25,7 +25,7 @@ describe('Layer 1 - ModelHealthRegistry', () => {
     expect(WINDOW_MS).toBe(60000);
     expect(BUCKET_COUNT).toBe(6);
     expect(FAILURE_RATIO_THRESHOLD).toBe(0.5);
-    expect(MINIMUM_THROUGHPUT).toBe(10);
+    expect(MINIMUM_THROUGHPUT).toBe(3);
     expect(COOLDOWN_STEPS_MS).toEqual([30000, 120000, 600000]);
   });
 

@@ -17,14 +17,6 @@ jest.unstable_mockModule('../../../services/adminService.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('ink', () => ({
-  render: jest.fn(),
-}));
-
-jest.unstable_mockModule('../../../core/transport/ink/InkCLIAdapter.js', () => ({
-  InkCLIAdapter: {},
-}));
-
 jest.unstable_mockModule('fs', () => {
   const actualFs = jest.requireActual('fs') as typeof import('node:fs');
   const realpathSyncMock = jest.fn((p: string, options?: unknown) => {

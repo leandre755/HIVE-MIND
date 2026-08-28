@@ -1,6 +1,5 @@
 import js from '@eslint/js';
 import { config as tseslintConfig, configs as tseslintConfigs } from 'typescript-eslint';
-import reactHooks from 'eslint-plugin-react-hooks';
 import { configs as sonarjsConfigs } from 'eslint-plugin-sonarjs';
 import security from 'eslint-plugin-security';
 import boundaries from 'eslint-plugin-boundaries';
@@ -21,26 +20,6 @@ export default tseslintConfig(
   security.configs.recommended,
   importFlatConfigs.recommended,
   importFlatConfigs.typescript,
-
-  {
-    // Restrict react-hooks rules exclusively to JSX/TSX files or files within the src/tui/ React UI directory
-    // to prevent false positives in core code (e.g. Baileys' useMultiFileAuthState)
-    files: [
-      '**/*.tsx',
-      '**/*.jsx',
-      'src/tui/**/*.ts',
-      'src/tui/**/*.tsx',
-      'src/tui/**/*.js',
-      'src/tui/**/*.jsx',
-    ],
-    plugins: {
-      'react-hooks': reactHooks,
-    },
-    rules: {
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
-    },
-  },
   {
     // Test/verification scripts in .agents/ legitimately scan dynamic directory paths
     files: ['.agents/**/*.ts'],

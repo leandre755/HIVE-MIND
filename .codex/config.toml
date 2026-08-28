@@ -3,19 +3,19 @@ approval_policy = "on-request"
 default_permissions = "hive_mind_policy"
 
 [permissions.hive_mind_policy]
-description = "Securite stricte pour le projet HIVE-MIND-RAILWAY"
+description = "Securite stricte pour le projet HIVE-MIND"
 extends = ":workspace"
 
 # --- CONFIGURATION DU SYSTEME DE FICHIERS ---
 [permissions.hive_mind_policy.filesystem]
 # Bloqué formellement (Accès interdit/Aucun)
-"/home/omni/Code/HIVE-MIND-RAILWAY/.husky/pre-commit" = "none"
+"/home/omni/Code/HIVE-MIND/.husky/pre-commit" = "none"
 
 # Non listé en écriture totale -> passera par l'interception de "on-request" pour validation
-"/home/omni/Code/HIVE-MIND-RAILWAY/eslint.config.js" = "read"
+"/home/omni/Code/HIVE-MIND/eslint.config.js" = "read"
 
 # Autorisation totale d'écriture et lecture automatique pour le reste du projet
-"/home/omni/Code/HIVE-MIND-RAILWAY/**" = "write"
+"/home/omni/Code/HIVE-MIND/**" = "write"
 
 
 # --- CONFIGURATION DES COMMANDES TERMINAL ---

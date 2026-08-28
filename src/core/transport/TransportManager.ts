@@ -127,7 +127,7 @@ export class TransportManager {
       const isTui = name === 'ink-cli' || name === 'tui';
       if (isTui && !this.transports.has(name)) {
         try {
-          const { hiveTransport } = await import('../../tui/transport/HiveTransport.js');
+          const { hiveTransport } = await import('./tui/HiveTransport.js');
           this.register(name, hiveTransport);
           console.log(`[TransportManager] TUI HIVE-MIND chargé comme transport ${name}`);
 

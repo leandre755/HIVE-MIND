@@ -11,14 +11,14 @@ if [ -n "$STAGED_ENV" ]; then
 fi
 
 # Détection de motifs de clés privées et jetons d'accès
-STAGED_SECRETS=$(git diff --cached -S "PRIVATE KEY" -S "AKIA[0-9A-Z]{16}" -S "sk-[a-zA-Z0-9]{32,}" --name-only 2>/dev/null | grep -v '\.husky/pre-commit' || true)
+STAGED_SECRETS=$(git diff --cached --name-only -G "(PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{32,})" 2>/dev/null | grep -v '\.husky/pre-commit' || true)
 if [ -n "$STAGED_SECRETS" ]; then
   echo "[Erreur Pre-Commit] Motif de clé privée ou jeton d'accès identifié dans : $STAGED_SECRETS"
   exit 1
 fi
 
 # Détection et Interdiction Stricte des Commentaires d'Inhibition (Zero-Slop Rule 17)
-STAGED_SUPPRESSIONS=$(git diff --cached -S "eslint-disable" -S "@ts-ignore" -S "@ts-nocheck" -S "@ts-expect-error" --name-only 2>/dev/null | grep -v '\.husky/pre-commit' || true)
+STAGED_SUPPRESSIONS=$(git diff --cached --name-only -G "(eslint-disable|@ts-ignore|@ts-nocheck|@ts-expect-error)" 2>/dev/null | grep -v '\.husky/pre-commit' || true)
 if [ -n "$STAGED_SUPPRESSIONS" ]; then
   echo "[Erreur Pre-Commit] Interdiction Zero-Slop : Des commentaires de masquage (eslint-disable, @ts-ignore, @ts-nocheck) ont été détectés dans :"
   echo "$STAGED_SUPPRESSIONS"
@@ -43,7 +43,7 @@ fi
 
 # 2. Audit des Dépendances (CVEs) - BLOQUANT sur high/critical
 echo "[Pre-Commit] 2/8 - Audit des dépendances (npm audit high/critical)..."
-npx npm audit --audit-level=high --omit=dev || {
+npm audit --audit-level=high --omit=dev || {
   echo "[Erreur Pre-Commit] Des vulnérabilités high/critical ont été détectées dans les dépendances de production."
   echo "[Info] Corrigez-les avec 'npm audit fix' ou mettez à jour les paquets concernés avant de committer."
   exit 1

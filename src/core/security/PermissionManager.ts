@@ -321,7 +321,7 @@ export class PermissionManager {
 
       if (sourceChannel === 'tui' || sourceChannel === 'ink-cli') {
         try {
-          const { hiveTransport } = await import('../../tui/transport/HiveTransport.js');
+          const { hiveTransport } = await import('../transport/tui/HiveTransport.js');
           const response = await hiveTransport.requestConfirmation(
             'permission_request',
             { chatId, senderJid, actionDescription },

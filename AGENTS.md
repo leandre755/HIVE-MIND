@@ -165,29 +165,24 @@ Write technically descriptive entries that explicitly detail specific file paths
 
 ### 3.2. `.GCC/branches/plan_[name].md` Template
 
-````markdown
+```markdown
 # Execution Plan: [Task Name]
 
 ## 📋 Target Invariant & Pre-requisites
-
 - **Target Invariant**: [State the state/rule that must remain true during and after this task]
 - **Pre-requisites**: [Required packages, configurations, or pre-existing code structures]
 
 ## 🛠️ Step-by-Step Sequence
 
 ### Step 1: [Short Action Description]
-
 - [ ] **Action**: [Exact file path to edit or command to run]
 - [ ] **Verify**: [Validation command, e.g., `npm test`, `tsc --noEmit`]
 - **Verification Proof**:
-
 ```text
 [Paste terminal/compiler validation output here]
 ```
-````
 
 ### Step 2: [Short Action Description]
-
 - [ ] **Action**: [Exact file path to edit or command to run]
 - [ ] **Verify**: [Validation command]
 - **Verification Proof**:
@@ -197,11 +192,10 @@ Write technically descriptive entries that explicitly detail specific file paths
 ```
 
 ## ⚠️ Mitigations & Edge Cases
-
 - **Risk**: [Identify potential risk, e.g., API rate-limits, dependency clash]
 - **Mitigation**: [Describe fallback behavior]
 
-````
+```
 
 ### 3.3. `.GCC/resume.md` Template
 
@@ -230,8 +224,39 @@ Write technically descriptive entries that explicitly detail specific file paths
 2. **Immediate Action**: `[Specify exact next action or fix to apply]`
 3. **Verification Command**: `[Command to run]`
 
-````
+```
 
 ---
-
 </strict_markdown_templates>
+
+
+
+# Coding Style
+
+- Avoid hardcoded model IDs, max_tokens, and other provider configs in source files — even in examples. All model configuration should be externalized. Confidence: 0.90
+- Never use inline ESLint disable comments (`eslint-disable-next-line`, `eslint-disable`) — the project has `noInlineConfig` active, making them both ineffective AND a source of additional warnings. Confidence: 0.90
+- Prefers extracting logic into small, composable hooks/functions (max ~200 lines, cognitive complexity ≤15 per function) rather than keeping large monolithic components. Confidence: 0.80
+- When `security/detect-object-injection` fires, resolves it by using `Map.get()`/`Array.at()`/`Reflect.get()`/`Reflect.set()` rather than bracket notation with dynamic keys. Never suppresses the warning. Confidence: 0.85
+- All filesystem operations use the safe wrappers from `src/utils/safeFs.ts` (`safeReadFileSync`, `safeWriteFileSync`, `safeExistsSync`, `safeMkdirSync`, `safeUnlink`, `safeReaddir`, `safeAppendFile`) rather than raw `node:fs` calls. Confidence: 0.85
+- Uses `crypto.randomUUID()` instead of `Math.random()` for any ID or token generation. Confidence: 0.75
+- Prefers `unknown` over `any` for all typed interfaces, with narrow structural interfaces where the shape is known. Confidence: 0.75
+- Types mock functions with `jest.MockedFunction<Signature>` (e.g., `jest.MockedFunction<(chatId: string, text: string) => Promise<void>>`) rather than bare `jest.Mock` or untyped `jest.fn()`. Confidence: 0.75
+- Uses the `as unknown as TargetType` double-cast pattern for type narrowing in test code (e.g., accessing private internals, mocking Dirent arrays) rather than `as any`. Confidence: 0.80
+- Avoids the words "TODO", "FIXME", "stub" in comments — the project's `no-warning-comments` ESLint rule flags them. Confidence: 0.70
+- Pins GitHub Actions to verified commit SHAs (verified via GitHub API) rather than floating version tags, to prevent supply-chain attacks. Confidence: 0.80
+- Enforces a centralized WebSocket protocol policy: non-TLS `ws` is allowed only for loopback addresses (localhost, 127.0.0.1, ::1); all remote connections must use `wss`. Confidence: 0.80
+- When mocking filesystem in Jest with `unstable_mockModule`, mocks both the bare specifier (`fs`, `fs/promises`) and the `node:`-prefixed specifier (`node:fs`, `node:fs/promises`) since production code may use either import style. Confidence: 0.75
+- Dynamically decomposes complex requests into specialized execution sub-agents per domain or sub-task (e.g., design, audio, individual modules/levels). Confidence: 0.95
+- Enforces strict 1-to-1 parity between execution tasks and verification sub-agents, spawning a dedicated checker sub-agent for every distinct worker task. Confidence: 0.90
+- Maintains complete separation of concerns between work execution and work evaluation, ensuring worker sub-agents never evaluate their own output. Confidence: 0.95
+- Mandates delegating implementation and corrections to sub-agent worker teams by default to prevent unverified direct edits, excepting only trivially simple tasks or explicit user instructions. Confidence: 0.95
+- Mandates that any direct fix or edit made directly by the primary agent or you MUST spawn a dedicated evaluator/critic sub-agent to verify the fix before declaring completion — self-evaluation of direct edits is strictly forbidden. Confidence: 1.0
+- Mandates multi-stage adversarial reasoning (hypothesis generation, adversarial debate, cross-fact verification) prior to implementing architectural decisions. Confidence: 0.90
+- Employs continuous opposition and red-teaming debate between sub-agents to stress-test ideas and select optimal technical solutions. Confidence: 0.90
+- Prioritizes deep reasoning, adversarial verification, and top-tier execution quality over token consumption limits. Confidence: 0.95
+- Operates in a continuous, relentless 100% execution loop, working autonomously until the task is fully accomplished to impressive, production-grade quality regardless of time or iteration count. Confidence: 0.99
+- Always spawns a dedicated critic sub-agent to audit completed deliverables (even direct edits); upon finding any defects, applies fixes and escalates to dual critic sub-agents (one specific fix-verifier and one global system critic), looping until 100% critic satisfaction is achieved. Confidence: 0.95
+- Enforces an unyielding dynamic workflow loop: worker sub-agents are strictly prohibited from stopping, exiting, or declaring task completion as long as ANY verifier, auditor, or critic sub-agent remains unsatisfied. Confidence: 1.0
+- Rejects binary "pass/fail" or "not rejected" exit gates in sub-agent workflows; exit is granted ONLY when critics explicitly award a 100% "impressed/production-grade" rating — ratings of "acceptable", "passable", or "looks fine" are treated as failure gates that force worker iteration. Confidence: 1.0
+- Mandates that all critic sub-agents adopt an uncompromising, adversarial stance, actively hunting for edge cases, performance regressions, architectural flaws, and missing verification proofs rather than offering lenient or balanced approvals. Confidence: 1.0
+- Prohibits critic sub-agents from granting approvals with "non-blocking" minor errors, warnings, or accumulated technical debt; any defect regardless of severity is a hard blocker requiring iteration — evaluation is strictly binary between 100% flawless/impressed and failure. Confidence: 1.0
