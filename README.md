@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Version-3.5.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/License-MIT-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="License" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="License" />
   <img src="https://img.shields.io/badge/Node.js-18+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node.js" />
 </p>
 
@@ -746,10 +746,10 @@ User          →  Standard interaction
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE) — the grant includes a patent license that terminates if you file a patent claim against this project, and modified files must carry a notice of change.
 
 ---
 
 <p align="center">
-  <sub>Built by <a href="https://github.com/leandre755">Christ-Leandre</a> — HIVE-MIND V3.5</sub>
+  <sub>Built by <a href="https://github.com/leandre755">leandre755</a> — HIVE-MIND V3.5</sub>
 </p>
