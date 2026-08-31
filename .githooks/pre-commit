@@ -9,6 +9,9 @@ if [ "$SCOPE" != "staged" ] && [ "$SCOPE" != "full" ]; then
   exit 2
 fi
 
+# Résolution de .githooks/ pour les scripts partagés, quel que soit le répertoire courant.
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # 1. Contrôles d'index (toujours actifs, limités aux fichiers staged)
 echo "[Quality Gate] 1/8 - Scan anti-fuite de secrets et fichiers .env..."
 STAGED_ENV=$(git diff --cached --name-only | grep -E '^\.env(\.|$)' | grep -v '\.env\.example' || true)
@@ -18,14 +21,29 @@ if [ -n "$STAGED_ENV" ]; then
   exit 1
 fi
 
-STAGED_SECRETS=$(git diff --cached --diff-filter=ACMR -G "(PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{32,})" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' || true)
+# Périmètre des motifs littéraux : ils ne protègent QUE du code. `git diff -G` évalue
+# l'intégralité du patch (lignes ajoutées, supprimées et de contexte) : tout fichier
+# markdown de politique ou de journal de session qui *cite* ces directives est donc
+# signalé à tort, y compris après suppression du texte incriminé. La documentation est
+# exclue ici, et n'est pas pour autant découverte : gitleaks (étape 1b) la scanne sans
+# exception de format, et le contrôle PEM ci-dessous n'admet aucune exemption de chemin.
+DOC_FILTER='\.(md|markdown)$'
+
+STAGED_SECRETS=$(git diff --cached --diff-filter=ACMR -G "(PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{32,})" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' | grep -vE "$DOC_FILTER" || true)
 if [ -n "$STAGED_SECRETS" ]; then
   echo "[Erreur Quality Gate] Motif de clé privée ou jeton d'accès identifié dans : $STAGED_SECRETS"
   exit 1
 fi
 
+# Compensation du filtrage markdown : en-tête de bloc PEM, sans AUCUNE exemption de chemin.
+STAGED_PEM=$(git diff --cached --diff-filter=ACMR -G "-----BEGIN (RSA |DSA |EC |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY" --name-only 2>/dev/null || true)
+if [ -n "$STAGED_PEM" ]; then
+  echo "[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : $STAGED_PEM"
+  exit 1
+fi
+
 # Commentaires d'inhibition interdits (linter/type-check à corriger à la source)
-STAGED_SUPPRESSIONS=$(git diff --cached --diff-filter=ACMR -G "(eslint-disable|@ts-ignore|@ts-nocheck|@ts-expect-error)" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' || true)
+STAGED_SUPPRESSIONS=$(git diff --cached --diff-filter=ACMR -G "(eslint-disable|@ts-ignore|@ts-nocheck|@ts-expect-error)" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' | grep -vE "$DOC_FILTER" || true)
 if [ -n "$STAGED_SUPPRESSIONS" ]; then
   echo "[Erreur Quality Gate] Commentaires de masquage détectés (eslint-disable, @ts-ignore, @ts-nocheck) dans :"
   echo "$STAGED_SUPPRESSIONS"
@@ -34,19 +52,18 @@ if [ -n "$STAGED_SUPPRESSIONS" ]; then
 fi
 
 # Fichiers protégés : modification bloquée sauf ALLOW_CONFIG_EDIT=1
-PROTECTED_MODIFIED=$(git diff --cached --name-only | grep -E '^(eslint\.config\.js|\.githooks/pre-commit|\.dependency-cruiser\.cjs|knip\.json|tsconfig\.json|package\.json|package-lock\.json)$' || true)
+# .gitleaks.toml y figure car son [allowlist] peut désactiver la détection de secrets.
+PROTECTED_MODIFIED=$(git diff --cached --name-only | grep -E '^(eslint\.config\.js|\.githooks/pre-commit|\.gitleaks\.toml|\.dependency-cruiser\.cjs|knip\.json|tsconfig\.json|package\.json|package-lock\.json)$' || true)
 if [ -n "$PROTECTED_MODIFIED" ] && [ "$ALLOW_CONFIG_EDIT" != "1" ]; then
   echo "[Quality Gate Protection] Fichier protégé modifié : $PROTECTED_MODIFIED"
   echo "[Info] Pour valider cette modification, utilisez : ALLOW_CONFIG_EDIT=1 git commit"
   exit 1
 fi
 
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks protect --staged --verbose || {
-    echo "[Erreur Quality Gate] Gitleaks a détecté un secret dans les fichiers indexés !"
-    exit 1
-  }
-fi
+# 1b. Détection de secrets de référence : gitleaks, tous formats confondus.
+# Contrôle bloquant : l'absence du binaire échoue ici au lieu de sauter l'étape.
+echo "[Quality Gate] 1b - Scan gitleaks de l'index..."
+bash "$HOOK_DIR/_common/detect-secrets.sh" staged || exit 1
 
 # Collecte des fichiers JS/TS selon le périmètre
 if [ "$SCOPE" = "full" ]; then

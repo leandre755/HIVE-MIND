@@ -1,8 +1,9 @@
 #!/bin/bash
 # Git Hook: pre-push
 # Barrière avant synchronisation vers origin : dépôt ENTIER.
-# 1. Tests unitaires (timeout 5 min) via _common/run-tests.sh
-# 2. Quality Gate complète (QUALITY_GATE_SCOPE=full sur .githooks/pre-commit)
+# 1. Scan gitleaks de l'historique complet (_common/detect-secrets.sh, mode history)
+# 2. Tests unitaires (timeout 5 min) via _common/run-tests.sh
+# 3. Quality Gate complète (QUALITY_GATE_SCOPE=full sur .githooks/pre-commit)
 # Bloque le push à la première étape en échec.
 
 set -e
@@ -28,9 +29,21 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${BLUE}🚀 PRE-PUSH — Quality Gate dépôt entier${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-# Étape 1 : tests unitaires
+# Étape 1 : scan de secrets sur l'historique complet du dépôt.
+# Le push publie le passé, pas seulement l'index : ce scan est donc large.
 echo ""
-echo -e "${BLUE}[1/2] Tests unitaires (timeout : 5 minutes)...${NC}"
+echo -e "${BLUE}[1/3] Détection de secrets (gitleaks, historique)...${NC}"
+if ! bash "$SCRIPTS_DIR/detect-secrets.sh" history; then
+    echo ""
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}❌ Pre-push annulé : secrets présents dans le dépôt${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 1
+fi
+
+# Étape 2 : tests unitaires
+echo ""
+echo -e "${BLUE}[2/3] Tests unitaires (timeout : 5 minutes)...${NC}"
 if [ ! -f "$SCRIPTS_DIR/run-tests.sh" ]; then
     echo -e "${RED}❌ run-tests.sh introuvable${NC}"
     exit 1
@@ -47,7 +60,7 @@ bash "$SCRIPTS_DIR/run-tests.sh" || {
 # QUALITY_GATE_SCOPE=full bascule la gate sur git ls-files et active les
 # audits globaux (dépendances, tsc projet entier, dependency-cruiser).
 echo ""
-echo -e "${BLUE}[2/2] Quality Gate complète (dépôt entier)...${NC}"
+echo -e "${BLUE}[3/3] Quality Gate complète (dépôt entier)...${NC}"
 QUALITY_GATE_SCOPE=full "$HOOK_DIR/pre-commit" || {
     echo ""
     echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
