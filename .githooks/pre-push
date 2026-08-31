@@ -1,0 +1,64 @@
+#!/bin/bash
+# Git Hook: pre-push
+# Barrière avant synchronisation vers origin : dépôt ENTIER.
+# 1. Tests unitaires (timeout 5 min) via _common/run-tests.sh
+# 2. Quality Gate complète (QUALITY_GATE_SCOPE=full sur .githooks/pre-commit)
+# Bloque le push à la première étape en échec.
+
+set -e
+
+# Résout l'emplacement réel des hooks même si appelé via un symlink de core.hooksPath.
+HOOK_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$HOOK_SOURCE" ]; do
+    HOOK_TARGET="$(readlink "$HOOK_SOURCE")"
+    case "$HOOK_TARGET" in
+        /*) HOOK_SOURCE="$HOOK_TARGET" ;;
+        *) HOOK_SOURCE="$(dirname "$HOOK_SOURCE")/$HOOK_TARGET" ;;
+    esac
+done
+HOOK_DIR="$(cd "$(dirname "$HOOK_SOURCE")" && pwd)"
+SCRIPTS_DIR="$HOOK_DIR/_common"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}🚀 PRE-PUSH — Quality Gate dépôt entier${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Étape 1 : tests unitaires
+echo ""
+echo -e "${BLUE}[1/2] Tests unitaires (timeout : 5 minutes)...${NC}"
+if [ ! -f "$SCRIPTS_DIR/run-tests.sh" ]; then
+    echo -e "${RED}❌ run-tests.sh introuvable${NC}"
+    exit 1
+fi
+bash "$SCRIPTS_DIR/run-tests.sh" || {
+    echo ""
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}❌ Pre-push annulé : échec des tests${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 1
+}
+
+# Étape 2 : Quality Gate complète sur tout le dépôt.
+# QUALITY_GATE_SCOPE=full bascule la gate sur git ls-files et active les
+# audits globaux (dépendances, tsc projet entier, dependency-cruiser).
+echo ""
+echo -e "${BLUE}[2/2] Quality Gate complète (dépôt entier)...${NC}"
+QUALITY_GATE_SCOPE=full "$HOOK_DIR/pre-commit" || {
+    echo ""
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}❌ Pre-push annulé : échec de la Quality Gate${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 1
+}
+
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}✅ Pre-push validé : tests + Quality Gate dépôt entier${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+exit 0

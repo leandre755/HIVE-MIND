@@ -1,0 +1,18 @@
+# Rename this file to .github/CODEOWNERS and replace @YOUR_ORG/maintainers.
+# Enable branch protection with required Code Owner review for this file to be enforced.
+
+/.github/workflows/ @YOUR_ORG/maintainers
+/.github/scripts/ @YOUR_ORG/maintainers
+/.github/CODEOWNERS @YOUR_ORG/maintainers
+/AGENTS.md @YOUR_ORG/maintainers
+/AGENT_POLICY.md @YOUR_ORG/maintainers
+/AUTONOMY.md @YOUR_ORG/maintainers
+/agent-control-plane/ @YOUR_ORG/maintainers
+/.claude/ @YOUR_ORG/maintainers
+/.cursor/ @YOUR_ORG/maintainers
+/.agents/ @YOUR_ORG/maintainers
+/.devin/ @YOUR_ORG/maintainers
+/.windsurf/ @YOUR_ORG/maintainers
+/githooks/ @YOUR_ORG/maintainers
+/setup.sh @YOUR_ORG/maintainers
+/setup.ps1 @YOUR_ORG/maintainers

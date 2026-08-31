@@ -1,0 +1,131 @@
+#!/bin/sh
+echo "[Quality Gate] Démarrage de la Quality Gate (JavaScript/TypeScript)..."
+
+# Périmètre : 'staged' par défaut (rapide, fichiers indexés uniquement).
+# pre-push définit QUALITY_GATE_SCOPE=full pour auditer le dépôt entier.
+SCOPE="${QUALITY_GATE_SCOPE:-staged}"
+if [ "$SCOPE" != "staged" ] && [ "$SCOPE" != "full" ]; then
+  echo "[Erreur Quality Gate] Périmètre inconnu : '$SCOPE' (attendu : staged|full)."
+  exit 2
+fi
+
+# 1. Contrôles d'index (toujours actifs, limités aux fichiers staged)
+echo "[Quality Gate] 1/8 - Scan anti-fuite de secrets et fichiers .env..."
+STAGED_ENV=$(git diff --cached --name-only | grep -E '^\.env(\.|$)' | grep -v '\.env\.example' || true)
+if [ -n "$STAGED_ENV" ]; then
+  echo "[Erreur Quality Gate] Tentative de commit d'un fichier .env réel : $STAGED_ENV"
+  echo "[Info] Seul .env.example est autorisé dans Git."
+  exit 1
+fi
+
+STAGED_SECRETS=$(git diff --cached --diff-filter=ACMR -G "(PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{32,})" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' || true)
+if [ -n "$STAGED_SECRETS" ]; then
+  echo "[Erreur Quality Gate] Motif de clé privée ou jeton d'accès identifié dans : $STAGED_SECRETS"
+  exit 1
+fi
+
+# Commentaires d'inhibition interdits (linter/type-check à corriger à la source)
+STAGED_SUPPRESSIONS=$(git diff --cached --diff-filter=ACMR -G "(eslint-disable|@ts-ignore|@ts-nocheck|@ts-expect-error)" --name-only 2>/dev/null | grep -v '\.githooks/pre-commit' || true)
+if [ -n "$STAGED_SUPPRESSIONS" ]; then
+  echo "[Erreur Quality Gate] Commentaires de masquage détectés (eslint-disable, @ts-ignore, @ts-nocheck) dans :"
+  echo "$STAGED_SUPPRESSIONS"
+  echo "[Info] Corrigez le problème à la source au lieu d'inhiber le contrôle."
+  exit 1
+fi
+
+# Fichiers protégés : modification bloquée sauf ALLOW_CONFIG_EDIT=1
+PROTECTED_MODIFIED=$(git diff --cached --name-only | grep -E '^(eslint\.config\.js|\.githooks/pre-commit|\.dependency-cruiser\.cjs|knip\.json|tsconfig\.json|package\.json|package-lock\.json)$' || true)
+if [ -n "$PROTECTED_MODIFIED" ] && [ "$ALLOW_CONFIG_EDIT" != "1" ]; then
+  echo "[Quality Gate Protection] Fichier protégé modifié : $PROTECTED_MODIFIED"
+  echo "[Info] Pour valider cette modification, utilisez : ALLOW_CONFIG_EDIT=1 git commit"
+  exit 1
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --verbose || {
+    echo "[Erreur Quality Gate] Gitleaks a détecté un secret dans les fichiers indexés !"
+    exit 1
+  }
+fi
+
+# Collecte des fichiers JS/TS selon le périmètre
+if [ "$SCOPE" = "full" ]; then
+  JS_FILES=$(git ls-files | grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$' | grep -v node_modules || true)
+else
+  JS_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$' || true)
+fi
+if [ -z "$JS_FILES" ]; then
+  echo "[Quality Gate] Aucun fichier JS/TS dans le périmètre '$SCOPE'. Validation locale terminée."
+  exit 0
+fi
+echo "[Quality Gate] Périmètre '$SCOPE' : $(printf '%s\n' $JS_FILES | wc -l) fichier(s) JS/TS."
+
+# 2. Audit des dépendances (accès réseau : réservé au périmètre full/pre-push)
+# Non bloquant : ne pas empêcher un commit/push si aucune correction sans
+# breaking change n'est disponible (décision projet).
+if [ "$SCOPE" = "full" ]; then
+  echo "[Pre-Push] 2/8 - Audit des dépendances (npm audit high/critical)..."
+  npm audit --audit-level=high --omit=dev || {
+    echo "[Attention Pre-Push] Des vulnérabilités high/critical ont été détectées dans les dépendances de production."
+    echo "[Info] Corrigez-les avec 'npm audit fix' ou mettez à jour les paquets concernés."
+  }
+else
+  echo "[Quality Gate] 2/8 - Audit des dépendances passé (exécuté au pre-push)."
+fi
+
+# 3. Oxlint rapide, zéro warning toléré
+echo "[Quality Gate] 3/8 - Oxlint (zéro warning toléré)..."
+npx oxlint --quiet --deny-warnings $JS_FILES || {
+  echo "[Erreur Quality Gate] Oxlint a bloqué une erreur ou un warning (syntaxe, anti-pattern) !"
+  exit 1
+}
+
+# 4. Formatage de code (Prettier)
+echo "[Quality Gate] 4/8 - Vérification du formatage (Prettier)..."
+npx prettier --check $JS_FILES || {
+  echo "[Erreur Quality Gate] Le code n'est pas correctement formaté d'après Prettier."
+  echo "[Info] Lancez 'npx prettier --write <fichier>' pour corriger automatiquement."
+  exit 1
+}
+
+# 5. Compilation TypeScript (projet entier : réservée au périmètre full/pre-push)
+if [ "$SCOPE" = "full" ]; then
+  echo "[Pre-Push] 5/8 - Compilation TypeScript (npx tsc --noEmit)..."
+  npx tsc --noEmit || {
+    echo "[Erreur Pre-Push] Échec de la compilation TypeScript."
+    exit 1
+  }
+else
+  echo "[Quality Gate] 5/8 - Compilation TypeScript différée (exécutée au pre-push)."
+fi
+
+# 6. Architecture & dépendances circulaires (projet entier : réservé au full/pre-push)
+if [ "$SCOPE" = "full" ]; then
+  echo "[Pre-Push] 6/8 - Architecture & cycles de dépendances (dependency-cruiser)..."
+  npx depcruise --validate .dependency-cruiser.cjs src || {
+    echo "[Erreur Pre-Push] Violation d'architecture ou dépendance circulaire détectée par dependency-cruiser !"
+    exit 1
+  }
+else
+  echo "[Quality Gate] 6/8 - Analyse d'architecture différée (exécutée au pre-push)."
+fi
+
+# 7. ESLint, zéro warning toléré
+echo "[Quality Gate] 7/8 - ESLint (zéro warning toléré)..."
+npx eslint $JS_FILES --max-warnings=0 || {
+  echo "[Erreur Quality Gate] ESLint a détecté des erreurs ou des warnings (linter, sécurité)."
+  exit 1
+}
+
+# 8. Scan SAST sécurité via Semgrep
+UV_BIN="$HOME/.local/bin/uv"
+if [ -x "$UV_BIN" ] || command -v uv >/dev/null 2>&1; then
+  EXECUTABLE=$(command -v uv 2>/dev/null || echo "$UV_BIN")
+  echo "[Quality Gate] 8/8 - Scan SAST sécurité (Semgrep)..."
+  $EXECUTABLE run --with semgrep semgrep scan $JS_FILES --config auto --quiet --error || {
+    echo "[Erreur Quality Gate] Semgrep a identifié une vulnérabilité SAST dans le code !"
+    exit 1
+  }
+fi
+
+echo "[Quality Gate] JS/TS validée (périmètre $SCOPE : anti-leak, Oxlint, Prettier, ESLint, Semgrep)."
