@@ -163,9 +163,13 @@ Details: [`.gouvernance/review-policy.md`](.gouvernance/review-policy.md) (modes
 
 Git hooks are active (`core.hooksPath=.githooks`) — never bypass them. **Single hook system**: husky was decommissioned (2026-08-30) — never reintroduce it or another hook manager; a `prepare` script would silently re-hijack `core.hooksPath` and disable these gates.
 
-<hook name="pre-commit">Targeted format/lint + diff-scoped secret scan.</hook>
+<hook name="pre-commit">Index guards, always active whatever is staged: real `.env` files rejected; diff-scoped literal scans for credential patterns and for suppression comments — `markdown` is exempted there because policy and journal docs must stay free to *name* what they forbid, and the gate's own source is exempted because it carries those patterns to detect them; plus a private-key block-header scan that admits <b>no path exemption at all</b>, so neither exclusion opens a leak. Then a <b>mandatory `gitleaks` scan of the staged index</b>, which fails the commit outright when the binary is missing. Finally targeted Oxlint / Prettier / ESLint (and Semgrep when `uv` is installed) on staged JS/TS only — the hook exits early when no JS/TS is staged.</hook>
 <hook name="commit-msg">Conventional Commits — `type(scope): description` (types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `perf`, `build`, `style`, `revert`).</hook>
-<hook name="pre-push">Full quality gate + unit tests.</hook>
+<hook name="pre-push">Three blocking steps, in order: `gitleaks` over the <b>full history</b> — a push publishes the past, not just the index — then unit tests, then this same gate re-invoked with `QUALITY_GATE_SCOPE=full`, which additionally runs `npm audit`, project-wide `tsc --noEmit` and dependency-cruiser across the whole repository.</hook>
+
+<protected_files gate=".githooks/pre-commit">`package.json`, `package-lock.json`, `tsconfig.json`, `eslint.config.js`, `.dependency-cruiser.cjs`, `knip.json`, `.githooks/pre-commit` and `.gitleaks.toml` — the last one because its allowlist can disarm secret detection. Editing any of these is legitimate maintenance: the documented channel is `ALLOW_CONFIG_EDIT=1 git commit`. That is an authorized path, <b>not</b> a bypass — `--no-verify` stays forbidden (§5, invariant 3).</protected_files>
+
+<tool_dependency name="gitleaks">Hard runtime dependency of the gate, not of the application: it must stay installed on any workstation that commits. Absence fails the gate rather than skipping the step, and the hook prints the exact root-free install block to run.</tool_dependency>
 
 <governance source=".github/workflows/governance.yml">PR title and every commit must follow Conventional Commits; PR size ≤ 1000 changed lines (warning above 500). Conventional Commits drive semantic-release versioning.</governance>
 
