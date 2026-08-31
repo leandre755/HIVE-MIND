@@ -2,7 +2,7 @@
 
 ## 🎯 Functional Outcome & Task Reality
 - **Requested Task**: Quatre demandes en une, toutes explicites : (1) modifier aussi le `README.md` — l'interdiction de toucher ce fichier est levée pour ce tour ; (2) résoudre les blocages de la Quality Gate dans HIVE-MIND ; (3) supprimer toute trace du dépôt de maintenance externe dans les fichiers suivis par HIVE-MIND ; (4) installer `gitleaks` et l'utiliser dans `pre-commit` et `pre-push`. Puis committer.
-- **Functional Status**: SUCCESS — 3 commits posés (`cc4fa2a`, `74aefe7`, `0500b14`), gate exécutée normalement à chaque fois, aucun `--no-verify`.
+- **Functional Status**: SUCCESS — deux commits de fond (`cc4fa2a` hooks + gitleaks, `74aefe7` licence), puis les journaux `.GCC/` en `docs(gcc)` ; gate exécutée normalement à chaque fois, aucun `--no-verify`.
 - **Behavioral Proof**:
   - `git log --oneline -4` → `0500b14 docs(gcc): journal de session sur la gate corrigée, gitleaks et la bascule Apache-2.0`, `74aefe7 chore(license): repasser le dépôt sous Apache-2.0 et corriger l'attribution`, `cc4fa2a fix(hooks): restreindre les scans littéraux au code et rendre gitleaks bloquant`, `d4ab8d3 chore(license): drop the copyright attribution line`.
   - `cc4fa2a` : 4 fichiers, +116/−64 (`.githooks/pre-commit`, `.githooks/pre-push`, `.githooks/_common/detect-secrets.sh`, `.gitleaks.toml` créé). `74aefe7` : 4 fichiers, +208/−25 (`LICENSE`, `README.md`, `package.json`, `package-lock.json`).
