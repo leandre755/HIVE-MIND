@@ -502,7 +502,7 @@ Status: **VERIFIED WORKING**
 - Statut: **REJECTED (EXIT=1)** — `[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : canary_probe.md`. Le scan compensatoire, qui n'admet **aucune** exemption de chemin, attrape donc bien un secret dissimulé dans un fichier markdown filtré par `DOC_FILTER`.
 - Commande: `bash .githooks/_common/detect-secrets.sh staged` (canary toujours indexé)
 - Statut: **REJECTED (EXIT=1)** — couche indépendante : `RuleID: private-key`, `File: canary_probe.md`, `Line: 3`, `Secret: REDACTED`, `leaks found: 1`. Le canary a été désindexé (`git reset`), supprimé, et n'apparaît ni dans l'index ni dans `git status`.
-- **Second rejet, inattendu et instructif**: ce présent journal, indexé après rédaction, a été refusé par le même contrôle — `[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : .GCC/branches/test.md` — parce qu'il **reproduisait littéralement** un en-tête de bloc PEM pour décrire le canary. Preuve directe que le scan frappe la documentation, `DOC_FILTER` compris, exactement comme prévu.
+- **Second rejet, inattendu et instructif**: Le présent journal, indexé après rédaction, a été refusé par le même contrôle — `[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : .GCC/branches/test.md` — parce qu'il **reproduisait littéralement** un en-tête de bloc PEM pour décrire le canary. Preuve directe que le scan frappe la documentation, `DOC_FILTER` compris, exactement comme prévu.
 - **Résolution**: la ligne fautive a été réécrite en **description** plutôt qu'en reproduction (même convention que la ligne 476 du fichier). Aucune exemption de chemin n'a été ajoutée, aucun motif affaibli, et le commit n'a pas été contourné. Règle pour les journaux : *nommer* un format sensible, ne pas l'écrire en clair.
 - **Absence du binaire = échec bloquant, pas saut d'étape**:
 - Commande: `detect-secrets.sh` avec `PATH` tronqué (reproduit sous `HOME=/tmp/fakehome` pour ne pas dépendre de l'environnement du poste)
@@ -514,9 +514,10 @@ Status: **VERIFIED WORKING**
 - Commande: `node -e` comparant `package.json` et le paquet racine du lockfile
 - Statut: **PASSED** — `JSON OK | lock racine = Apache-2.0 | package.json = Apache-2.0 | author = leandre755`. `sha256sum LICENSE` = `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`, identique à la publication officielle.
 - **Commits réels**: `cc4fa2a` (4 fichiers, +116/−64) et `74aefe7` (4 fichiers, +208/−25), tous deux gate exécutée et `commit-msg` validé, **sans aucun drapeau de contournement**. `ALLOW_CONFIG_EDIT=1` a été nécessaire pour `74aefe7` (`package.json` / `package-lock.json` protégés) — canal documenté, pas un contournement.
-- **Non testé (hors périmètre, à faire)**: `npm run build`, `lint:fast`, `test:unit`, `git push` déclenchant réellement le `pre-push`.
+- **Mode `history` exercé directement** (la voie qu'empruntera le `pre-push`) : `bash .githooks/_common/detect-secrets.sh history` → `11 commits scanned`, `no leaks found`, `✅ Aucun secret détecté`, `EXIT=0`.
 - **Test croisé du filtrage markdown (le motif exact du blocage de `84e61d2`)**:
 - Commande: `printf '# probe\n\nCe document cite eslint-disable et @ts-ignore en prose…\n' > doc_probe.md && git add doc_probe.md && sh .githooks/pre-commit`
 - Statut: **EXIT=0**, le fichier n'est pas mentionné → une documentation de politique qui *cite* les directives d'inhibition ne bloque plus. Probe désindexé et supprimé.
 - Commande (non-régression): `printf '// eslint-disable-next-line no-console\nexport const probe = 1;\n' > src/code_probe.ts && git add src/code_probe.ts && sh .githooks/pre-commit`
 - Statut: **REJECTED (EXIT=1)** — `Commentaires de masquage détectés … src/code_probe.ts` → le contrôle reste intégralement actif sur le code. Probe désindexé et supprimé.
+- **Non testé (hors périmètre, à faire)**: `npm run build`, `lint:fast`, `test:unit`, et le déclenchement réel des hooks par un `git push` (aucun push demandé, et `AGENTS.md` §4 impose la voie Pull Request).
