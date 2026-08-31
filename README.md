@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/Version-3.5.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="License" />
-  <img src="https://img.shields.io/badge/Node.js-18+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node.js 22+" />
 </p>
 
 ---
@@ -388,7 +388,7 @@ HIVE-MIND uses a modular plugin architecture with auto-discovery. Every plugin r
 
 | Component   | Minimum                     | Recommended     |
 | ----------- | --------------------------- | --------------- |
-| **Node.js** | 18.x LTS                    | 20.x LTS        |
+| **Node.js** | 22.x LTS                    | 24.x LTS        |
 | **OS**      | Windows 10+ / Linux / macOS | Debian / Ubuntu |
 | **RAM**     | 512 MB                      | 1 GB+           |
 
