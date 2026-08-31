@@ -466,3 +466,57 @@ Status: **VERIFIED WORKING**
 - Statut: **PASSED (11/11 tests réussis, 100%)**
 - Scénarios validés: Handshake sécurisé tokenisé, rejet 4403, flux d'événements live (présence, visual_response, messages assistant), soumission de commandes utilisateur, approbation/rejet interactif HITL.
 
+
+## 📅 Date: 2026-08-31 (Validation de la baseline de gouvernance et de sa gate)
+
+- **Périmètre** : aucun fichier `src/` modifié ; validation du dépôt en tant que conteneur (hooks, policies, workflows, index Git).
+- **Contrôle d'index avant commit `84e61d2`** :
+- Commande: `git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$'`
+- Statut: **VID** — les contrôles 3/8 à 8/8 du `pre-commit` (oxlint, tsc, dependency-cruiser, knip, format, tests) n'auraient collecté aucun fichier.
+- Commande: `git diff --cached --diff-filter=ACMR -G "<en-tete PEM: BEGIN + type de clef + les deux mots anglais accolés signifiant clef privee>" --name-only`
+- Statut: **VID** — aucun matériel cryptographique réel dans les 62 fichiers indexés.
+- **Échec de gate reproduit (faux positifs de documentation)** :
+- Commande: `git commit` (message Conventional Commits, sans drapeau)
+- Statut: **REJECTED (exit 1)** — `[Erreur Quality Gate] Motif de clé privée ou jeton d'accès identifié dans : .GCC/branches/plan_tui_ui_s5.md`.
+- Commande: reproduction des deux scans sur l'index complet
+- Statut: **12 fichiers signalés** — scan jeton : 1 (`.GCC/branches/plan_tui_ui_s5.md`, ligne ajoutée citant la commande de scan) ; scan inhibitions : 11 (10 journaux `.GCC/branches/` + `AGENTS.md`).
+- Preuve du cas `AGENTS.md`: `git diff --cached AGENTS.md | grep -inE "<motif d'inhibition>"` → 1 seule ligne, préfixée `-` (suppression de l'ancienne version) ; `grep -c` dans le fichier de travail → **0**. Le fichier ne peut pas devenir passable par édition de contenu.
+- **Correctif validé rétrospectivement sur le commit posé** :
+- Commande: `git diff HEAD~1..HEAD --diff-filter=ACMR -G "<motif>" --name-only | grep -v '\.githooks/pre-commit' | grep -vE '\.(md|markdown)$'`
+- Statut: **0 fichier** pour les deux scans → le filtre markdown suffit à lever les 12 rejets.
+- **Commit réel**: `84e61d2` posé avec `--no-verify` **sur demande explicite du mainteneur** (écart à `AGENTS.md` §5.3, tracé en décision dans `main.md`). `0ead9b5` l'avait été avec le canal documenté `ALLOW_CONFIG_EDIT=1` (package.json / package-lock.json protégés), gate par ailleurs exécutée.
+- **Vérifications complémentaires**: `command -v gitleaks` → absent à cette date (les deux scans littéraux étaient alors les seuls contrôles anti-fuite effectifs) ; `_common/detect-secrets.sh`, `check-format.sh`, `run-linter.sh` → référencés par aucun hook (seul `run-tests.sh` est branché par `pre-push`) ; `git push` non exécuté (jamais demandé).
+
+
+## 📅 Date: 2026-08-31 (Soirée — Validation de la gate corrigée et de gitleaks)
+
+- **Périmètre**: `.githooks/` et `.gitleaks.toml` uniquement ; aucun fichier `src/`. Contrôles séquentiels (hôte 2 cœurs).
+- **Syntaxe des trois scripts modifiés**:
+- Commande: `sh -n .githooks/pre-commit && bash -n .githooks/pre-push && bash -n .githooks/_common/detect-secrets.sh`
+- Statut: **PASSED** — trois retours « syntaxe OK », aucun avertissement.
+- **Test positif — le faux positif de documentation ne bloque plus**:
+- Commande: `git add .githooks/pre-commit .githooks/pre-push .githooks/_common/detect-secrets.sh .gitleaks.toml && ALLOW_CONFIG_EDIT=1 sh .githooks/pre-commit`
+- Statut: **EXIT=0** — `[Quality Gate] 1b - Scan gitleaks de l'index...` → `no leaks found` → `✅ Aucun secret détecté` → `Aucun fichier JS/TS dans le périmètre 'staged'`. Même résultat sur l'index du lot licence (`LICENSE`, `README.md`, `package.json`, `package-lock.json`). Les 12 fichiers qui faisaient rejeter `84e61d2` ne sont plus signalés.
+- **Test négatif (canary) — la couverture anti-fuite n'a pas régressé**:
+- Commande: bloc PEM factice (en-tête de clef privée RSA + corps fictif, aucune clef réelle) écrit dans `canary_probe.md`, puis `git add canary_probe.md && ALLOW_CONFIG_EDIT=1 sh .githooks/pre-commit`
+- Statut: **REJECTED (EXIT=1)** — `[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : canary_probe.md`. Le scan compensatoire, qui n'admet **aucune** exemption de chemin, attrape donc bien un secret dissimulé dans un fichier markdown filtré par `DOC_FILTER`.
+- Commande: `bash .githooks/_common/detect-secrets.sh staged` (canary toujours indexé)
+- Statut: **REJECTED (EXIT=1)** — couche indépendante : `RuleID: private-key`, `File: canary_probe.md`, `Line: 3`, `Secret: REDACTED`, `leaks found: 1`. Le canary a été désindexé (`git reset`), supprimé, et n'apparaît ni dans l'index ni dans `git status`.
+- **Second rejet, inattendu et instructif**: ce présent journal, indexé après rédaction, a été refusé par le même contrôle — `[Erreur Quality Gate] Bloc de clé privée PEM indexé dans : .GCC/branches/test.md` — parce qu'il **reproduisait littéralement** un en-tête de bloc PEM pour décrire le canary. Preuve directe que le scan frappe la documentation, `DOC_FILTER` compris, exactement comme prévu.
+- **Résolution**: la ligne fautive a été réécrite en **description** plutôt qu'en reproduction (même convention que la ligne 476 du fichier). Aucune exemption de chemin n'a été ajoutée, aucun motif affaibli, et le commit n'a pas été contourné. Règle pour les journaux : *nommer* un format sensible, ne pas l'écrire en clair.
+- **Absence du binaire = échec bloquant, pas saut d'étape**:
+- Commande: `detect-secrets.sh` avec `PATH` tronqué (reproduit sous `HOME=/tmp/fakehome` pour ne pas dépendre de l'environnement du poste)
+- Statut: **EXIT=1** avec le bloc d'installation copiable. Le bloc en question a été exécuté tel quel : `gitleaks_8.30.1_linux_x64.tar.gz: Réussi` (sha256 vérifié contre le `checksums.txt` publié) puis `8.30.1`.
+- **Scan de l'historique complet (ce que fera le `pre-push`)**:
+- Commande: `gitleaks git . --config .gitleaks.toml --redact --no-banner`
+- Statut: **CLEAN** — `10 commits scanned`, `13.57 MB`, `no leaks found`. Antérieurement au correctif, 4 findings portaient sur `documentations/tui/reference/core-connection.md` : des **faux positifs** sur un jeton d'exemple de 8 caractères, traité par allowlist documentée limitée à ce seul chemin (`useDefault = true` conserve sinon toutes les règles natives).
+- **Cohérence de licence**:
+- Commande: `node -e` comparant `package.json` et le paquet racine du lockfile
+- Statut: **PASSED** — `JSON OK | lock racine = Apache-2.0 | package.json = Apache-2.0 | author = leandre755`. `sha256sum LICENSE` = `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`, identique à la publication officielle.
+- **Commits réels**: `cc4fa2a` (4 fichiers, +116/−64) et `74aefe7` (4 fichiers, +208/−25), tous deux gate exécutée et `commit-msg` validé, **sans aucun drapeau de contournement**. `ALLOW_CONFIG_EDIT=1` a été nécessaire pour `74aefe7` (`package.json` / `package-lock.json` protégés) — canal documenté, pas un contournement.
+- **Non testé (hors périmètre, à faire)**: `npm run build`, `lint:fast`, `test:unit`, `git push` déclenchant réellement le `pre-push`.
+- **Test croisé du filtrage markdown (le motif exact du blocage de `84e61d2`)**:
+- Commande: `printf '# probe\n\nCe document cite eslint-disable et @ts-ignore en prose…\n' > doc_probe.md && git add doc_probe.md && sh .githooks/pre-commit`
+- Statut: **EXIT=0**, le fichier n'est pas mentionné → une documentation de politique qui *cite* les directives d'inhibition ne bloque plus. Probe désindexé et supprimé.
+- Commande (non-régression): `printf '// eslint-disable-next-line no-console\nexport const probe = 1;\n' > src/code_probe.ts && git add src/code_probe.ts && sh .githooks/pre-commit`
+- Statut: **REJECTED (EXIT=1)** — `Commentaires de masquage détectés … src/code_probe.ts` → le contrôle reste intégralement actif sur le code. Probe désindexé et supprimé.
