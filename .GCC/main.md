@@ -149,6 +149,7 @@ Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1
 
 ## 🌿 Active Branches / Plans
 
+- `plan_pr14_production_dependencies` : [Migration des Dépendances de Production PR #14](branches/plan_pr14_production_dependencies.md)
 - ~~`plan_tui_extraction`~~ : [COMPLÉTÉ] Extraction et Découplage de la TUI dans un Dépôt Autonome (plan de travail conservé hors dépôt, dans le répertoire de session de l'agent qui l'a produit)
 - `plan_unified_context_regulation` : [Audit & Spécification d'Architecture Unified Context Regulation](branches/plan_unified_context_regulation.md)
 - `plan_startup_options_menu` : [Menu d'Options UX Interactif CLI au Démarrage](branches/plan_startup_options_menu.md)
