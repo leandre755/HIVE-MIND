@@ -54,6 +54,7 @@ class BlueprintManager {
       console.error('[BlueprintManager] Failed parsing blueprint "%s":', blueprintId, message);
       throw new Error(
         `[BlueprintManager] Invalid blueprint format for "${blueprintId}": ${message}`,
+        { cause: e },
       );
     }
   }
@@ -70,7 +71,9 @@ class BlueprintManager {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       console.error('[BlueprintManager] Ephemeral registration rejected:', message);
-      throw new Error(`[BlueprintManager] Ephemeral schema validation failed: ${message}`);
+      throw new Error(`[BlueprintManager] Ephemeral schema validation failed: ${message}`, {
+        cause: e,
+      });
     }
   }
 

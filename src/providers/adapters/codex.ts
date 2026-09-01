@@ -264,7 +264,7 @@ function buildRequestBody(messages: ChatMessage[], model: string): CodexResponse
  */
 async function throwApiError(response: Response): Promise<never> {
   const text = await response.text().catch(() => '');
-  let parsed: { error?: { message?: string }; detail?: string } | null = null;
+  let parsed: { error?: { message?: string }; detail?: string } | null;
   try {
     parsed = JSON.parse(text) as { error?: { message?: string }; detail?: string };
   } catch {

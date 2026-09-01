@@ -129,7 +129,7 @@ export default {
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('[Cohere] Timeout (60s)');
+        throw new Error('[Cohere] Timeout (60s)', { cause: err });
       }
       throw err;
     }

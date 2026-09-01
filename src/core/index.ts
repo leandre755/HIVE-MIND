@@ -1954,7 +1954,7 @@ RULES:
       usedFamily?: string;
       usedModel?: string;
       reasoningContent?: string;
-    } | null = null;
+    } | null;
     let currentFamily = usedFamily;
 
     try {
@@ -2741,6 +2741,24 @@ RULES:
     return null;
   }
 
+  private _resolveAuthority(context: {
+    authority?: { isSuperUser?: boolean; isGlobalAdmin?: boolean; level?: number };
+    isSuperUser?: boolean;
+    isGlobalAdmin?: boolean;
+    level?: number;
+  }): { isSuperUser: boolean; isGlobalAdmin: boolean; authorityLevel: string } {
+    const isSuperUser = Boolean(context.authority?.isSuperUser ?? context.isSuperUser);
+    const isGlobalAdmin = Boolean(context.authority?.isGlobalAdmin ?? context.isGlobalAdmin);
+    const level = context.authority?.level ?? context.level ?? 0;
+    let authorityLevel = `USER (Lvl ${level})`;
+    if (isSuperUser) {
+      authorityLevel = 'SUPERUSER';
+    } else if (isGlobalAdmin) {
+      authorityLevel = 'GLOBAL_ADMIN';
+    }
+    return { isSuperUser, isGlobalAdmin, authorityLevel };
+  }
+
   /**
    * Exécute un outil de manière sécurisée (Sentinel)
    * Utiliser cette méthode au lieu de _executeTool direct pour le Planner
@@ -2760,17 +2778,8 @@ RULES:
   ): Promise<unknown> {
     const { db } = this;
     const toolName = toolCall.function.name;
-    const { chatId, message, authority } = context;
-
-    const isSuperUser = authority?.isSuperUser || context.isSuperUser || false;
-    const isGlobalAdmin = authority?.isGlobalAdmin || context.isGlobalAdmin || false;
-    const level = authority?.level || context.level || 0;
-    let authorityLevel = `USER (Lvl ${level})`;
-    if (isSuperUser) {
-      authorityLevel = 'SUPERUSER';
-    } else if (isGlobalAdmin) {
-      authorityLevel = 'GLOBAL_ADMIN';
-    }
+    const { chatId, message } = context;
+    const { isSuperUser, isGlobalAdmin, authorityLevel } = this._resolveAuthority(context);
 
     console.log(
       `[SafeExecute] 🛡️ Exécution sécurisée demandée: ${toolName} (Level: ${authorityLevel})`,
@@ -3088,8 +3097,8 @@ RULES:
     history: Record<string, unknown>[],
     chatId: string,
   ): Promise<Record<string, unknown>[]> {
-    let isThresholdReached = false;
-    let usagePercent = 0;
+    let isThresholdReached: boolean;
+    let usagePercent: number;
     let consumedTokens = 0;
     let tokenLimitVal = 128000;
 

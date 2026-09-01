@@ -355,7 +355,7 @@ async function handleSendFile(
   else if (['.mp4', '.avi', '.mov', '.mkv'].includes(ext)) mediaType = 'video';
   else if (['.mp3', '.ogg', '.wav', '.m4a'].includes(ext)) mediaType = 'audio';
 
-  let resolvedMimeType = 'application/octet-stream';
+  let resolvedMimeType: string;
   try {
     const mime = await import('mime-types');
     resolvedMimeType = mime.default.lookup(ext) || 'application/octet-stream';

@@ -117,7 +117,7 @@ async function handleGrepSearch(
     permissionManager.sandboxDir,
   );
 
-  let stdout = '';
+  let stdout: string;
   let rgFound = false;
   try {
     await execAsync('which rg');

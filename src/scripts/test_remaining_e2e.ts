@@ -31,7 +31,7 @@ async function sendAndWaitForResponse(
     }, 90000); // 90s timeout to allow for API latency and cascades
 
     const listener = (payload: unknown) => {
-      let responseText = '';
+      let responseText: string;
       if (typeof payload === 'string') {
         responseText = payload;
       } else if (payload && typeof payload === 'object' && 'content' in payload) {

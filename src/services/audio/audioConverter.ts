@@ -85,7 +85,7 @@ export async function processAudioPipeline(
   outputOgg: string,
   processCallback: (buffer: Buffer) => Promise<string>,
 ): Promise<string> {
-  let pcmBuffer: Buffer | null = null;
+  let pcmBuffer: Buffer;
   let tempPcmPath: string | null = null;
 
   try {

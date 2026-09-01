@@ -77,7 +77,7 @@ class HuggingFaceAdapter {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[HuggingFace] Error: ${message}`);
       if (error instanceof APIError && error.status === 429) {
-        throw new Error('Quota Hugging Face dépassé (Rate Limit)');
+        throw new Error('Quota Hugging Face dépassé (Rate Limit)', { cause: error });
       }
       throw error;
     }

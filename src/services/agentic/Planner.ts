@@ -779,6 +779,7 @@ Plan:`;
         if (attempts >= maxAttempts) {
           throw new Error(
             `Planification impossible après ${maxAttempts} tentatives. Dernière erreur: ${errMsg}`,
+            { cause: err },
           );
         }
         chatHistory.push({
@@ -1148,7 +1149,7 @@ Plan:`;
         if (!result) return `- Step ${s.id} (${s.action}): Not executed`;
 
         const status = executionLog.completed.includes(s.id) ? 'SUCCESS' : 'FAILED';
-        let outputStr = '';
+        let outputStr: string;
 
         if (result.error) {
           outputStr = `Error: ${result.message || JSON.stringify(result)}`;

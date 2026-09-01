@@ -71,7 +71,7 @@ export default {
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('[Modal] Timeout (120s)');
+        throw new Error('[Modal] Timeout (120s)', { cause: err });
       }
       throw err;
     }
