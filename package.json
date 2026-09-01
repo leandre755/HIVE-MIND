@@ -106,7 +106,7 @@
     "@types/prompts": "^2.4.9",
     "@types/ws": "^8.18.1",
     "dependency-cruiser": "^18.1.0",
-    "eslint": "^8.57.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.1.0",
