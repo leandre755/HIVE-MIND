@@ -34,6 +34,11 @@ Assurer une qualité de code Zero-Slop irréprochable et consolider la nouvelle 
 
 ## 🧠 Decisions Made
 
+- [2026-09-01] **Décommissionnement et suppression du workflow Jules PR Review (`.github/workflows/pr-review.yml`)**
+  - **Context**: Directive explicite du mainteneur (« supprime l'action PR review par jule »). Le workflow `pr-review.yml` utilisait l'action tierce `sanjay3290/jules-pr-reviewer` et un fichier de règles `JULES.md` inexistant, tout en violant les critères de sécurité de `.github/scripts/verify_workflows.py` (`timeout-minutes` manquant, SHA non pinnées).
+  - **Discarded Options**: Conserver le workflow en retirant seulement le step Jules (rejeté par l'utilisateur lors de l'interview d'alignement au profit d'une suppression intégrale) ; ignorer les violations de `verify_workflows.py` (rejeté : viole la qualité CI).
+  - **Rationale**: Suppression intégrale de `.github/workflows/pr-review.yml`, alignement de `.gouvernance/GOVERNANCE.md` (retrait de la ligne `pr-review.yml` du tableau des workflows et de Jules de la liste des bots requis) et de la dette technique dans `.GCC/main.md`. Résultat : 7/7 workflows GitHub Actions 100% conformes à `verify_workflows.py` (0 warning, 0 erreur).
+
 - [2026-09-01] **Éradication Intégrale des Vulnérabilités npm (HIGH/MODERATE) & Formateur de Stickers Natif (`sharp`)**
   - **Context**: L'audit de sécurité des dépendances npm révélait 19 vulnérabilités dont 4 de sévérité HIGH (`extract-zip` GHSA-jmr9-qjv8-65gv, `image-size` GHSA-w3rx-r6r6-pgpr & GHSA-5p2g-fcmc-qvqq, `jpeg-js` GHSA-xvf7-4v9q-58w6 & GHSA-w7q9-p3jq-fmhm) et 15 de sévérité MODERATE (`phin`, `qs`, `tough-cookie`, `uuid`, `file-type`). L'analyse d'impact a démontré que `extract-zip` était un paquet mort non importé, et que `wa-sticker-formatter` (obsolète et non maintenu) était l'unique responsable de l'introduction de 18 vulnérabilités via son arbre de dépendances (`jimp`, `gif-frames`, `request`, `image-size`, `jpeg-js`).
   - **Discarded Options**: Conserver `wa-sticker-formatter` et tenter de forcer des `overrides` npm (rejeté : `image-size` et `jpeg-js` n'avaient aucun correctif amont compatible avec l'arbre hérité de `wa-sticker-formatter`) ; désactiver l'audit de sécurité ou baisser les seuils de la gate (rejeté : violation stricte des règles de sécurité et de qualité).
@@ -98,9 +103,9 @@ Assurer une qualité de code Zero-Slop irréprochable et consolider la nouvelle 
 ## 🐛 Known Bugs / Technical Debt
 
 - [2026-08-31] **Le workflow de release construit sur un runtime que le dépôt déclare interdit**
-- **Fichiers concernés**: `.github/workflows/release.yml` l. 43 (`node-version: '20'`) contre `package.json` l. 38 (`"node": ">=22.0.0"`), `AGENTS.md` §2 (`Node.js >= 22`) et `README.md` (badge l. 26, tableau « Prerequisites » l. 391 — alignés sur 22 cette session). `.github/workflows/pr-review.yml` l. 29 utilise `lts/*`, donc cohérent.
+- **Fichiers concernés**: `.github/workflows/release.yml` l. 43 (`node-version: '20'`) contre `package.json` l. 38 (`"node": ">=22.0.0"`), `AGENTS.md` §2 (`Node.js >= 22`) et `README.md` (badge l. 26, tableau « Prerequisites » l. 391 — alignés sur 22 cette session). (L'ancien workflow `pr-review.yml` utilisait `lts/*`, désormais décommissionné).
 - **Symptôme**: la publication s'effectue sur un runner que le `engines` du paquet rejette. Non bloquant en pratique : aucun `.npmrc` n'existe dans le dépôt, donc `engine-strict` est désactivé et `npm install` ne rend qu'un avertissement. Le risque réel est un artefact publié depuis un runtime non supporté.
-- **Fix requis** (arbitrage mainteneur, `AGENTS.md` invariant 4 — `.github/**` n'est pas modifiable par l'agent sans accord explicite): soit remonter `node-version` à `'22'` (ou `lts/*`, ce que fait déjà `pr-review.yml`), soit abaisser `engines.node`. Les deux fichiers ne doivent pas rester en contradiction.
+- **Fix requis** (arbitrage mainteneur, `AGENTS.md` invariant 4 — `.github/**` n'est pas modifiable par l'agent sans accord explicite): soit remonter `node-version` à `'22'` (ou `lts/*`), soit abaisser `engines.node`. Les deux fichiers ne doivent pas rester en contradiction.
 
 - [2026-08-31] **Faux positifs structurels de la gate sur la documentation markdown** — ✅ **RÉSOLU le 2026-08-31** (commit `cc4fa2a`, voir la décision « Quality Gate : scans littéraux limités au code et gitleaks rendu bloquant »)
 - **Fichiers concernés**: `.githooks/pre-commit` (`STAGED_SECRETS`, `STAGED_SUPPRESSIONS`) et les variantes de hook livrées par le modèle de workspace (note de propagation conservée hors de ce dépôt).
