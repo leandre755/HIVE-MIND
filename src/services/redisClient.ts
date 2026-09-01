@@ -3,7 +3,7 @@
 // Évite les connexions multiples (limite Redis Cloud = 30 connexions)
 
 import { createClient } from 'redis';
-import { readFileSync } from 'fs';
+import { safeReadFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,7 +19,7 @@ function extractErrorMessage(error: unknown): string {
 const getRedisUrl = (): string => {
   try {
     const creds = JSON.parse(
-      readFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
+      safeReadFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
     );
     let url: string | undefined = creds.redis?.url;
 
@@ -54,7 +54,8 @@ const redis = createClient({
   url: getRedisUrl(),
   socket: {
     connectTimeout: 15000, // 15s (Augmenté pour les Cold Starts Redis Cloud)
-    keepAlive: 10000, // 10s (Ping TCP pour éviter la coupure silencieuse)
+    keepAlive: true, // Ping TCP pour éviter la coupure silencieuse
+    keepAliveInitialDelay: 10000, // 10s
     tls: false, // Explicitement désactivé pour le port 10xxx standard
     reconnectStrategy: (retries) => {
       if (process.env.APP_ENV === 'local' || retries > 1) {
@@ -340,25 +341,26 @@ class InMemoryRedisMock {
 function switchToMock(redisInstance: typeof redis): void {
   const mock = new InMemoryRedisMock();
 
-  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen });
-  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady });
+  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen, configurable: true });
+  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady, configurable: true });
 
-  redisInstance.get = mock.get.bind(mock) as never;
-  redisInstance.set = mock.set.bind(mock) as never;
-  redisInstance.setEx = mock.setEx.bind(mock) as never;
-  redisInstance.del = mock.del.bind(mock) as never;
-  redisInstance.keys = mock.keys.bind(mock) as never;
-  redisInstance.incr = mock.incr.bind(mock) as never;
-  redisInstance.incrBy = mock.incrBy.bind(mock) as never;
-  redisInstance.expire = mock.expire.bind(mock) as never;
-  redisInstance.ping = mock.ping.bind(mock) as never;
-  redisInstance.info = mock.info.bind(mock) as never;
-  redisInstance.quit = mock.quit.bind(mock) as never;
-  redisInstance.lPush = mock.lPush.bind(mock) as never;
-  redisInstance.rPop = mock.rPop.bind(mock) as never;
-  redisInstance.lRem = mock.lRem.bind(mock) as never;
-  redisInstance.lRange = mock.lRange.bind(mock) as never;
-  redisInstance.multi = mock.multi.bind(mock) as never;
+  const target = redisInstance as unknown as Record<string, unknown>;
+  target.get = mock.get.bind(mock);
+  target.set = mock.set.bind(mock);
+  target.setEx = mock.setEx.bind(mock);
+  target.del = mock.del.bind(mock);
+  target.keys = mock.keys.bind(mock);
+  target.incr = mock.incr.bind(mock);
+  target.incrBy = mock.incrBy.bind(mock);
+  target.expire = mock.expire.bind(mock);
+  target.ping = mock.ping.bind(mock);
+  target.info = mock.info.bind(mock);
+  target.quit = mock.quit.bind(mock);
+  target.lPush = mock.lPush.bind(mock);
+  target.rPop = mock.rPop.bind(mock);
+  target.lRem = mock.lRem.bind(mock);
+  target.lRange = mock.lRange.bind(mock);
+  target.multi = mock.multi.bind(mock);
 }
 
 export { redis, ensureConnected, checkHealth, disconnect };
