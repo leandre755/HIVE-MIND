@@ -310,6 +310,13 @@ class InMemoryRedisMock {
     return list.slice(start, actualStop);
   }
 
+  async lLen(key: string): Promise<number> {
+    const entry = this.storage.get(key);
+    if (!entry) return 0;
+    const list = JSON.parse(entry.value) as string[];
+    return list.length;
+  }
+
   async exists(key: string): Promise<number> {
     if (this.storage.has(key)) return 1;
     if (this.hashes.has(key)) return 1;
@@ -424,6 +431,11 @@ class InMemoryRedisMock {
     return removed;
   }
 
+  async sIsMember(key: string, member: string): Promise<boolean> {
+    const set = this.sets.get(key);
+    return set ? set.has(member) : false;
+  }
+
   async zIncrBy(key: string, increment: number, member: string): Promise<number> {
     let zset = this.sortedSets.get(key);
     if (!zset) {
@@ -526,6 +538,7 @@ function switchToMock(redisInstance: typeof redis): void {
   target.rPop = mock.rPop.bind(mock);
   target.lRem = mock.lRem.bind(mock);
   target.lRange = mock.lRange.bind(mock);
+  target.lLen = mock.lLen.bind(mock);
   target.exists = mock.exists.bind(mock);
   target.hGet = mock.hGet.bind(mock);
   target.hSet = mock.hSet.bind(mock);
@@ -536,6 +549,7 @@ function switchToMock(redisInstance: typeof redis): void {
   target.sPopCount = mock.sPopCount.bind(mock);
   target.sMembers = mock.sMembers.bind(mock);
   target.sRem = mock.sRem.bind(mock);
+  target.sIsMember = mock.sIsMember.bind(mock);
   target.zIncrBy = mock.zIncrBy.bind(mock);
   target.zRangeWithScores = mock.zRangeWithScores.bind(mock);
   target.zScore = mock.zScore.bind(mock);
