@@ -39,7 +39,7 @@ function extractErrorMessage(error: unknown): string {
 }
 
 // Charger les credentials
-let credentials: Credentials | null = null;
+let credentials: Credentials | null;
 try {
   const credentialsPath = join(__dirname, '..', 'config', 'credentials.json');
   credentials = JSON.parse(readFileSync(credentialsPath, 'utf-8')) as Credentials;

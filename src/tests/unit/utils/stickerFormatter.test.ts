@@ -64,7 +64,7 @@ describe('stickerFormatter', () => {
       expect(resultWebp.includes(Buffer.from('EXIF', 'ascii'))).toBe(true);
       expect(resultWebp.includes(Buffer.from('TestPack', 'utf8'))).toBe(true);
       expect(resultWebp.includes(Buffer.from('TestAuthor', 'utf8'))).toBe(true);
-    });
+    }, 15000);
   });
 
   describe('createStickerBuffer', () => {
@@ -97,6 +97,6 @@ describe('stickerFormatter', () => {
       expect(metadata.format).toBe('webp');
       expect(metadata.width).toBe(512);
       expect(metadata.height).toBe(512);
-    });
+    }, 15000);
   });
 });

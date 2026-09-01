@@ -149,7 +149,7 @@ export default {
     let triggerType: 'TIME' | 'EVENT' = 'TIME';
     let triggerEvent: string | null = null;
     let triggerCondition: Record<string, string> = {};
-    let executeAt: string = '';
+    let executeAt: string;
 
     if (waitForUser || waitForKeyword) {
       triggerType = 'EVENT';
@@ -174,7 +174,7 @@ export default {
       triggerCondition,
     });
 
-    let validMsg = '';
+    let validMsg: string;
     if (triggerType === 'EVENT') {
       const userPart = waitForUser ? 'From "' + waitForUser + '"' : '';
       const keywordPart = waitForKeyword ? 'Containing "' + waitForKeyword + '"' : '';

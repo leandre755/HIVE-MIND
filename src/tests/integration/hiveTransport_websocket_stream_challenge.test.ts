@@ -305,7 +305,7 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
     await hiveTransport.sendReaction('ws-chat-1', { id: 'msg-target' }, '👍');
     expect(reactionEmittedOnHiveTransport).toBe(true);
 
-    let receivedOnWs = false;
+    let receivedOnWs: boolean;
     try {
       await waitForMessage((m) => m.type === 'reaction', 300);
       receivedOnWs = true;

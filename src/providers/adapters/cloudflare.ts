@@ -93,7 +93,7 @@ export default {
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('[Cloudflare] Timeout (90s)');
+        throw new Error('[Cloudflare] Timeout (90s)', { cause: err });
       }
       throw err;
     }

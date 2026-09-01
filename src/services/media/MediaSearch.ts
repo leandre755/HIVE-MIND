@@ -64,7 +64,7 @@ export class MediaSearch {
     const { detectModality } = await import('../ai/MultimodalEmbeddingService.js');
     const modality = detectModality(filePath);
 
-    let embedding: number[] | null = null;
+    let embedding: number[] | null;
     switch (modality) {
       case 'image':
         embedding = await this.embeddingService.embedImage(filePath);

@@ -335,6 +335,7 @@ export class GenericProviderAdapter implements ProviderAdapter {
         throw new Error(
           `[${label}] Délai dépassé : la requête a été interrompue après ` +
             `${timeoutMs} ms sans réponse du fournisseur.`,
+          { cause: error },
         );
       }
       throw error;

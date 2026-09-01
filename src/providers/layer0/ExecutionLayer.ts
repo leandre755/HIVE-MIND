@@ -106,7 +106,7 @@ function createProtocolContext(
 async function handleResponseError(response: Response): Promise<never> {
   const status = response.status;
   const retryAfterHeader = response.headers?.get('retry-after');
-  let errorBody: unknown = null;
+  let errorBody: unknown;
   try {
     errorBody = await response.json();
   } catch {
