@@ -24,6 +24,12 @@
 - **File**: `src/tests/integration/services.test.ts`
   - **Scope**: Mock de test et assertion de contrat Redis.
   - **Exact Technical Change**: Ajout de `sPopCount: jest.fn()` dans le mock ESM, typage dans `RedisMock` (`sPopCount: jest.Mock`), et espionnage `jest.spyOn(mockRedis, 'sPopCount').mockResolvedValue([] as never)`.
+- **File**: `src/plugins/tools/visual_reporter/index.ts`
+  - **Scope**: Nettoyage import pdfkit et conformité ESLint.
+  - **Exact Technical Change**: Renommage de l'import par défaut `PDFDocument` en `PdfKitDocument` pour satisfaire la règle ESLint `import-x/no-named-as-default` déclenchée par le bump `pdfkit@^0.20.1`, et suppression des imports morts `fileURLToPath` et `__dirname`.
+- **File**: `src/utils/botIdentity.ts`
+  - **Scope**: Conformité aux invariants d'E/S et isolation de scope CJS/ESM.
+  - **Exact Technical Change**: Remplacement de `fs.readFileSync` par `safeReadFileSync` (`src/utils/safeFs.ts`) et renommage de `__dirname` en `currentDir` pour éliminer le conflit de redéclaration dans les runners hybrides.
 
 ## 🛠️ Static Codebase Health
 - **Verification Command Run**: `npm run build && npm run lint:fast && npm run test:unit && npm run test:integration`
