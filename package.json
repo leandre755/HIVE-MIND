@@ -97,7 +97,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^8.57.1",
+    "@eslint/js": "^10.0.1",
     "@types/cli-progress": "^3.11.6",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jest": "^30.0.0",
