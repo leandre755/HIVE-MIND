@@ -32,7 +32,7 @@
 
 ## 🎯 Objective
 
-Assurer une qualité de code Zero-Slop irréprochable et consolider la nouvelle architecture Smart Provider à 2 Couches.
+Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1 directory with 21 updates`) et valider la compatibilité de l'ensemble des dépendances de production.
 
 ## 🧠 Decisions Made
 
@@ -159,6 +159,7 @@ Assurer une qualité de code Zero-Slop irréprochable et consolider la nouvelle 
 
 ## 📈 Current Status
 
+- ✅ Done: **Migration TypeScript 7.0.2 & Nettoyage Codebase (PR #12)** : Adoption de l'architecture Microsoft side-by-side (`@typescript/native: npm:typescript@^7.0.2` et `typescript: npm:@typescript/typescript6@^6.0.2`), correction de 24 erreurs strictes ESLint/cause/complexité sur 18 fichiers, validation complète de la suite Jest (502/502 tests unitaires PASS), Quality Gate pre-push validée et PR #12 fusionnée dans `master` (`76681e0`).
 - ✅ Done: **Extraction & Découplage TUI Standalone** (dépôt sibling `HIVE-MIND-TUI`) validé 100% (M1-M4 : transport Core isolé, 17 dépendances purgées, 372 fichiers TUI migrés avec docs/plans, 11/11 tests E2E cross-process passés).
 - ✅ Done: Menu d'options CLI au démarrage, fix WhatsApp (5 fixes validés runtime), retrait QR auto, architecture Smart Provider 2 couches, GenerationParams.
 - ✅ Done: **Réécriture system prompt hive-mind** via flotte 11 agents. Guide_final (1339 lignes) + prompt nouveau (301 lignes) + breakdown (587 lignes) + analyse codebase (759 lignes). Non-committé.
@@ -169,8 +170,12 @@ Assurer une qualité de code Zero-Slop irréprochable et consolider la nouvelle 
 - ✅ Done: **Baseline de gouvernance (6 piliers) déployée et committée** (`0ead9b5` nettoyage + `.gitignore` + husky ; `84e61d2` 62 fichiers : AGENTS.md, ARCHITECTURE.md, `.GCC/`, `.gouvernance/`, `.githooks/`, `.github/`). Second commit posé sous `--no-verify` sur autorisation explicite du mainteneur, depuis remboursé par le correctif ci-dessous.
 - ✅ Done: **Quality Gate assainie et durcie** (`cc4fa2a`) : scans littéraux limités au code, scan PEM absolu ajouté, `gitleaks` installé (8.30.1, checksum vérifiée) et rendu bloquant au `pre-commit` (index) comme au `pre-push` (historique) via `_common/detect-secrets.sh` et `.gitleaks.toml`. Commit passé par la gate, sans contournement.
 - ✅ Done: **Licence Apache-2.0 et attribution `leandre755`** appliquées dans `LICENSE`, `package.json`, son miroir `license` dans `package-lock.json` et `README.md` (`74aefe7`, via le canal documenté `ALLOW_CONFIG_EDIT=1`, gate exécutée) ; **titulaire du copyright** ajouté à l'annexe `LICENSE` l. 190 (`4955cac`) ; **`AGENTS.md` §6 aligné sur les hooks réels**, en anglais (`8564779`) ; **badge et prérequis Node du README** portés à 22 (`3ea25ce`).
-- ⏳ Pending: Dette des chemins absolus machine dans `documentation/` et `documentations/` (voir §Known Bugs) ; arbitrage mainteneur sur `node-version: '20'` de `.github/workflows/release.yml` face à `engines.node >= 22` (§Known Bugs) ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; plan d'intégration Smart Layer (Layer 0/Layer 1) non démarré ; Tests unitaires messageConverter/configValidator, tests d'intégration et E2E Jest, test runtime WhatsApp, déploiement Railway.
+- ⏳ Pending: Traitement de la PR restante #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`, 21 bumps de dépendances de production dont Redis v6) ; dette des chemins absolus machine dans `documentation/` et `documentations/` ; arbitrage mainteneur sur `node-version: '20'` de `.github/workflows/release.yml` face à `engines.node >= 22` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/`.
 
 
 ## 👉 Next Session Direction
-La gate n'est plus un blocage : elle est repassée en mode normal et durcie par gitleaks. Reprendre la dette ouverte en priorité — (1) réécrire en chemins relatifs les 120 liens `file:///…/HIVE-MIND-RAILWAY/…` portés par 16 fichiers de documentation : les 45 cibles résolubles telles quelles passent directement, les 20 orphelines (19 `src/tui/**` + `PROJECT.md`) sont à faire arbitrer par le mainteneur ; (2) sortir le chemin de compte personnel codé en dur dans `src/providers/adapters/codex.ts` ; (3) trancher les deux scripts morts de `.githooks/_common/`. Le plan d'intégration Smart Layer reste en attente de rédaction par le mainteneur. Détail de la transition dans `.GCC/resume.md`.
+Démarrer immédiatement le traitement de la **PR restante #14** :
+1. Basculer sur la branche `dependabot/npm_and_yarn/npm-production-c8701cb41e` et la rebaser proprement sur `master` (`76681e0`).
+2. Analyser les 21 dépendances de production mises à jour (notamment Redis client / ioredis v6, zod, axios, google-genai, etc.).
+3. Vérifier les ruptures d'API potentielles et exécuter les tests unitaires et linters.
+4. Appliquer les corrections nécessaires dans `src/` et valider l'ensemble avant push et revue.
