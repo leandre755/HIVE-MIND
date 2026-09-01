@@ -139,7 +139,7 @@ UV_BIN="$HOME/.local/bin/uv"
 if [ -x "$UV_BIN" ] || command -v uv >/dev/null 2>&1; then
   EXECUTABLE=$(command -v uv 2>/dev/null || echo "$UV_BIN")
   echo "[Quality Gate] 8/8 - Scan SAST sécurité (Semgrep)..."
-  $EXECUTABLE run --with semgrep semgrep scan $JS_FILES --config auto --metrics=off --disable-version-check --error || {
+  $EXECUTABLE run --with semgrep semgrep scan $JS_FILES --config p/default --metrics=off --disable-version-check --error || {
     echo "[Erreur Quality Gate] Semgrep a identifié une vulnérabilité SAST dans le code !"
     exit 1
   }

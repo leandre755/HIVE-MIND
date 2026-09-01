@@ -1,6 +1,4 @@
-// Sticker creation plugin from images/videos
-
-import { Sticker, StickerTypes } from 'wa-sticker-formatter';
+import { createStickerBuffer } from '../../../utils/stickerFormatter.js';
 
 interface StickerContext {
   transport?: {
@@ -156,14 +154,11 @@ export default {
       const mediaBuffer = directBuffer || (await downloadFn({ raw: mediaMessage }));
 
       // Create sticker
-      const sticker = new Sticker(mediaBuffer, {
+      const stickerBuffer = await createStickerBuffer(mediaBuffer, {
         pack: pack_name,
         author,
-        type: StickerTypes.FULL,
         quality: 80,
       });
-
-      const stickerBuffer = await sticker.toBuffer();
 
       // Send sticker
       const sendStickerFn = transport.sendSticker;
