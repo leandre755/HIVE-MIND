@@ -5,7 +5,6 @@ import {
 } from '@whiskeysockets/baileys';
 import createPinoLogger from 'pino';
 
-
 const groupJid = process.argv[2];
 
 if (!groupJid) {
@@ -54,7 +53,7 @@ async function main() {
         const hasLidInId = metadata.participants.some((p) => p.id && p.id.includes('@lid'));
 
         console.log(
-          `Les champs 'id' contiennent des JIDs (@s.whatsapp.net)? : ${hasJid ? 'OUI' : 'NON'}`
+          `Les champs 'id' contiennent des JIDs (@s.whatsapp.net)? : ${hasJid ? 'OUI' : 'NON'}`,
         );
         console.log(`Les champs 'id' contiennent des LIDs (@lid)? : ${hasLidInId ? 'OUI' : 'NON'}`);
 

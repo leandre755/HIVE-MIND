@@ -91,12 +91,14 @@ describe('Adversarial TUI Server - Authentication & Injection Vectors', () => {
     const wsSilent = new WebSocket(`ws://127.0.0.1:${config.port}`);
     const startTime = Date.now();
 
-    const closePromise = new Promise<{ code: number; reason: string; elapsed: number }>((resolve) => {
-      wsSilent.on('close', (code, reason) => {
-        const elapsed = Date.now() - startTime;
-        resolve({ code, reason: reason.toString(), elapsed });
-      });
-    });
+    const closePromise = new Promise<{ code: number; reason: string; elapsed: number }>(
+      (resolve) => {
+        wsSilent.on('close', (code, reason) => {
+          const elapsed = Date.now() - startTime;
+          resolve({ code, reason: reason.toString(), elapsed });
+        });
+      },
+    );
 
     const res = await closePromise;
     expect(res.code).toBe(4401);
@@ -125,10 +127,14 @@ describe('Adversarial TUI Server - Authentication & Injection Vectors', () => {
     });
 
     await authSuccessPromise;
-    expect(receivedMessages.some((m: unknown) => (m as { type?: string }).type === 'auth_success')).toBe(true);
+    expect(
+      receivedMessages.some((m: unknown) => (m as { type?: string }).type === 'auth_success'),
+    ).toBe(true);
 
     await new Promise((r) => setTimeout(r, 50));
-    expect(receivedMessages.some((m: unknown) => (m as { type?: string }).type === 'connection_status')).toBe(true);
+    expect(
+      receivedMessages.some((m: unknown) => (m as { type?: string }).type === 'connection_status'),
+    ).toBe(true);
 
     let capturedUserMessage = '';
     hiveTransport.onMessage((msg: MessageData) => {
@@ -179,7 +185,9 @@ describe('Adversarial TUI Server - Authentication & Injection Vectors', () => {
     wsAttacker.send('"string-payload"');
     wsAttacker.send('null');
     wsAttacker.send(JSON.stringify({ type: 'user_message', text: 'INJECTED_UNAUTH_COMMAND' }));
-    wsAttacker.send(JSON.stringify({ type: 'confirmation_response', id: 'fake-id', approved: true }));
+    wsAttacker.send(
+      JSON.stringify({ type: 'confirmation_response', id: 'fake-id', approved: true }),
+    );
 
     await new Promise((r) => setTimeout(r, 200));
 
@@ -218,7 +226,9 @@ describe('Adversarial TUI Server - Lifecycle, Port Conflict & Concurrency', () =
     const config1: ServerConfig = JSON.parse(safeReadFileSync(configPath, 'utf-8'));
     expect(config1.host).toBe('localhost');
     expect(typeof config1.port).toBe('number');
-    expect(config1.token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(config1.token).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
 
     const server2 = new TuiServerTransport();
     await server2.start();

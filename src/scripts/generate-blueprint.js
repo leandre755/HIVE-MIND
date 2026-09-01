@@ -195,7 +195,7 @@ for (const filePath of allFiles) {
 
   dependencyGraph.set(
     relativePath,
-    localDependencies.map((d) => d.resolved)
+    localDependencies.map((d) => d.resolved),
   );
   fileDetails.set(relativePath, { localDependencies, externalDependencies, exports });
 }

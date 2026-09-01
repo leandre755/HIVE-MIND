@@ -70,8 +70,8 @@ class StandaloneTuiProcessController {
   private sendResolver: ((res: { streamId: string }) => void) | null = null;
   private sendRejecter: ((err: Error) => void) | null = null;
   private servicesResolver:
-    | ((services: Array<{ service: string; action: string; timestamp: number }>) => void)
-    | null = null;
+    ((services: Array<{ service: string; action: string; timestamp: number }>) => void) | null =
+    null;
 
   async start(extraEnv: Record<string, string> = {}): Promise<void> {
     const tuiProjectDir = join(process.cwd(), '../HIVE-MIND-TUI');
@@ -186,7 +186,9 @@ class StandaloneTuiProcessController {
     this.child.send({ type: 'CONFIRM', requestId, approved, feedback });
   }
 
-  async getActiveServices(): Promise<Array<{ service: string; action: string; timestamp: number }>> {
+  async getActiveServices(): Promise<
+    Array<{ service: string; action: string; timestamp: number }>
+  > {
     if (!this.child) return [];
 
     return new Promise((resolve) => {
@@ -383,7 +385,8 @@ describe('Cross-Process E2E (Part 1): Discovery, Auth & Event Streaming', () => 
     it('daemon emits custom/visual_response and connection_status events -> TUI receives all of them', async () => {
       // 1. Événement custom interne émis lors de la transition vers 'connected'
       const customEvent = await tuiController.waitForEvent(
-        (e) => e.type === 'custom' && e.name === 'connection_status_change' && e.message === 'connected',
+        (e) =>
+          e.type === 'custom' && e.name === 'connection_status_change' && e.message === 'connected',
         3000,
       );
       expect(customEvent).toBeDefined();
@@ -508,11 +511,7 @@ describe('Cross-Process E2E (Part 2): Message Dispatch, HITL & Lifecycle', () =>
       expect(toolRequest.requestId).toBeDefined();
 
       // La TUI approuve la requête de confirmation
-      tuiController.confirm(
-        toolRequest.requestId!,
-        true,
-        'Approved by Administrator in E2E test',
-      );
+      tuiController.confirm(toolRequest.requestId!, true, 'Approved by Administrator in E2E test');
 
       // Le Daemon reçoit la confirmation et résout la promesse
       const confirmationResult = await confirmationPromise;

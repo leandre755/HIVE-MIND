@@ -2,7 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { EmbeddingsService } from '../services/ai/EmbeddingsService.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { safeExistsSync, safeReadFileSync, safeReaddirSync, safeMkdirSync } from '../utils/safeFs.js';
+import {
+  safeExistsSync,
+  safeReadFileSync,
+  safeReaddirSync,
+  safeMkdirSync,
+} from '../utils/safeFs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

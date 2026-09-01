@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Charger la config pour avoir le détail des modèles (types)
 const modelsConfig = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', 'config', 'models_config.json'), 'utf-8')
+  fs.readFileSync(path.join(__dirname, '..', 'config', 'models_config.json'), 'utf-8'),
 );
 
 function getStatusIcon(status) {
@@ -26,7 +26,7 @@ async function testSingleModel(familyId, model) {
         family: familyId,
         model: model.id,
         maxTokens: 10,
-      }
+      },
     );
 
     const content = response.content?.trim() || '';
@@ -84,14 +84,14 @@ async function runTests() {
   console.log('📊 RÉSUMÉ DES TESTS COMPLETS');
   console.log('======================================================================');
   console.log(
-    `${'FAMILLE'.padEnd(12)} | ${'MODÈLE'.padEnd(30)} | ${'STATUT'.padEnd(10)} | ${'MESSAGE'}`
+    `${'FAMILLE'.padEnd(12)} | ${'MODÈLE'.padEnd(30)} | ${'STATUT'.padEnd(10)} | ${'MESSAGE'}`,
   );
   console.log('----------------------------------------------------------------------');
 
   results.forEach((r) => {
     const icon = getStatusIcon(r.status);
     console.log(
-      `${icon} ${r.family.padEnd(10)} | ${r.model.padEnd(30)} | ${r.status.padEnd(10)} | ${r.error || 'OK'}`
+      `${icon} ${r.family.padEnd(10)} | ${r.model.padEnd(30)} | ${r.status.padEnd(10)} | ${r.error || 'OK'}`,
     );
   });
   console.log('======================================================================\n');

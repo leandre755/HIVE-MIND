@@ -37,7 +37,11 @@ describe('HiveTransport Challenge Suite — Part 1: Basic Event Routing', () => 
       rawMessage: { key: { id: 'msg-999' } },
     };
 
-    const res = (await hiveTransport.sendText('chat-target-1', 'Hello Empirical World', options)) as {
+    const res = (await hiveTransport.sendText(
+      'chat-target-1',
+      'Hello Empirical World',
+      options,
+    )) as {
       success: boolean;
       messageId: string;
     };
@@ -112,7 +116,9 @@ describe('HiveTransport Challenge Suite — Part 1: Basic Event Routing', () => 
 
     expect(received).not.toBeNull();
     const typedReq = received as unknown as ConfirmationRequestPayload;
-    expect(typedReq.id).toMatch(/^conf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(typedReq.id).toMatch(
+      /^conf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
     expect(typedReq.type).toBe('permission_request');
     expect(typedReq.description).toBe('Execute status check');
     expect(typedReq.data).toEqual(complexData);
@@ -345,7 +351,7 @@ describe('HiveTransport Challenge Suite — Part 3: Concurrency & Stress', () =>
   it('broadcasts to 50 concurrent listeners across 100 rapidly emitted events without drop or corruption', async () => {
     const listenerCount = 50;
     const eventCount = 100;
-    const listenerCounters = new Array<number>(listenerCount).fill(0);
+    const listenerCounters = Array.from<number>({ length: listenerCount }).fill(0);
 
     for (let i = 0; i < listenerCount; i++) {
       const listenerIndex = i;
@@ -381,10 +387,7 @@ describe('HiveTransport Challenge Suite — Part 3: Concurrency & Stress', () =>
 
     hiveTransport.submitUserMessage('Resilience check');
 
-    expect(successfulExecutions).toEqual([
-      'first:Resilience check',
-      'third:Resilience check',
-    ]);
+    expect(successfulExecutions).toEqual(['first:Resilience check', 'third:Resilience check']);
   });
 
   it('handles submitConfirmationResponse for unknown or duplicate IDs gracefully without throwing', () => {

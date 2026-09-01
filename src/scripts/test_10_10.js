@@ -38,7 +38,7 @@ async function runTests() {
 
     const decayResult = await memoryDecay.scoreMemory(mem);
     console.log(
-      `- Score calculated: ${decayResult.score.toFixed(2)} (Recency: ${decayResult.components.recency.toFixed(2)})`
+      `- Score calculated: ${decayResult.score.toFixed(2)} (Recency: ${decayResult.components.recency.toFixed(2)})`,
     );
 
     if (decayResult.score < 0.5) console.log('✅ Decay logic working (score decreased with age)');

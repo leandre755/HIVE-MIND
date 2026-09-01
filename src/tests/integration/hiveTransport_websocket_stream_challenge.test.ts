@@ -14,7 +14,10 @@ interface WebSocketMessage {
 interface ClientHandle {
   ws: WsClient;
   messages: WebSocketMessage[];
-  waitForMessage: (predicate: (msg: WebSocketMessage) => boolean, timeoutMs?: number) => Promise<WebSocketMessage>;
+  waitForMessage: (
+    predicate: (msg: WebSocketMessage) => boolean,
+    timeoutMs?: number,
+  ) => Promise<WebSocketMessage>;
 }
 
 async function createAuthenticatedClient(configPath: string): Promise<ClientHandle> {
@@ -96,7 +99,9 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Core Events'
     const { ws, waitForMessage } = await createAuthenticatedClient(configPath);
 
     // 1. Message
-    await hiveTransport.sendText('ws-chat-1', 'Streaming text payload test', { sourceChannel: 'ink-cli' });
+    await hiveTransport.sendText('ws-chat-1', 'Streaming text payload test', {
+      sourceChannel: 'ink-cli',
+    });
     const msgEvt = await waitForMessage((m) => m.type === 'message');
     const msgData = msgEvt.data as { chatId: string; text: string; sender: string };
     expect(msgData.chatId).toBe('ws-chat-1');
@@ -110,21 +115,32 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Core Events'
     expect(presenceData).toEqual({ chatId: 'ws-chat-1', presence: 'recording' });
 
     // 3. Confirmation request
-    const confPromise = hiveTransport.requestConfirmation('exec_command', { cmd: 'status' }, 'Check status');
+    const confPromise = hiveTransport.requestConfirmation(
+      'exec_command',
+      { cmd: 'status' },
+      'Check status',
+    );
     const confEvt = await waitForMessage((m) => m.type === 'confirmation_request');
-    const confData = confEvt.data as { id: string; type: string; description: string; data: { cmd: string } };
+    const confData = confEvt.data as {
+      id: string;
+      type: string;
+      description: string;
+      data: { cmd: string };
+    };
     expect(confData.type).toBe('exec_command');
     expect(confData.description).toBe('Check status');
     expect(confData.data).toEqual({ cmd: 'status' });
     expect(confData.id).toMatch(/^conf-/);
 
     // Client responds to confirmation
-    ws.send(JSON.stringify({
-      type: 'confirmation_response',
-      id: confData.id,
-      approved: true,
-      feedback: 'Approved by test client',
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'confirmation_response',
+        id: confData.id,
+        approved: true,
+        feedback: 'Approved by test client',
+      }),
+    );
     const confResult = await confPromise;
     expect(confResult).toEqual({ approved: true, feedback: 'Approved by test client' });
 
@@ -159,7 +175,13 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
       caption: 'Example image',
     });
     const mediaEvt = await waitForMessage((m) => m.type === 'media');
-    const mediaData = mediaEvt.data as { chatId: string; media: string; type: string; filename: string; caption: string };
+    const mediaData = mediaEvt.data as {
+      chatId: string;
+      media: string;
+      type: string;
+      filename: string;
+      caption: string;
+    };
     expect(mediaData).toEqual({
       chatId: 'ws-chat-1',
       media: 'https://example.com/image.jpg',
@@ -169,9 +191,16 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
     });
 
     // Voice
-    await hiveTransport.sendVoiceNote('ws-chat-1', 'base64-fake-audio', { duration: 3.5, ptt: true });
+    await hiveTransport.sendVoiceNote('ws-chat-1', 'base64-fake-audio', {
+      duration: 3.5,
+      ptt: true,
+    });
     const voiceEvt = await waitForMessage((m) => m.type === 'voice');
-    const voiceData = voiceEvt.data as { chatId: string; audio: string; options: { duration: number; ptt: boolean } };
+    const voiceData = voiceEvt.data as {
+      chatId: string;
+      audio: string;
+      options: { duration: number; ptt: boolean };
+    };
     expect(voiceData).toEqual({
       chatId: 'ws-chat-1',
       audio: 'base64-fake-audio',
@@ -181,7 +210,12 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
     // File
     await hiveTransport.sendFile('ws-chat-1', 'docs/sample.pdf', 'sample.pdf', 'PDF document');
     const fileEvt = await waitForMessage((m) => m.type === 'file');
-    const fileData = fileEvt.data as { chatId: string; filePath: string; fileName: string; caption: string };
+    const fileData = fileEvt.data as {
+      chatId: string;
+      filePath: string;
+      fileName: string;
+      caption: string;
+    };
     expect(fileData).toEqual({
       chatId: 'ws-chat-1',
       filePath: 'docs/sample.pdf',
@@ -193,7 +227,10 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
     const stickerBuffer = Buffer.from('TEST_STICKER');
     await hiveTransport.sendSticker('ws-chat-1', stickerBuffer);
     const stickerEvt = await waitForMessage((m) => m.type === 'sticker');
-    const stickerData = stickerEvt.data as { chatId: string; stickerBuffer: { type: string; data: number[] } };
+    const stickerData = stickerEvt.data as {
+      chatId: string;
+      stickerBuffer: { type: string; data: number[] };
+    };
     expect(stickerData.chatId).toBe('ws-chat-1');
     expect(Buffer.from(stickerData.stickerBuffer.data)).toEqual(stickerBuffer);
 
@@ -203,7 +240,10 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
       visual: { type: 'bar_chart', values: [1, 2, 3] },
     });
     const visualEvt = await waitForMessage((m) => m.type === 'visual_response');
-    const visualData = visualEvt.data as { chatId: string; visual: { type: string; values: number[] } };
+    const visualData = visualEvt.data as {
+      chatId: string;
+      visual: { type: string; values: number[] };
+    };
     expect(visualData).toEqual({
       chatId: 'ws-chat-1',
       visual: { type: 'bar_chart', values: [1, 2, 3] },
@@ -222,7 +262,7 @@ describe('HiveTransport ↔ TuiServerTransport Stream Challenge — Rich Payload
       clients.push(client);
     }
 
-    const receivedCountPerClient = new Array<number>(clientCount).fill(0);
+    const receivedCountPerClient = Array.from<number>({ length: clientCount }).fill(0);
     const eventTotal = 20;
 
     for (let i = 0; i < clientCount; i++) {
