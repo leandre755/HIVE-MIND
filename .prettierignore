@@ -6,3 +6,4 @@ graphify-out
 *.log
 eslint_report.json
 eslint_tui_errors.json
+eslint.config.js

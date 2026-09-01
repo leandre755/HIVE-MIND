@@ -78,13 +78,13 @@ fi
 echo "[Quality Gate] Périmètre '$SCOPE' : $(printf '%s\n' $JS_FILES | wc -l) fichier(s) JS/TS."
 
 # 2. Audit des dépendances (accès réseau : réservé au périmètre full/pre-push)
-# Non bloquant : ne pas empêcher un commit/push si aucune correction sans
-# breaking change n'est disponible (décision projet).
+# Bloquant : interdit tout push en présence de vulnérabilités high/critical.
 if [ "$SCOPE" = "full" ]; then
   echo "[Pre-Push] 2/8 - Audit des dépendances (npm audit high/critical)..."
   npm audit --audit-level=high --omit=dev || {
-    echo "[Attention Pre-Push] Des vulnérabilités high/critical ont été détectées dans les dépendances de production."
+    echo "[Erreur Pre-Push] Des vulnérabilités high/critical ont été détectées dans les dépendances de production !"
     echo "[Info] Corrigez-les avec 'npm audit fix' ou mettez à jour les paquets concernés."
+    exit 1
   }
 else
   echo "[Quality Gate] 2/8 - Audit des dépendances passé (exécuté au pre-push)."
@@ -128,7 +128,7 @@ else
 fi
 
 # 7. ESLint, zéro warning toléré
-echo "[Quality Gate] 7/8 - ESLint (zéro warning toléré)..."
+echo "[Quality Gate] 7/8 - ESLint (zéro warning toléré, eslint-plugin-security inclus)..."
 npx eslint $JS_FILES --max-warnings=0 || {
   echo "[Erreur Quality Gate] ESLint a détecté des erreurs ou des warnings (linter, sécurité)."
   exit 1
@@ -139,10 +139,12 @@ UV_BIN="$HOME/.local/bin/uv"
 if [ -x "$UV_BIN" ] || command -v uv >/dev/null 2>&1; then
   EXECUTABLE=$(command -v uv 2>/dev/null || echo "$UV_BIN")
   echo "[Quality Gate] 8/8 - Scan SAST sécurité (Semgrep)..."
-  $EXECUTABLE run --with semgrep semgrep scan $JS_FILES --config auto --quiet --error || {
+  $EXECUTABLE run --with semgrep semgrep scan $JS_FILES --config auto --metrics=off --disable-version-check --error || {
     echo "[Erreur Quality Gate] Semgrep a identifié une vulnérabilité SAST dans le code !"
     exit 1
   }
+else
+  echo "[Quality Gate] 8/8 - Semgrep non configuré (uv absent) : couverture SAST assurée par eslint-plugin-security."
 fi
 
 echo "[Quality Gate] JS/TS validée (périmètre $SCOPE : anti-leak, Oxlint, Prettier, ESLint, Semgrep)."
