@@ -58,6 +58,7 @@ jest.unstable_mockModule('../../services/redisClient.js', () => ({
     exists: jest.fn(),
     quit: jest.fn(),
     sPop: jest.fn(),
+    sPopCount: jest.fn(),
   },
 }));
 
@@ -91,6 +92,7 @@ type RedisMock = {
   exists: jest.Mock;
   quit: jest.Mock;
   sPop: jest.Mock;
+  sPopCount: jest.Mock;
 };
 
 const mockRedis = redis as unknown as RedisMock;
@@ -193,7 +195,7 @@ describe('Services Integration (Phase 4 MODs)', () => {
   });
 
   it('StateManager.processSyncQueue does not crash when redis is empty', async () => {
-    jest.spyOn(mockRedis, 'sPop').mockResolvedValue([] as never);
+    jest.spyOn(mockRedis, 'sPopCount').mockResolvedValue([] as never);
     await expect(StateManager.processSyncQueue(50)).resolves.not.toThrow();
   });
 });
