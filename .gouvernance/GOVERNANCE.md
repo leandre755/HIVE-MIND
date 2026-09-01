@@ -10,7 +10,6 @@ How the HIVE-MIND repository is managed on GitHub: automation workflows, issue l
 |---|---|---|
 | **CI** (`ci.yml`) | Every PR + push to `main` | Runs the full validation pipeline (install, type check, lint, tests). Concurrency: superseded runs are cancelled on non-main refs. |
 | **Pull request governance** (`governance.yml`) | PR opened / edited / synchronize / reopened / ready_for_review | Enforces PR title Conventional Commits format, validates every commit message, computes changed-line size (fail > 1000, warning > 500), and posts a governance summary comment on the PR. |
-| **Jules PR Review** (`pr-review.yml`) | PR opened / synchronize / reopened / ready_for_review | TypeScript compilation check, changed-files ESLint quality check, then the Jules AI reviewer posts findings. Auto-merge is enabled only for PRs that pass all required checks and governance — final merge authority stays with maintainers via branch protection. |
 | **Dependency review** (`security.yml`) | PRs that touch the lockfile | GitHub dependency review: blocks PRs introducing vulnerable or high-severity transitive dependencies. |
 | **Issue triage** (`issue-triage.yml`) | Issue opened / reopened / edited | Classifies the issue and upserts a bounded triage result (labels such as `needs-triage` → typed/priority labels) so nothing stays unqualified. |
 | **Issue detection — ANTIBUG** (`issue-detection.yml`) | Daily cron `23 4 * * *` UTC | Forensic defect audit: resolves the incremental scope from the previous audit marker, runs the ANTIBUG agent backend, files evidence-backed issues (provable defects only), records a marker for the next run. |
@@ -51,7 +50,7 @@ Autonomous agents may only file issues as the result of the scheduled ANTIBUG au
 - **Title & commits**: Conventional Commits (`type(scope): description`), enforced by `governance.yml` on title and every commit.
 - **Size budget**: ≤ 500 changed lines recommended, 1000 hard limit (governance check fails above).
 - **Template**: `.github/PULL_REQUEST_TEMPLATE.md` — root cause / summary / tests / risks.
-- **Required reviews**: independent AI review bots (CodeRabbit, Greptile, Jules, Codex) + CI checks. Agents must read 100% of full-text bot comments and resolve 100% of threads.
+- **Required reviews**: independent AI review bots (CodeRabbit, Greptile, Codex) + CI checks. Agents must read 100% of full-text bot comments and resolve 100% of threads.
 - **Merge authority**: human maintainers only. Agents never merge.
 - **Protected paths** (any change needs explicit maintainer review): `AGENTS.md`, `CLAUDE.md`, `.gouvernance/**`, `.github/workflows/**`, `.github/scripts/**`, `.githooks/**`, `.GCC/PROTOCOL.md`, `CODEOWNERS`, `LICENSE`.
 
