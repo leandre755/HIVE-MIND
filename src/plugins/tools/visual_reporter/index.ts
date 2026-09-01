@@ -1,6 +1,5 @@
-import PDFDocument from 'pdfkit';
+import PdfKitDocument from 'pdfkit';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { botIdentity } from '../../../utils/botIdentity.js';
 import {
   safeExistsSync,
@@ -8,8 +7,6 @@ import {
   safeCreateWriteStream,
   resolveWithinRoot,
 } from '../../../utils/safeFs.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 interface PdfSection {
   heading?: string;
@@ -100,7 +97,7 @@ export const plugin = {
       const filePath = resolveWithinRoot(tempDir, `${safeFilename}_${Date.now()}.pdf`);
 
       // Document creation
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PdfKitDocument({ margin: 50 });
       const stream = safeCreateWriteStream(filePath);
       doc.pipe(stream);
 

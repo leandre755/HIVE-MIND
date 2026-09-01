@@ -3,7 +3,7 @@
 // Évite les connexions multiples (limite Redis Cloud = 30 connexions)
 
 import { createClient } from 'redis';
-import { readFileSync } from 'fs';
+import { safeReadFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,7 +19,7 @@ function extractErrorMessage(error: unknown): string {
 const getRedisUrl = (): string => {
   try {
     const creds = JSON.parse(
-      readFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
+      safeReadFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
     );
     let url: string | undefined = creds.redis?.url;
 
@@ -54,7 +54,8 @@ const redis = createClient({
   url: getRedisUrl(),
   socket: {
     connectTimeout: 15000, // 15s (Augmenté pour les Cold Starts Redis Cloud)
-    keepAlive: 10000, // 10s (Ping TCP pour éviter la coupure silencieuse)
+    keepAlive: true, // Ping TCP pour éviter la coupure silencieuse
+    keepAliveInitialDelay: 10000, // 10s
     tls: false, // Explicitement désactivé pour le port 10xxx standard
     reconnectStrategy: (retries) => {
       if (process.env.APP_ENV === 'local' || retries > 1) {
@@ -82,9 +83,6 @@ redis.on('reconnecting', () => console.log('[Redis] Reconnexion en cours...'));
 // Connexion asynchrone
 let connectionPromise: Promise<void> | null = null;
 
-/**
- * Assure que Redis est connecté avant toute opération
- */
 /**
  * Assure que Redis est connecté avant toute opération
  */
@@ -142,6 +140,7 @@ const checkHealth = async () => {
  * Ferme proprement la connexion Redis
  */
 const disconnect = async (): Promise<void> => {
+  connectionPromise = null;
   if (redis.isOpen) {
     try {
       await redis.quit();
@@ -167,6 +166,9 @@ interface MockSetOptions {
 
 class InMemoryRedisMock {
   storage = new Map<string, StorageEntry>();
+  hashes = new Map<string, Map<string, string>>();
+  sets = new Map<string, Set<string>>();
+  sortedSets = new Map<string, Map<string, number>>();
   isOpen = true;
   isReady = true;
 
@@ -308,11 +310,172 @@ class InMemoryRedisMock {
     return list.slice(start, actualStop);
   }
 
+  async lLen(key: string): Promise<number> {
+    const entry = this.storage.get(key);
+    if (!entry) return 0;
+    const list = JSON.parse(entry.value) as string[];
+    return list.length;
+  }
+
+  async exists(key: string): Promise<number> {
+    if (this.storage.has(key)) return 1;
+    if (this.hashes.has(key)) return 1;
+    if (this.sets.has(key)) return 1;
+    if (this.sortedSets.has(key)) return 1;
+    return 0;
+  }
+
+  async hGet(key: string, field: string): Promise<string | null> {
+    const hash = this.hashes.get(key);
+    return hash?.get(field) ?? null;
+  }
+
+  async hSet(
+    key: string,
+    fieldOrObj: string | Record<string, unknown>,
+    value?: unknown,
+  ): Promise<number> {
+    let hash = this.hashes.get(key);
+    if (!hash) {
+      hash = new Map<string, string>();
+      this.hashes.set(key, hash);
+    }
+    let count = 0;
+    if (typeof fieldOrObj === 'object' && fieldOrObj !== null) {
+      for (const [k, v] of Object.entries(fieldOrObj)) {
+        if (!hash.has(k)) count++;
+        hash.set(k, String(v));
+      }
+    } else if (typeof fieldOrObj === 'string' && value !== undefined) {
+      if (!hash.has(fieldOrObj)) count++;
+      hash.set(fieldOrObj, String(value));
+    }
+    return count;
+  }
+
+  async hGetAll(key: string): Promise<Record<string, string>> {
+    const hash = this.hashes.get(key);
+    if (!hash) return {};
+    const res: Record<string, string> = {};
+    for (const [k, v] of hash.entries()) {
+      Reflect.set(res, k, v);
+    }
+    return res;
+  }
+
+  async hIncrBy(key: string, field: string, increment: number): Promise<number> {
+    let hash = this.hashes.get(key);
+    if (!hash) {
+      hash = new Map<string, string>();
+      this.hashes.set(key, hash);
+    }
+    const current = parseInt(hash.get(field) || '0', 10);
+    const next = current + increment;
+    hash.set(field, String(next));
+    return next;
+  }
+
+  async sAdd(key: string, members: string | string[]): Promise<number> {
+    let set = this.sets.get(key);
+    if (!set) {
+      set = new Set<string>();
+      this.sets.set(key, set);
+    }
+    const items = Array.isArray(members) ? members : [members];
+    let added = 0;
+    for (const item of items) {
+      if (!set.has(item)) {
+        set.add(item);
+        added++;
+      }
+    }
+    return added;
+  }
+
+  async sPop(key: string): Promise<string | null> {
+    const set = this.sets.get(key);
+    if (!set || set.size === 0) return null;
+    const first = set.values().next().value;
+    if (first !== undefined) {
+      set.delete(first);
+      return first;
+    }
+    return null;
+  }
+
+  async sPopCount(key: string, count: number): Promise<string[]> {
+    const set = this.sets.get(key);
+    if (!set || set.size === 0) return [];
+    const popped: string[] = [];
+    for (const val of Array.from(set)) {
+      if (popped.length >= count) break;
+      set.delete(val);
+      popped.push(val);
+    }
+    return popped;
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    const set = this.sets.get(key);
+    return set ? Array.from(set) : [];
+  }
+
+  async sRem(key: string, members: string | string[]): Promise<number> {
+    const set = this.sets.get(key);
+    if (!set) return 0;
+    const items = Array.isArray(members) ? members : [members];
+    let removed = 0;
+    for (const item of items) {
+      if (set.delete(item)) removed++;
+    }
+    return removed;
+  }
+
+  async sIsMember(key: string, member: string): Promise<boolean> {
+    const set = this.sets.get(key);
+    return set ? set.has(member) : false;
+  }
+
+  async zIncrBy(key: string, increment: number, member: string): Promise<number> {
+    let zset = this.sortedSets.get(key);
+    if (!zset) {
+      zset = new Map<string, number>();
+      this.sortedSets.set(key, zset);
+    }
+    const current = zset.get(member) || 0;
+    const next = current + increment;
+    zset.set(member, next);
+    return next;
+  }
+
+  async zRangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): Promise<Array<{ value: string; score: number }>> {
+    const zset = this.sortedSets.get(key);
+    if (!zset) return [];
+    const entries = Array.from(zset.entries()).map(([value, score]) => ({ value, score }));
+    entries.sort((a, b) => (options?.REV ? b.score - a.score : a.score - b.score));
+    const actualStop = stop === -1 ? entries.length : stop + 1;
+    return entries.slice(start, actualStop);
+  }
+
+  async zScore(key: string, member: string): Promise<number | null> {
+    const zset = this.sortedSets.get(key);
+    return zset?.has(member) ? (zset.get(member) ?? null) : null;
+  }
+
   multi() {
     const queue: Array<() => Promise<unknown>> = [];
     const incrBound = this.incr.bind(this);
     const expireBound = this.expire.bind(this);
     const incrByBound = this.incrBy.bind(this);
+    const hIncrByBound = this.hIncrBy.bind(this);
+    const hSetBound = this.hSet.bind(this);
+    const sAddBound = this.sAdd.bind(this);
+    const hGetAllBound = this.hGetAll.bind(this);
     return {
       incr(key: string) {
         queue.push(() => incrBound(key));
@@ -324,6 +487,22 @@ class InMemoryRedisMock {
       },
       incrBy(key: string, value: number) {
         queue.push(() => incrByBound(key, value));
+        return this;
+      },
+      hIncrBy(key: string, field: string, increment: number) {
+        queue.push(() => hIncrByBound(key, field, increment));
+        return this;
+      },
+      hSet(key: string, fieldOrObj: string | Record<string, unknown>, value?: unknown) {
+        queue.push(() => hSetBound(key, fieldOrObj, value));
+        return this;
+      },
+      sAdd(key: string, members: string | string[]) {
+        queue.push(() => sAddBound(key, members));
+        return this;
+      },
+      hGetAll(key: string) {
+        queue.push(() => hGetAllBound(key));
         return this;
       },
       async exec(): Promise<unknown[]> {
@@ -340,25 +519,41 @@ class InMemoryRedisMock {
 function switchToMock(redisInstance: typeof redis): void {
   const mock = new InMemoryRedisMock();
 
-  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen });
-  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady });
+  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen, configurable: true });
+  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady, configurable: true });
 
-  redisInstance.get = mock.get.bind(mock) as never;
-  redisInstance.set = mock.set.bind(mock) as never;
-  redisInstance.setEx = mock.setEx.bind(mock) as never;
-  redisInstance.del = mock.del.bind(mock) as never;
-  redisInstance.keys = mock.keys.bind(mock) as never;
-  redisInstance.incr = mock.incr.bind(mock) as never;
-  redisInstance.incrBy = mock.incrBy.bind(mock) as never;
-  redisInstance.expire = mock.expire.bind(mock) as never;
-  redisInstance.ping = mock.ping.bind(mock) as never;
-  redisInstance.info = mock.info.bind(mock) as never;
-  redisInstance.quit = mock.quit.bind(mock) as never;
-  redisInstance.lPush = mock.lPush.bind(mock) as never;
-  redisInstance.rPop = mock.rPop.bind(mock) as never;
-  redisInstance.lRem = mock.lRem.bind(mock) as never;
-  redisInstance.lRange = mock.lRange.bind(mock) as never;
-  redisInstance.multi = mock.multi.bind(mock) as never;
+  const target = redisInstance as unknown as Record<string, unknown>;
+  target.get = mock.get.bind(mock);
+  target.set = mock.set.bind(mock);
+  target.setEx = mock.setEx.bind(mock);
+  target.del = mock.del.bind(mock);
+  target.keys = mock.keys.bind(mock);
+  target.incr = mock.incr.bind(mock);
+  target.incrBy = mock.incrBy.bind(mock);
+  target.expire = mock.expire.bind(mock);
+  target.ping = mock.ping.bind(mock);
+  target.info = mock.info.bind(mock);
+  target.quit = mock.quit.bind(mock);
+  target.lPush = mock.lPush.bind(mock);
+  target.rPop = mock.rPop.bind(mock);
+  target.lRem = mock.lRem.bind(mock);
+  target.lRange = mock.lRange.bind(mock);
+  target.lLen = mock.lLen.bind(mock);
+  target.exists = mock.exists.bind(mock);
+  target.hGet = mock.hGet.bind(mock);
+  target.hSet = mock.hSet.bind(mock);
+  target.hGetAll = mock.hGetAll.bind(mock);
+  target.hIncrBy = mock.hIncrBy.bind(mock);
+  target.sAdd = mock.sAdd.bind(mock);
+  target.sPop = mock.sPop.bind(mock);
+  target.sPopCount = mock.sPopCount.bind(mock);
+  target.sMembers = mock.sMembers.bind(mock);
+  target.sRem = mock.sRem.bind(mock);
+  target.sIsMember = mock.sIsMember.bind(mock);
+  target.zIncrBy = mock.zIncrBy.bind(mock);
+  target.zRangeWithScores = mock.zRangeWithScores.bind(mock);
+  target.zScore = mock.zScore.bind(mock);
+  target.multi = mock.multi.bind(mock);
 }
 
 export { redis, ensureConnected, checkHealth, disconnect };

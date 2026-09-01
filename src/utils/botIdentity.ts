@@ -4,11 +4,11 @@
  * Centralise le nom et génère automatiquement les variantes
  */
 
-import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { safeReadFileSync } from './safeFs.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
 export interface BotProfile {
   name: string;
@@ -39,8 +39,8 @@ export class BotIdentity {
 
     let botName = 'HIVE-MIND'; // Fallback
     try {
-      const promptPath = join(__dirname, '..', 'persona', 'prompts', 'system.md');
-      const promptContent = readFileSync(promptPath, 'utf-8');
+      const promptPath = join(currentDir, '..', 'persona', 'prompts', 'system.md');
+      const promptContent = safeReadFileSync(promptPath, 'utf-8');
 
       // Extraction dynamique via la balise XML <name>
       const nameMatch = promptContent.match(/<name>([\s\S]*?)<\/name>/);

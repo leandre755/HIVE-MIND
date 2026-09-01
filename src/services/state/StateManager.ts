@@ -191,7 +191,7 @@ export const StateManager = {
     if (!redis?.isOpen) return;
 
     // 1. Récupérer N items de la queue (ce sont des UUIDs maintenant)
-    const uuids = await redis.sPop(SYNC_QUEUE_KEY, batchSize);
+    const uuids = await redis.sPopCount(SYNC_QUEUE_KEY, batchSize);
     if (!uuids || uuids.length === 0) return;
 
     console.log(`[StateManager] Syncing ${uuids.length} users to DB...`);
