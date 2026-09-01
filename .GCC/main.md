@@ -2,6 +2,8 @@
 
 ## 🏆 Major Milestones (Archived Epics)
 
+- [2026-09-01] **Migration & Intégration de 20 Dépendances de Production & Adaptation Redis v6 (PR #14)** : Intégration des dépendances de production mises à jour par Dependabot (PR #14), purge complète de la dépendance morte `audio-decode` (élimination des 4 sous-paquets GPL-2.0 conflictuels en CI), ajout de l'override `browserslist: ^4.28.8` (0 vulnérabilité npm), adaptation complète de `redisClient.ts` et `StateManager.ts` à l'API de `@redis/client` v6 (`sPopCount`, `keepAlive`, `InMemoryRedisMock` complet avec Hashes, Sets, Sorted Sets, Lists, exists, pipeline `multi`/`exec` et réinitialisation de `connectionPromise`). Résultat : `npm run build` 0 erreur, `npm run lint:fast` 0 warning/erreur, `npm audit` 0 vulnérabilité, 502/502 tests unitaires passés (65/65 suites), 34/34 tests d'intégration passés (5/5 suites). Validé avec la mention 100% production-grade / impressed par les deux sous-agents critiques indépendants (`Fix-Verifier` et `Global System Critic`).
+
 - [2026-09-01] **Migration TypeScript 7.0.2 via l'Architecture Side-by-Side Officielle Microsoft (`@typescript/native` + `@typescript/typescript6`) (PR #12)** : Rebase sur `master` de la PR #12, implémentation du pattern officiel Microsoft associant `@typescript/native` (compilateur Go natif TypeScript 7.0.2 pour `tsc`) et `typescript: npm:@typescript/typescript6@^6.0.2` (API programmatique 6.0 pour l'écosystème `ts-jest` et `typescript-eslint`). Résultat : `npm run build` (tsc 7.0.2 natif) 0 erreur, `npm run lint:fast` 0 warning/erreur, `npm run lint:arch` 0 violation, `prettier` 100% propre, `npm audit` 0 vulnérabilité, 502/502 tests unitaires passés (65/65 suites). Validé APPROVE par le sous-agent critique indépendant `code-reviewer`.
 
 - [2026-09-01] **Éradication 100% des Vulnérabilités npm (HIGH/MODERATE) & Formateur de Stickers Natif WebP/Exif (`src/utils/stickerFormatter.ts`)** : Suppression intégrale de `extract-zip` (paquet mort) et `wa-sticker-formatter` (arbre vulnérable de 173 sous-dépendances purgé), migration du plugin `create_sticker` vers un moteur natif basé sur `sharp` avec injection de chunks RIFF/EXIF, mise à jour de l'override `file-type` vers `^21.3.4`. Résultat : `npm audit` 0 vulnérabilité (0 High, 0 Mod, 0 Critical), `tsc --noEmit` 0 erreur, `oxlint` 0 warning, `depcruise` 0 violation, 502/502 tests unitaires passés.
@@ -32,9 +34,14 @@
 
 ## 🎯 Objective
 
-Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1 directory with 21 updates`) et valider la compatibilité de l'ensemble des dépendances de production.
+Fusionner la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`) après validation complète, puis traiter la dette technique résiduelle (chemins absolus dans la doc, alignement node-version du workflow release).
 
 ## 🧠 Decisions Made
+
+- [2026-09-01] **Migration & Intégration de 20 Dépendances de Production & Adaptation Redis v6 (PR #14)**
+  - **Context**: Dependabot a ouvert la PR #14 pour monter un lot de 21 dépendances de production (`redis`, `openai`, `commander`, `pino`, `groq-sdk`, `audio-decode`, etc.). La PR échouait en CI sur GitHub Actions pour deux causes : (1) Incompatibilité de licence (`Dependency review detected incompatible licenses`) provoquée par `audio-decode@3.x` qui introduisait 4 sous-paquets sous licence GPL-2.0 (`@audio/decode-aac`, etc.), en violation avec la politique Apache-2.0 et le check CI `deny-licenses: [..., GPL-2.0]`. (2) Dépassement de taille de PR (1195 lignes modifiées > 1000). De plus, `@redis/client` v6.2.1 introduisait des ruptures d'API majeures (`sPop` ne prenant plus le paramètre count, `keepAlive` n'acceptant plus de nombre) et `browserslist <=4.28.6` introduisait une vulnérabilité HIGH (GHSA-c83g-rgw3-j3cx).
+  - **Discarded Options**: Conserver `audio-decode` v3 et altérer la politique de licence CI pour accepter GPL-2.0 (rejeté après exploration MCP démontrant qu'`audio-decode` n'est importé nulle part dans le projet et que le runtime utilise nativement `ffmpeg`/`fluent-ffmpeg`) ; rejeter la PR #14 ou la découper en 21 micro-PRs (rejeté : l'utilisateur a explicitement demandé de conserver le lot et d'adapter le code applicatif).
+  - **Rationale**: (1) Purge complète d'`audio-decode` de `package.json` et `package-lock.json` (38 sous-dépendances purgées, 0 GPL-2.0 résiduel). (2) Neutralisation de la vulnérabilité GHSA-c83g-rgw3-j3cx via l'override `"browserslist": "^4.28.8"` (audit npm à 0 vulnérabilité). (3) Migration de `StateManager.ts` de `redis.sPop` vers `redis.sPopCount` et mise à niveau de `keepAlive: true` / `keepAliveInitialDelay: 10000` dans `redisClient.ts`. (4) Remplacement de `fs.readFileSync` par `safeReadFileSync` dans `redisClient.ts` (invariants de sécurité I/O). (5) Implémentation exhaustive de `InMemoryRedisMock` (Hashes, Sets, Sorted Sets, Lists, exists, pipeline `multi`/`exec`, `sPopCount`, `sIsMember`, `lLen`) pour garantir un comportement 100% sans faille lors des replis locaux (`APP_ENV=local`). (6) Alignement de `src/tests/integration/services.test.ts`. Validation intégrale : `npm run build` 0 erreur, `npm run lint:fast` 0 warning/erreur, 502/502 tests unitaires validés (65/65 suites), 34/34 tests d'intégration validés (5/5 suites), approuvé à 100% production-grade / impressed par 2 sous-agents critiques indépendants.
 
 - [2026-09-01] **Migration TypeScript 7.0.2 via l'Architecture Side-by-Side Officielle Microsoft (`@typescript/native` + `@typescript/typescript6`) (PR #12)**
   - **Context**: Dependabot a ouvert la PR #12 pour monter `typescript` de 6.0.3 à 7.0.2. TypeScript 7.0 introduit un compilateur natif réécrit en Go (`@typescript/typescript-linux-x64`) et supprime l'API JavaScript programmatique historique (`ts.sys`, `ts.createProgram`). Un bump brut vers `typescript: ^7.0.2` provoquait l'échec immédiat de `ts-jest` (`Cannot read properties of undefined reading 'readFile'`) et des conflits stricts de `peerDependencies` sous `typescript-eslint` (`<6.1.0`) et `ts-jest` (`<7`).
@@ -149,7 +156,7 @@ Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1
 
 ## 🌿 Active Branches / Plans
 
-- `plan_pr14_production_dependencies` : [Migration des Dépendances de Production PR #14](branches/plan_pr14_production_dependencies.md)
+- ~~`plan_pr14_production_dependencies`~~ : [COMPLÉTÉ] [Migration des Dépendances de Production PR #14](branches/plan_pr14_production_dependencies.md)
 - ~~`plan_tui_extraction`~~ : [COMPLÉTÉ] Extraction et Découplage de la TUI dans un Dépôt Autonome (plan de travail conservé hors dépôt, dans le répertoire de session de l'agent qui l'a produit)
 - `plan_unified_context_regulation` : [Audit & Spécification d'Architecture Unified Context Regulation](branches/plan_unified_context_regulation.md)
 - `plan_startup_options_menu` : [Menu d'Options UX Interactif CLI au Démarrage](branches/plan_startup_options_menu.md)
@@ -160,6 +167,7 @@ Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1
 
 ## 📈 Current Status
 
+- ✅ Done: **Migration & Intégration de 20 Dépendances de Production & Adaptation Redis v6 (PR #14)** : Intégration complète de la PR #14, purge d'`audio-decode` (élimination des 4 sous-paquets GPL-2.0), override `browserslist: ^4.28.8` (0 vulnérabilité npm), adaptation complète de `redisClient.ts` et `StateManager.ts` à l'API de `@redis/client` v6 (`sPopCount`, `keepAliveInitialDelay`, `InMemoryRedisMock` complet avec Hashes, Sets, Sorted Sets, Lists, exists, pipeline `multi`/`exec` et réinitialisation de `connectionPromise`). Résultat : `npm run build` 0 erreur, `oxlint` 0 warning/erreur, `npm audit` 0 vulnérabilité, 502/502 tests unitaires passés (65/65 suites), 34/34 tests d'intégration passés (5/5 suites). Validé APPROVE (100% production-grade / impressed) par 2 sous-agents critiques indépendants (`Fix-Verifier` et `Global System Critic`).
 - ✅ Done: **Migration TypeScript 7.0.2 & Nettoyage Codebase (PR #12)** : Adoption de l'architecture Microsoft side-by-side (`@typescript/native: npm:typescript@^7.0.2` et `typescript: npm:@typescript/typescript6@^6.0.2`), correction de 24 erreurs strictes ESLint/cause/complexité sur 18 fichiers, validation complète de la suite Jest (502/502 tests unitaires PASS), Quality Gate pre-push validée et PR #12 fusionnée dans `master` (`76681e0`).
 - ✅ Done: **Extraction & Découplage TUI Standalone** (dépôt sibling `HIVE-MIND-TUI`) validé 100% (M1-M4 : transport Core isolé, 17 dépendances purgées, 372 fichiers TUI migrés avec docs/plans, 11/11 tests E2E cross-process passés).
 - ✅ Done: Menu d'options CLI au démarrage, fix WhatsApp (5 fixes validés runtime), retrait QR auto, architecture Smart Provider 2 couches, GenerationParams.
@@ -171,12 +179,11 @@ Traiter la PR restante #14 (`chore(deps): bump the npm-production group across 1
 - ✅ Done: **Baseline de gouvernance (6 piliers) déployée et committée** (`0ead9b5` nettoyage + `.gitignore` + husky ; `84e61d2` 62 fichiers : AGENTS.md, ARCHITECTURE.md, `.GCC/`, `.gouvernance/`, `.githooks/`, `.github/`). Second commit posé sous `--no-verify` sur autorisation explicite du mainteneur, depuis remboursé par le correctif ci-dessous.
 - ✅ Done: **Quality Gate assainie et durcie** (`cc4fa2a`) : scans littéraux limités au code, scan PEM absolu ajouté, `gitleaks` installé (8.30.1, checksum vérifiée) et rendu bloquant au `pre-commit` (index) comme au `pre-push` (historique) via `_common/detect-secrets.sh` et `.gitleaks.toml`. Commit passé par la gate, sans contournement.
 - ✅ Done: **Licence Apache-2.0 et attribution `leandre755`** appliquées dans `LICENSE`, `package.json`, son miroir `license` dans `package-lock.json` et `README.md` (`74aefe7`, via le canal documenté `ALLOW_CONFIG_EDIT=1`, gate exécutée) ; **titulaire du copyright** ajouté à l'annexe `LICENSE` l. 190 (`4955cac`) ; **`AGENTS.md` §6 aligné sur les hooks réels**, en anglais (`8564779`) ; **badge et prérequis Node du README** portés à 22 (`3ea25ce`).
-- ⏳ Pending: Traitement de la PR restante #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`, 21 bumps de dépendances de production dont Redis v6) ; dette des chemins absolus machine dans `documentation/` et `documentations/` ; arbitrage mainteneur sur `node-version: '20'` de `.github/workflows/release.yml` face à `engines.node >= 22` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/`.
+- ⏳ Pending: Dette des chemins absolus machine dans `documentation/` et `documentations/` ; arbitrage mainteneur sur `node-version: '20'` de `.github/workflows/release.yml` face à `engines.node >= 22` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/`.
 
 
 ## 👉 Next Session Direction
-Démarrer immédiatement le traitement de la **PR restante #14** :
-1. Basculer sur la branche `dependabot/npm_and_yarn/npm-production-c8701cb41e` et la rebaser proprement sur `master` (`76681e0`).
-2. Analyser les 21 dépendances de production mises à jour (notamment Redis client / ioredis v6, zod, axios, google-genai, etc.).
-3. Vérifier les ruptures d'API potentielles et exécuter les tests unitaires et linters.
-4. Appliquer les corrections nécessaires dans `src/` et valider l'ensemble avant push et revue.
+Finaliser la publication et la fusion sur GitHub de la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`), puis traiter la dette technique résiduelle :
+1. Pousser la branche de la PR #14 mise à jour vers GitHub.
+2. Traiter la dette des 120 liens absolus machine dans `documentation/` et `documentations/`.
+3. Arbitrer le `node-version: '20'` de `.github/workflows/release.yml`.
