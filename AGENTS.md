@@ -171,7 +171,7 @@ Git hooks are active (`core.hooksPath=.githooks`) — never bypass them. **Singl
 
 <tool_dependency name="gitleaks">Hard runtime dependency of the gate, not of the application: it must stay installed on any workstation that commits. Absence fails the gate rather than skipping the step, and the hook prints the exact root-free install block to run.</tool_dependency>
 
-<governance source=".github/workflows/governance.yml">PR title and every commit must follow Conventional Commits; PR size ≤ 2500 changed lines of code (warning above 1000, .md/.txt/.pdf excluded). Conventional Commits drive semantic-release versioning.</governance>
+<governance source=".github/workflows/governance.yml">PR title and every commit must follow Conventional Commits; PR size ≤ 2500 changed lines of code (warning above 1000, .md/.markdown/.txt/.pdf excluded). Conventional Commits drive semantic-release versioning.</governance>
 
 </git_hygiene>
 
