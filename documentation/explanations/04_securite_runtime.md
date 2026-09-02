@@ -51,7 +51,7 @@ Le Programmatic Tool Calling (PTC) permet au LLM de générer un script JavaScri
 
 #### Validation AST par `SafeScriptValidator`
 
-Avant toute exécution, le script est analysé par [src/services/ptc/SafeScriptValidator.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/SafeScriptValidator.ts) :
+Avant toute exécution, le script est analysé par `src/services/ptc/SafeScriptValidator.ts` :
 
 1. **Analyse syntaxique via Acorn** : Le code est parsé avec `acorn.parse`. En cas d'échec, `autoRepairCode` tente de corriger les erreurs syntaxiques communes générées par les LLM :
    - Fermeture automatique des parenthèses/accolades non fermées.
@@ -74,21 +74,21 @@ Avant toute exécution, le script est analysé par [src/services/ptc/SafeScriptV
 
 #### Exécution dans le bac à sable `node:vm`
 
-Le `ProgrammaticExecutor` ([src/services/ptc/ProgrammaticExecutor.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/ProgrammaticExecutor.ts)) exécute le code validé :
+Le `ProgrammaticExecutor` (`src/services/ptc/ProgrammaticExecutor.ts`) exécute le code validé :
 
 - **Isolation** : Le code est enveloppé dans une IIFE asynchrone et exécuté dans un contexte `node:vm` isolé. Un timeout matériel (30 secondes par défaut) garantit l'interruption des boucles infinies non détectées.
-- **Helpers sécurisés** : [src/services/ptc/SandboxHelpers.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/SandboxHelpers.ts) expose des utilitaires défensifs (`toArray`, `safeGet`, `extractText`) pour traiter les structures retournées par les outils sans crash.
+- **Helpers sécurisés** : `src/services/ptc/SandboxHelpers.ts` expose des utilitaires défensifs (`toArray`, `safeGet`, `extractText`) pour traiter les structures retournées par les outils sans crash.
 - **Scope Guard (Proxy)** : Le contexte global est encapsulé dans un Proxy JavaScript. Tout accès à une propriété non injectée lève une `ReferenceError` explicite au lieu de retourner `undefined` silencieusement, empêchant les dérives comportementales liées aux fautes de frappe.
 
 #### Tâches longues — `WakeSystem`
 
-Pour les tâches dépassant le timeout LLM de 90 secondes, [src/services/ptc/WakeSystem.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/WakeSystem.ts) permet au script d'appeler `HIVE.sleepAndWake(delayMs, wakePrompt)`. L'événement de réveil est persisté dans Redis (`hive:wake_events`) et la VM se termine immédiatement. Un démon heartbeat (toutes les 5 secondes) extrait les événements expirés et réinjecte un prompt de réveil dans le cycle de l'agent.
+Pour les tâches dépassant le timeout LLM de 90 secondes, `src/services/ptc/WakeSystem.ts` permet au script d'appeler `HIVE.sleepAndWake(delayMs, wakePrompt)`. L'événement de réveil est persisté dans Redis (`hive:wake_events`) et la VM se termine immédiatement. Un démon heartbeat (toutes les 5 secondes) extrait les événements expirés et réinjecte un prompt de réveil dans le cycle de l'agent.
 
 ---
 
 ### Pilier 2 — Validation des permissions (PermissionManager + HITL)
 
-Le `PermissionManager` ([src/core/security/PermissionManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/security/PermissionManager.ts)) intercepte les actions nécessitant une validation humaine (Human-In-The-Loop).
+Le `PermissionManager` (`src/core/security/PermissionManager.ts`) intercepte les actions nécessitant une validation humaine (Human-In-The-Loop).
 
 #### Restrictions systématiques
 
@@ -110,7 +110,7 @@ Les administrateurs approuvent via `.approve <ID>` ou rejettent via `.reject <ID
 
 #### Sentinel VIGIL — Évaluation sémantique
 
-Le `RuntimeSentinel` dans [src/services/runtime/RuntimeInfrastructure.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/runtime/RuntimeInfrastructure.ts) ajoute une couche d'évaluation sémantique au-dessus des règles statiques :
+Le `RuntimeSentinel` dans `src/services/runtime/RuntimeInfrastructure.ts` ajoute une couche d'évaluation sémantique au-dessus des règles statiques :
 
 - **Pruning déterministe** : `projectActionSpace()` filtre l'espace d'actions selon le blueprint. Si `read_only_fs` est actif, tout outil d'écriture est bloqué directement.
 - **Fast-paths (bypass)** : Les outils en lecture seule (`grep_search`, `read_file`, `browser_screenshot`, `update_scratchpad`) ne sont pas évalués par le LLM pour économiser la latence et les tokens.
@@ -132,7 +132,7 @@ La classe `RalphController` intercepte les réponses de l'agent en fin de boucle
 
 #### FinOps et Budget KKT Lagrangien
 
-Les coûts sont calculés à partir de [src/config/pricing.json](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/config/pricing.json) et enregistrés pour chaque appel réussi.
+Les coûts sont calculés à partir de `src/config/pricing.json` et enregistrés pour chaque appel réussi.
 
 **Kill Switch** : Si le budget cumulé de session dépasse `maxSessionBudget` (défaut : $2.00), l'exception `BUDGET_EXCEEDED` est propagée via l'event bus et l'exécution s'arrête immédiatement.
 
@@ -140,7 +140,7 @@ Les coûts sont calculés à partir de [src/config/pricing.json](file:///home/om
 $$\lambda = \left(\frac{\text{coût session}}{\text{budget max}}\right)^4$$
 
 - Si $\lambda > 0.05$ : le routeur réduit `max_tokens` proportionnellement : $\max(200, \lfloor \text{max\_tokens} \times (1 - \lambda) \rfloor)$.
-- Si $\lambda > 0.8$ : les balises `<kkt_emergency>CRITICAL</kkt_emergency>` et `<kkt_directive>` sont injectées dans le prompt système via [src/core/context/TieredContextLoader.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/context/TieredContextLoader.ts), ordonnant à l'agent de clore la tâche immédiatement.
+- Si $\lambda > 0.8$ : les balises `<kkt_emergency>CRITICAL</kkt_emergency>` et `<kkt_directive>` sont injectées dans le prompt système via `src/core/context/TieredContextLoader.ts`, ordonnant à l'agent de clore la tâche immédiatement.
 
 ---
 
@@ -168,9 +168,9 @@ $$\lambda = \left(\frac{\text{coût session}}{\text{budget max}}\right)^4$$
 
 ## Further reading
 
-- [src/services/ptc/SafeScriptValidator.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/SafeScriptValidator.ts) — Validation AST et auto-repair
-- [src/services/ptc/ProgrammaticExecutor.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/ProgrammaticExecutor.ts) — Exécution sandbox VM
-- [src/services/ptc/WakeSystem.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/WakeSystem.ts) — Tâches longues et réveil Redis
-- [src/core/security/PermissionManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/security/PermissionManager.ts) — HITL et confinement
-- [src/services/runtime/RuntimeInfrastructure.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/runtime/RuntimeInfrastructure.ts) — Sentinel VIGIL, Ralph, FinOps KKT
-- [src/config/pricing.json](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/config/pricing.json) — Coûts unitaires des modèles
+- `src/services/ptc/SafeScriptValidator.ts` — Validation AST et auto-repair
+- `src/services/ptc/ProgrammaticExecutor.ts` — Exécution sandbox VM
+- `src/services/ptc/WakeSystem.ts` — Tâches longues et réveil Redis
+- `src/core/security/PermissionManager.ts` — HITL et confinement
+- `src/services/runtime/RuntimeInfrastructure.ts` — Sentinel VIGIL, Ralph, FinOps KKT
+- `src/config/pricing.json` — Coûts unitaires des modèles

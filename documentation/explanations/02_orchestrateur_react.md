@@ -22,7 +22,7 @@ HIVE-MIND résout ce problème via trois composants complémentaires :
 
 ### 1. Cycle de vie de la Boucle ReAct
 
-Le traitement complet d'un message est géré dans [src/core/index.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/index.ts). La boucle est limitée à **10 itérations maximum** pour prévenir les boucles infinies.
+Le traitement complet d'un message est géré dans `src/core/index.ts`. La boucle est limitée à **10 itérations maximum** pour prévenir les boucles infinies.
 
 ```mermaid
 flowchart TD
@@ -47,14 +47,14 @@ flowchart TD
 #### Phase 1 — Chargement du contexte et préparation
 
 - **`tieredContextLoader.load()`** : Agrège le contexte L1 depuis Redis (passeport utilisateur, scratchpad, historique d'actions, messages récents).
-- **Résolution du blueprint** : Le `BlueprintManager` charge le profil de comportement actif (ex. `hive_main`) depuis [src/core/blueprint/AgentBlueprint.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/blueprint/AgentBlueprint.ts). Ce profil définit les outils autorisés (`action_space.allowed_tools`), les budgets d'itérations et les contraintes de sécurité.
+- **Résolution du blueprint** : Le `BlueprintManager` charge le profil de comportement actif (ex. `hive_main`) depuis `src/core/blueprint/AgentBlueprint.ts`. Ce profil définit les outils autorisés (`action_space.allowed_tools`), les budgets d'itérations et les contraintes de sécurité.
 - **Sélection sémantique des outils (RAG)** : `pluginLoader.getRelevantTools()` interroge Supabase via l'appel RPC `match_tools` pour ne retourner que les outils dont les embeddings sont les plus proches sémantiquement de la requête. Les outils système (`edit_file`, `read_file`, `grep_search`, etc.) sont systématiquement ajoutés.
 - **Filtrage Sentinel** : La liste d'outils est ensuite filtrée par `runtime.sentinel.projectActionSpace()` pour ne conserver que ceux autorisés par le blueprint actif.
 - **Injection PTC** : Si le Programmatic Tool Calling est activé, le méta-outil `code_execution` est ajouté. Sa description docstring contient dynamiquement la liste des outils RAG sélectionnés, permettant au LLM de les orchestrer via un script JavaScript.
 
 #### Phase 2 — Planification optionnelle
 
-Pour les requêtes multi-étapes complexes, le `Planner` ([src/services/agentic/Planner.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/agentic/Planner.ts)) décompose la tâche en sous-étapes et les exécute séquentiellement. Si le taux de réussite des étapes tombe sous 50 %, une réponse d'excuse factuelle est générée sans exécuter la boucle ReAct standard.
+Pour les requêtes multi-étapes complexes, le `Planner` (`src/services/agentic/Planner.ts`) décompose la tâche en sous-étapes et les exécute séquentiellement. Si le taux de réussite des étapes tombe sous 50 %, une réponse d'excuse factuelle est générée sans exécuter la boucle ReAct standard.
 
 #### Phase 3 — Boucle d'inférence itérative
 
@@ -85,7 +85,7 @@ Pour les requêtes multi-étapes complexes, le `Planner` ([src/services/agentic/
 
 ### 2. Le `ServiceContainer` et l'injection de dépendances
 
-Le `ServiceContainer` ([src/core/ServiceContainer.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/ServiceContainer.ts)) est le registre central de tous les services. Il résout les dépendances dans un **ordre topologique** défini à l'initialisation :
+Le `ServiceContainer` (`src/core/ServiceContainer.ts`) est le registre central de tous les services. Il résout les dépendances dans un **ordre topologique** défini à l'initialisation :
 
 | Étape                  | Services instanciés                                                                   |
 | :--------------------- | :------------------------------------------------------------------------------------ |
@@ -103,7 +103,7 @@ Le `ServiceContainer` ([src/core/ServiceContainer.ts](file:///home/omni/Code/HIV
 
 ### 3. La `FairnessQueue` et l'équité multi-utilisateurs
 
-Dans un contexte multi-canal, une simple file FIFO permettrait à un utilisateur émettant un burst de messages de bloquer tous les autres. La `FairnessQueue` ([src/core/FairnessQueue.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/FairnessQueue.ts)) résout ce problème par un **algorithme Round-Robin circulaire par `chatId`**.
+Dans un contexte multi-canal, une simple file FIFO permettrait à un utilisateur émettant un burst de messages de bloquer tous les autres. La `FairnessQueue` (`src/core/FairnessQueue.ts`) résout ce problème par un **algorithme Round-Robin circulaire par `chatId`**.
 
 ```
 Exemple avec 3 chats actifs (A, B, C) :
@@ -125,7 +125,7 @@ Ordre d'extraction : msg1(A) → msg3(B) → msg4(C) → msg2(A) → msg5(C) →
 - Si la file du chat courant est vide, il est retiré de la rotation et le suivant est évalué.
 - Après extraction d'un message, si la file locale est encore peuplée, `currentIndex` avance vers le chat suivant (modulo).
 
-**L'orchestrateur** ([src/core/orchestrator.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/orchestrator.ts)) limite l'exécution simultanée à **3 tâches** (`maxConcurrent`) et impose un cooldown minimal entre deux réponses successives (`cooldown_between_responses_ms`) pour protéger contre le backlog.
+**L'orchestrateur** (`src/core/orchestrator.ts`) limite l'exécution simultanée à **3 tâches** (`maxConcurrent`) et impose un cooldown minimal entre deux réponses successives (`cooldown_between_responses_ms`) pour protéger contre le backlog.
 
 ---
 
@@ -151,8 +151,8 @@ Ordre d'extraction : msg1(A) → msg3(B) → msg4(C) → msg2(A) → msg5(C) →
 
 ## Further reading
 
-- [src/core/index.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/index.ts) — Implémentation complète de la boucle ReAct
-- [src/core/ServiceContainer.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/ServiceContainer.ts) — Conteneur IoC
-- [src/core/FairnessQueue.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/FairnessQueue.ts) — Algorithme Round-Robin
-- [src/core/orchestrator.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/orchestrator.ts) — Limite de concurrence et cooldown
-- [src/services/agentic/Planner.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/agentic/Planner.ts) — Planificateur explicite
+- `src/core/index.ts` — Implémentation complète de la boucle ReAct
+- `src/core/ServiceContainer.ts` — Conteneur IoC
+- `src/core/FairnessQueue.ts` — Algorithme Round-Robin
+- `src/core/orchestrator.ts` — Limite de concurrence et cooldown
+- `src/services/agentic/Planner.ts` — Planificateur explicite

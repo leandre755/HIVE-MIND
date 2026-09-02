@@ -8,7 +8,7 @@ Le lecteur cherche à **comprendre** l'organisation globale du système avant de
 
 ## Context
 
-HIVE-MIND-RAILWAY est un agent autonome multi-canal capable d'exécuter des tâches d'ingénierie complexes (écriture de code, interaction avec des bases de données, navigation web, transcription audio) tout en communiquant avec des utilisateurs sur des réseaux de messagerie variés (WhatsApp via Baileys, Discord, Telegram, CLI/Terminal).
+HIVE-MIND est un agent autonome multi-canal capable d'exécuter des tâches d'ingénierie complexes (écriture de code, interaction avec des bases de données, navigation web, transcription audio) tout en communiquant avec des utilisateurs sur des réseaux de messagerie variés (WhatsApp via Baileys, Discord, Telegram, CLI/Terminal).
 
 Face à cette diversité de cas d'usage, deux tentations architecturales naïves existent :
 
@@ -60,15 +60,15 @@ L'architecture se décompose en cinq couches à flux unidirectionnel descendant.
 
 ### Couche 1 — Transport
 
-Chaque transport (WhatsApp/Baileys, Discord, Telegram, CLI Ink) implémente le contrat `TransportInterface` défini dans [src/core/transport/interface.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/interface.ts). Ce contrat expose des méthodes uniformes : `onMessage()`, `sendText()`, `sendMedia()`, `sendUniversalResponse()`, etc.
+Chaque transport (WhatsApp/Baileys, Discord, Telegram, CLI Ink) implémente le contrat `TransportInterface` défini dans `src/core/transport/interface.ts`. Ce contrat expose des méthodes uniformes : `onMessage()`, `sendText()`, `sendMedia()`, `sendUniversalResponse()`, etc.
 
 Le `TransportManager` est le chef d'orchestre de cette couche : il enregistre dynamiquement les adaptateurs actifs selon l'environnement, injecte un champ `sourceChannel` dans chaque message entrant, et route les réponses sortantes vers le bon transport.
 
 ### Couche 2 — Orchestration Core
 
-Dès qu'un message est normalisé, il entre dans la `FairnessQueue` ([src/core/FairnessQueue.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/FairnessQueue.ts)) via un algorithme Round-Robin par `chatId`. L'orchestrateur ([src/core/orchestrator.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/orchestrator.ts)) dépile les événements (max 3 en parallèle) et les transmet au moteur principal `BotCore` dans [src/core/index.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/index.ts).
+Dès qu'un message est normalisé, il entre dans la `FairnessQueue` (`src/core/FairnessQueue.ts`) via un algorithme Round-Robin par `chatId`. L'orchestrateur (`src/core/orchestrator.ts`) dépile les événements (max 3 en parallèle) et les transmet au moteur principal `BotCore` dans `src/core/index.ts`.
 
-Le `ServiceContainer` ([src/core/ServiceContainer.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/ServiceContainer.ts)) réalise l'injection de dépendances : chaque service est enregistré une seule fois et résolu à la demande.
+Le `ServiceContainer` (`src/core/ServiceContainer.ts`) réalise l'injection de dépendances : chaque service est enregistré une seule fois et résolu à la demande.
 
 ### Couche 3 — Runtime Infrastructure
 
@@ -85,7 +85,7 @@ C'est ici que réside l'intelligence persistante de l'agent :
 - La mémoire de travail (Redis, cache chaud L1) stocke les 15 derniers messages, le scratchpad et la trace des actions récentes.
 - La mémoire sémantique (Supabase + pgvector, persistance L2) conserve les souvenirs à long terme, les faits utilisateurs (MAPLE) et les artefacts de l'espace de travail.
 - Le `LearningEngine` extrait en arrière-plan des faits structurés sur l'utilisateur.
-- Le PTC Sandbox ([src/services/ptc/](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/ptc/)) exécute les scripts générés par le LLM dans un bac à sable `node:vm` isolé.
+- Le PTC Sandbox (`src/services/ptc/`) exécute les scripts générés par le LLM dans un bac à sable `node:vm` isolé.
 
 ### Couche 5 — Infrastructure Layer
 
@@ -121,4 +121,4 @@ L'architecture en couches représente un équilibre entre la simplicité opérat
 - [04 — Sécurité, PTC & Supervision Runtime](./04_securite_runtime.md)
 - [05 — Mémoire Cognitive & Bases de Données](./05_memoire_cognitive.md)
 - [06 — TUI & Système de Plugins](./06_tui_plugins.md)
-- [PROJECT.md](file:///home/omni/Code/HIVE-MIND-RAILWAY/PROJECT.md) — Contrats d'interface et layout du code
+- [PROJECT.md](../../PROJECT.md) — Contrats d'interface et layout du code

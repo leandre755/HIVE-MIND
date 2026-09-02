@@ -21,7 +21,7 @@ Ces deux problèmes sont résolus respectivement par la classe `HiveCoreConnecti
 
 ### 1. Communication TUI ↔ Core : `HiveCoreConnection`
 
-Le pont de communication est défini dans [src/tui/core/connection.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/core/connection.ts). La TUI est cliente d'un serveur WebSocket exposé par le Core via `TuiServerTransport`.
+Le pont de communication est défini dans `src/tui/core/connection.ts`. La TUI est cliente d'un serveur WebSocket exposé par le Core via `TuiServerTransport`.
 
 ```mermaid
 sequenceDiagram
@@ -93,7 +93,7 @@ flowchart LR
 
 #### Capture des saisies (TAB)
 
-Dans [src/tui/ui/components/InputPrompt.tsx](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/components/InputPrompt.tsx), la touche `TAB` (définie dans [src/tui/ui/key/keyBindings.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/key/keyBindings.ts)) déclenche `handleQueueMessageKey()`. Si :
+Dans `src/tui/ui/components/InputPrompt.tsx`, la touche `TAB` (définie dans `src/tui/ui/key/keyBindings.ts`) déclenche `handleQueueMessageKey()`. Si :
 
 - L'agent est en génération (`isGenerating` est vrai).
 - La saisie n'est pas vide.
@@ -103,13 +103,13 @@ Le texte du buffer est envoyé à `onQueueMessage()` et le buffer est immédiate
 
 #### Stockage et visualisation
 
-Le hook [src/tui/ui/hooks/useMessageQueue.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/hooks/useMessageQueue.ts) gère le tableau d'état `messageQueue: string[]`. Il expose :
+Le hook `src/tui/ui/hooks/useMessageQueue.ts` gère le tableau d'état `messageQueue: string[]`. Il expose :
 
 - `addMessage(text)` : ajoute un message.
 - `clearQueue()` : vide la queue.
 - `popAllMessages()` : dépile tous les messages.
 
-Le composant [src/tui/ui/components/QueuedMessageDisplay.tsx](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/components/QueuedMessageDisplay.tsx) affiche la liste sous le champ de saisie avec la mention `Queued (press ↑ to edit)`. Si l'utilisateur appuie sur `↑` avec un buffer vide, `tryLoadQueuedMessages()` réinjecte tous les messages accumulés dans le buffer pour modification.
+Le composant `src/tui/ui/components/QueuedMessageDisplay.tsx` affiche la liste sous le champ de saisie avec la mention `Queued (press ↑ to edit)`. Si l'utilisateur appuie sur `↑` avec un buffer vide, `tryLoadQueuedMessages()` réinjecte tous les messages accumulés dans le buffer pour modification.
 
 #### Dépilage automatique
 
@@ -121,7 +121,7 @@ Un `useEffect` dans `useMessageQueue.ts` surveille l'état du Core. Dès que tou
 
 #### StatusRow
 
-[src/tui/ui/components/StatusRow.tsx](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/components/StatusRow.tsx) est la barre d'état au bas du terminal. Elle agrège et affiche en temps réel :
+`src/tui/ui/components/StatusRow.tsx` est la barre d'état au bas du terminal. Elle agrège et affiche en temps réel :
 
 - **Services actifs** : Indicateurs cliquables `ServiceIndicator` affichant le nom et la durée d'exécution des services du Core (MAPLE, VIGIL). Alimentés par les événements WebSocket `service_start`/`service_end`.
 - **Consommation de contexte** : Abonnée à l'événement `context_usage_update`, elle affiche `[Context: X/Y (Z%)]` avec une coloration dynamique (vert → orange → rouge) selon le niveau de saturation.
@@ -131,7 +131,7 @@ Un `useEffect` dans `useMessageQueue.ts` surveille l'état du Core. Dès que tou
 
 #### ContextWindowService
 
-Défini dans [src/services/runtime/ContextWindowService.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/runtime/ContextWindowService.ts) :
+Défini dans `src/services/runtime/ContextWindowService.ts` :
 
 | Modèle                    | Limite de tokens |
 | :------------------------ | :--------------- |
@@ -152,7 +152,7 @@ Le système de plugins permet d'étendre les capacités de l'agent sans modifier
 
 #### Déclaration d'un plugin
 
-Tout plugin doit implémenter l'interface `Plugin` définie dans [src/plugins/loader.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/plugins/loader.ts) et exporter par défaut :
+Tout plugin doit implémenter l'interface `Plugin` définie dans `src/plugins/loader.ts` et exporter par défaut :
 
 ```typescript
 interface Plugin {
@@ -221,10 +221,10 @@ Les **`CORE_TOOL_NAMES`** (ex. `edit_file`, `grep_search`, `read_file`, `browser
 
 ## Further reading
 
-- [src/tui/core/connection.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/core/connection.ts) — Pont WebSocket TUI ↔ Core
-- [src/core/transport/TuiServerTransport.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/TuiServerTransport.ts) — Serveur WebSocket côté Core
-- [src/tui/ui/components/InputPrompt.tsx](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/components/InputPrompt.tsx) — Capture des saisies et queue TAB
-- [src/tui/ui/hooks/useMessageQueue.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/hooks/useMessageQueue.ts) — Hook de gestion de la queue
-- [src/tui/ui/components/StatusRow.tsx](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/tui/ui/components/StatusRow.tsx) — Barre d'état et indicateurs
-- [src/services/runtime/ContextWindowService.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/runtime/ContextWindowService.ts) — Suivi de la fenêtre de contexte
-- [src/plugins/loader.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/plugins/loader.ts) — PluginLoader et sélection sémantique
+- `src/tui/core/connection.ts` — Pont WebSocket TUI ↔ Core
+- `src/core/transport/TuiServerTransport.ts` — Serveur WebSocket côté Core
+- `src/tui/ui/components/InputPrompt.tsx` — Capture des saisies et queue TAB
+- `src/tui/ui/hooks/useMessageQueue.ts` — Hook de gestion de la queue
+- `src/tui/ui/components/StatusRow.tsx` — Barre d'état et indicateurs
+- `src/services/runtime/ContextWindowService.ts` — Suivi de la fenêtre de contexte
+- `src/plugins/loader.ts` — PluginLoader et sélection sémantique
