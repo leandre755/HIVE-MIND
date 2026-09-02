@@ -9,7 +9,7 @@ How the HIVE-MIND repository is managed on GitHub: automation workflows, issue l
 | Workflow | Trigger | What it does |
 |---|---|---|
 | **CI** (`ci.yml`) | Every PR + push to `main` | Runs the full validation pipeline (install, type check, lint, tests). Concurrency: superseded runs are cancelled on non-main refs. |
-| **Pull request governance** (`governance.yml`) | PR opened / edited / synchronize / reopened / ready_for_review | Enforces PR title Conventional Commits format, validates every commit message, computes changed-line size (fail > 1000, warning > 500), and posts a governance summary comment on the PR. |
+| **Pull request governance** (`governance.yml`) | PR opened / edited / synchronize / reopened / ready_for_review | Enforces PR title Conventional Commits format, validates every commit message, computes changed-line size of code (fail > 2500, warning > 1000, .md/.markdown/.txt/.pdf excluded), and posts a governance summary comment on the PR. |
 | **Dependency review** (`security.yml`) | PRs that touch the lockfile | GitHub dependency review: blocks PRs introducing vulnerable or high-severity transitive dependencies. |
 | **Issue triage** (`issue-triage.yml`) | Issue opened / reopened / edited | Classifies the issue and upserts a bounded triage result (labels such as `needs-triage` → typed/priority labels) so nothing stays unqualified. |
 | **Issue detection — ANTIBUG** (`issue-detection.yml`) | Daily cron `23 4 * * *` UTC | Forensic defect audit: resolves the incremental scope from the previous audit marker, runs the ANTIBUG agent backend, files evidence-backed issues (provable defects only), records a marker for the next run. |
@@ -48,7 +48,7 @@ Autonomous agents may only file issues as the result of the scheduled ANTIBUG au
 
 - **Delivery mode**: all non-trivial changes ship by PR only — see `AGENTS.md` §4 (Strict Review).
 - **Title & commits**: Conventional Commits (`type(scope): description`), enforced by `governance.yml` on title and every commit.
-- **Size budget**: ≤ 500 changed lines recommended, 1000 hard limit (governance check fails above).
+- **Size budget**: ≤ 1000 changed lines of code recommended, 2500 hard limit (governance check fails above, .md/.markdown/.txt/.pdf excluded).
 - **Template**: `.github/PULL_REQUEST_TEMPLATE.md` — root cause / summary / tests / risks.
 - **Required reviews**: independent AI review bots (CodeRabbit, Greptile, Codex) + CI checks. Agents must read 100% of full-text bot comments and resolve 100% of threads.
 - **Merge authority**: human maintainers only. Agents never merge.
