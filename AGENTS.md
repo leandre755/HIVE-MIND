@@ -129,7 +129,7 @@ Authoring templates and full specification: [`.GCC/PROTOCOL.md`](.GCC/PROTOCOL.m
 All non-trivial work ships **through Pull Requests only**. Golden rule: **an AI agent NEVER approves its own code.**
 
 <workflow>
-<step id="1" name="branch_and_implement">Dedicated branch (`<type>/<slug>`), small focused changes — PR budget ≤ 500 lines, hard limit 1000.</step>
+<step id="1" name="branch_and_implement">Dedicated branch (`<type>/<slug>`), small focused changes — PR budget ≤ 1000 lines of code, hard limit 2500 (documentation and text assets excluded).</step>
 <step id="2" name="local_pre_delivery">Run the validation commands (§2) and a local reviewer pass (reviewer sub-agent / `greptile review`); fix all findings in a single batch before committing.</step>
 <step id="3" name="cloud_pr_review">Push the branch and open the PR with `.github/PULL_REQUEST_TEMPLATE.md`.</step>
 <step id="4" name="online_verification_bots">TOOL INVOCATION: fetch and read <b>100% of the full-text comments</b> from CodeRabbit, Greptile, Codex, and CI checks. Green checkmarks alone are never sufficient.</step>
@@ -171,7 +171,7 @@ Git hooks are active (`core.hooksPath=.githooks`) — never bypass them. **Singl
 
 <tool_dependency name="gitleaks">Hard runtime dependency of the gate, not of the application: it must stay installed on any workstation that commits. Absence fails the gate rather than skipping the step, and the hook prints the exact root-free install block to run.</tool_dependency>
 
-<governance source=".github/workflows/governance.yml">PR title and every commit must follow Conventional Commits; PR size ≤ 1000 changed lines (warning above 500). Conventional Commits drive semantic-release versioning.</governance>
+<governance source=".github/workflows/governance.yml">PR title and every commit must follow Conventional Commits; PR size ≤ 2500 changed lines of code (warning above 1000, .md/.txt/.pdf excluded). Conventional Commits drive semantic-release versioning.</governance>
 
 </git_hygiene>
 

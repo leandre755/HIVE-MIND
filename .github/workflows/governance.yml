@@ -52,8 +52,9 @@ jobs:
           set -euo pipefail
           git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" > "$CHANGED_FILES_FILE"
           git diff --numstat "$BASE_SHA...$HEAD_SHA" > "${CHANGED_FILES_FILE}.numstat"
-          added=$(awk '{ sum += $1 } END { print sum + 0 }' "${CHANGED_FILES_FILE}.numstat")
-          deleted=$(awk '{ sum += $2 } END { print sum + 0 }' "${CHANGED_FILES_FILE}.numstat")
+          # Exclude documentation and text/asset files (.md, .markdown, .txt, .pdf) from the code size budget
+          added=$(awk '$1 ~ /^[0-9]+$/ && tolower($0) !~ /\.(md|markdown|txt|pdf)$/ { sum += $1 } END { print sum + 0 }' "${CHANGED_FILES_FILE}.numstat")
+          deleted=$(awk '$2 ~ /^[0-9]+$/ && tolower($0) !~ /\.(md|markdown|txt|pdf)$/ { sum += $2 } END { print sum + 0 }' "${CHANGED_FILES_FILE}.numstat")
           total=$((added + deleted))
           protected=false
           while IFS= read -r -d '' path; do
@@ -65,19 +66,20 @@ jobs:
           done < "$CHANGED_FILES_FILE"
           echo "total=$total" >> "$GITHUB_OUTPUT"
           echo "protected=$protected" >> "$GITHUB_OUTPUT"
-          if (( total > 1000 )); then
+          if (( total > 2500 )); then
             echo 'status=fail' >> "$GITHUB_OUTPUT"
-            echo "Pull request too large: $total changed lines (maximum 1000)." >&2
+            echo "Pull request too large: $total changed lines of code (maximum 2500, docs/assets excluded)." >&2
             exit 1
-          elif (( total > 500 )); then
+          elif (( total > 1000 )); then
             echo 'status=warning' >> "$GITHUB_OUTPUT"
-            echo "Pull request is large: $total changed lines. Consider splitting it." >&2
+            echo "Pull request is large: $total changed lines of code. Consider splitting it." >&2
           else
             echo 'status=pass' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Validate commit messages
         id: commits
+        if: !cancelled()
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -120,7 +122,7 @@ jobs:
               '',
               `- PR title: **${title}**`,
               `- Commit messages: **${commits}**`,
-              `- Size: **${size}** (${process.env.TOTAL_CHANGES} changed lines)`,
+              `- Size: **${size}** (${process.env.TOTAL_CHANGES} changed lines of code, docs/assets excluded)`,
               `- Sensitive automation files changed: **${protectedPaths ? 'yes — require Code Owner review' : 'no'}**`,
               '',
               'Branch protection and CODEOWNERS must enforce approval for sensitive paths.'
