@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import type { BrowserService as BrowserServiceType } from '../../services/browser/BrowserService.js';
+import type { BrowserService as BrowserServiceType } from '../../../../services/browser/BrowserService.js';
 
 // ESM-safe mocking: MUST come before any dynamic import
 jest.unstable_mockModule('child_process', () => ({
@@ -17,7 +17,7 @@ jest.unstable_mockModule('child_process', () => ({
   ),
 }));
 
-const { BrowserService } = await import('../../services/browser/BrowserService.js');
+const { BrowserService } = await import('../../../../services/browser/BrowserService.js');
 
 describe('BrowserService', () => {
   // WHY: BrowserService has a private constructor (singleton). Cast through internals for test access.

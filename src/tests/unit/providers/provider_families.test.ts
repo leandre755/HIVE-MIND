@@ -22,20 +22,20 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { GenericProviderAdapter } from '../providers/GenericProviderAdapter.js';
-import { claudeCodeHeaders } from '../providers/families/headers/ClaudeCodeHeaders.js';
-import { standardBearerHeaders } from '../providers/families/headers/StandardBearerHeaders.js';
-import { tokenAuthHeaders } from '../providers/families/headers/TokenAuthHeaders.js';
-import { xApiKeyHeaders } from '../providers/families/headers/XApiKeyHeaders.js';
-import { anthropicCompatibleProtocol } from '../providers/families/protocols/AnthropicCompatibleProtocol.js';
-import { openAICompatibleProtocol } from '../providers/families/protocols/OpenAICompatibleProtocol.js';
+import { GenericProviderAdapter } from '../../../providers/GenericProviderAdapter.js';
+import { claudeCodeHeaders } from '../../../providers/families/headers/ClaudeCodeHeaders.js';
+import { standardBearerHeaders } from '../../../providers/families/headers/StandardBearerHeaders.js';
+import { tokenAuthHeaders } from '../../../providers/families/headers/TokenAuthHeaders.js';
+import { xApiKeyHeaders } from '../../../providers/families/headers/XApiKeyHeaders.js';
+import { anthropicCompatibleProtocol } from '../../../providers/families/protocols/AnthropicCompatibleProtocol.js';
+import { openAICompatibleProtocol } from '../../../providers/families/protocols/OpenAICompatibleProtocol.js';
 import {
   getHeaderFamily,
   getProtocolFamily,
   listHeaderFamilies,
   listProtocolFamilies,
-} from '../providers/families/registry.js';
-import type { AdapterChatOptions, FamilyConfig } from '../providers/types.js';
+} from '../../../providers/families/registry.js';
+import type { AdapterChatOptions, FamilyConfig } from '../../../providers/types.js';
 
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch;
@@ -45,7 +45,7 @@ const DUMMY_API_KEY = 'DUMMY_KEY';
 /** Configuration réelle, lue comme le fait le chargeur du routeur. */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const modelsConfig = JSON.parse(
-  readFileSync(join(HERE, '..', 'config', 'models_config.json'), 'utf-8'),
+  readFileSync(join(HERE, '..', '..', '..', 'config', 'models_config.json'), 'utf-8'),
 ) as { familles: Record<string, Record<string, unknown>> };
 
 /**

@@ -1,128 +1,96 @@
-// tests/unit/core/compactHistory.test.ts
-// MOD 1 — Garbage Collector de Contexte (_compactHistory + _optimizeHistory)
+// src/tests/unit/core/compactHistory.test.ts
+// Test unitaire exhaustif de BotCore._optimizeHistory (Production Code)
 import { describe, it, expect } from '@jest/globals';
 
-/**
- * Standalone test for the context compaction logic.
- * We extract the pure logic from BotCore to test it in isolation.
- */
+process.env.SUPABASE_URL = 'http://localhost:54321';
+process.env.SUPABASE_KEY = 'dummy';
+process.env.REDIS_URL = 'redis://localhost:6379';
+process.env.NODE_ENV = 'test';
 
-const TOTAL_CHAR_LIMIT = 25000;
-const TOOL_OUTPUT_LIMIT = 2000;
+const { botCore } = await import('../../../core/index.js');
 
-type HistoryMessage = {
-  role: string;
-  content: string;
+type CoreInternalAccess = {
+  _optimizeHistory: (history: Record<string, unknown>[]) => Record<string, unknown>[];
 };
 
-/** _optimizeHistory extracted logic (mechanical fallback) */
-function optimizeHistory(history: HistoryMessage[]): HistoryMessage[] {
-  let currentSize = JSON.stringify(history).length;
-  if (currentSize < TOTAL_CHAR_LIMIT) return history;
+const coreAccess = botCore as unknown as CoreInternalAccess;
 
-  const optimized = [...history];
-  const safeZoneStart = 2;
-  const safeZoneEnd = optimized.length - 3;
+describe('BotCore._optimizeHistory (MOD 1 Context Compaction)', () => {
+  it('laisse l historique rigoureusement intact lorsque la taille totale est inférieure à 25 000 caractères', () => {
+    const compactHistory = [
+      { role: 'system', content: 'Tu es HIVE-MIND.' },
+      { role: 'user', content: 'Donne-moi la météo.' },
+      { role: 'assistant', content: 'Il fait 22°C.' },
+    ];
 
-  for (let i = safeZoneStart; i < safeZoneEnd; i++) {
-    const msg = optimized.at(i) as HistoryMessage;
-    if (msg.role === 'tool' && msg.content && msg.content.length > TOOL_OUTPUT_LIMIT) {
-      const originalLen = msg.content.length;
-      const truncated =
-        msg.content.substring(0, TOOL_OUTPUT_LIMIT) +
-        `\n... [TRONQUÉ: ${originalLen - TOOL_OUTPUT_LIMIT} chars masqués]`;
-      optimized.splice(i, 1, { role: msg.role, content: truncated });
-      currentSize = JSON.stringify(optimized).length;
-      if (currentSize < TOTAL_CHAR_LIMIT) break;
-    }
-  }
-  return optimized;
-}
-
-describe('_compactHistory / _optimizeHistory (MOD 1)', () => {
-  describe('_optimizeHistory (mechanical fallback)', () => {
-    it('returns history unchanged if under 25k chars', () => {
-      // Arrange
-      const history = [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'hello' },
-        { role: 'assistant', content: 'hi' },
-      ];
-
-      // Act
-      const result = optimizeHistory(history);
-
-      // Assert
-      expect(result).toEqual(history);
-    });
-
-    it('truncates large tool outputs to 2000 chars', () => {
-      // Arrange — build history > 25k chars with big tool outputs
-      const bigToolOutput = 'X'.repeat(10000);
-      const history = [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'q1' },
-        { role: 'tool', content: bigToolOutput },
-        { role: 'tool', content: bigToolOutput },
-        { role: 'tool', content: bigToolOutput },
-        { role: 'user', content: 'q2' },
-        { role: 'assistant', content: 'done' },
-        { role: 'user', content: 'latest' },
-      ];
-
-      // Act
-      const result = optimizeHistory(history);
-
-      // Assert — total size should be < 25k chars, and some tools got truncated
-      const size = JSON.stringify(result).length;
-      expect(size).toBeLessThan(TOTAL_CHAR_LIMIT);
-      const hasTruncated = result.some(
-        (m: HistoryMessage) => m.content && m.content.includes('TRONQUÉ'),
-      );
-      expect(hasTruncated).toBe(true);
-    });
-
-    it('preserves system prompt (index 0) and last 3 messages', () => {
-      const bigOutput = 'Y'.repeat(10000);
-      const history = [
-        { role: 'system', content: 'SYSTEM PROMPT MUST SURVIVE' },
-        { role: 'user', content: 'start' },
-        { role: 'tool', content: bigOutput },
-        { role: 'tool', content: bigOutput },
-        { role: 'tool', content: bigOutput },
-        { role: 'user', content: 'SAFE_USER' },
-        { role: 'assistant', content: 'SAFE_ASSISTANT' },
-        { role: 'user', content: 'SAFE_LAST' },
-      ];
-
-      const result = optimizeHistory(history);
-
-      // System and last 3 untouched
-      expect(result[0].content).toBe('SYSTEM PROMPT MUST SURVIVE');
-      expect(result[result.length - 1].content).toBe('SAFE_LAST');
-      expect(result[result.length - 2].content).toBe('SAFE_ASSISTANT');
-      expect(result[result.length - 3].content).toBe('SAFE_USER');
-    });
+    const result = coreAccess._optimizeHistory(compactHistory);
+    expect(result).toEqual(compactHistory);
   });
 
-  describe('_compactHistory threshold', () => {
-    it('does not trigger for history under 25000 chars', () => {
-      const smallHistory = [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'hello' },
-      ];
-      // Threshold logic
-      const size = JSON.stringify(smallHistory).length;
-      expect(size).toBeLessThan(TOTAL_CHAR_LIMIT);
-    });
+  it('tronque les tool outputs excédant 2000 caractères lors d un dépassement du seuil de 25k caractères', () => {
+    const hugeToolOutput = 'Z'.repeat(6000);
+    const padding = 'P'.repeat(21000);
 
-    it('triggers for history over 25000 chars', () => {
-      const bigHistory = [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'A'.repeat(30000) },
-      ];
-      const size = JSON.stringify(bigHistory).length;
-      expect(size).toBeGreaterThan(TOTAL_CHAR_LIMIT);
-    });
+    const heavyHistory = [
+      { role: 'system', content: 'Prompt système initial.' },
+      { role: 'user', content: padding },
+      { role: 'tool', content: hugeToolOutput },
+      { role: 'assistant', content: 'Observation en cours...' },
+      { role: 'user', content: 'Autre question' },
+      { role: 'assistant', content: 'Fin' },
+    ];
+
+    const optimized = coreAccess._optimizeHistory(heavyHistory);
+
+    const toolMsg = optimized[2] as { role: string; content: string };
+    expect(toolMsg.content.length).toBeLessThan(hugeToolOutput.length);
+    expect(toolMsg.content).toContain('[TRONQUÉ: 4000 chars masqués]');
+    expect(toolMsg.content.startsWith('Z'.repeat(2000))).toBe(true);
+  });
+
+  it('préserve strictement les zones protégées (2 premiers et 2 derniers messages)', () => {
+    const hugeMsg = 'T'.repeat(5000);
+    const padding = 'X'.repeat(22000);
+
+    const heavyHistory = [
+      { role: 'tool', content: hugeMsg }, // Index 0: protégé
+      { role: 'tool', content: hugeMsg }, // Index 1: protégé
+      { role: 'tool', content: hugeMsg }, // Index 2: ÉLIGIBLE à la troncature
+      { role: 'user', content: padding }, // Index 3
+      { role: 'tool', content: hugeMsg }, // Index 4 (avant-dernier): protégé
+      { role: 'assistant', content: 'Fin' }, // Index 5 (dernier): protégé
+    ];
+
+    const optimized = coreAccess._optimizeHistory(heavyHistory);
+
+    // Index 0 et 1 doivent rester intacts
+    expect((optimized[0] as { content: string }).content).toBe(hugeMsg);
+    expect((optimized[1] as { content: string }).content).toBe(hugeMsg);
+
+    // Index 2 doit être tronqué
+    expect((optimized[2] as { content: string }).content).toContain('[TRONQUÉ:');
+
+    // Index 4 doit rester intact car dans safeZoneEnd
+    expect((optimized[4] as { content: string }).content).toBe(hugeMsg);
+  });
+
+  it('interrompt la boucle de troncature dès que la taille repasse sous les 25k caractères', () => {
+    const toolMsg1 = 'A'.repeat(5000);
+    const toolMsg2 = 'B'.repeat(5000);
+    const padding = 'Y'.repeat(22000);
+
+    const history = [
+      { role: 'system', content: 'Sys' },
+      { role: 'user', content: padding },
+      { role: 'tool', content: toolMsg1 }, // Tronqué -> libère 3000 chars, total passe à ~24k
+      { role: 'tool', content: toolMsg2 }, // Ne doit PAS être tronqué car seuil atteint
+      { role: 'assistant', content: 'ok' },
+      { role: 'assistant', content: 'fin' },
+    ];
+
+    const optimized = coreAccess._optimizeHistory(history);
+
+    expect((optimized[2] as { content: string }).content).toContain('[TRONQUÉ:');
+    expect((optimized[3] as { content: string }).content).toBe(toolMsg2); // Intact
   });
 });
