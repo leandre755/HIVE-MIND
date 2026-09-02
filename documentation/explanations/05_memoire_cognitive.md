@@ -47,7 +47,7 @@ flowchart TD
 
 #### Mémoire de travail L1 — Redis Cloud
 
-Gérée par [src/services/workingMemory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/workingMemory.ts) :
+Gérée par `src/services/workingMemory.ts` :
 
 | Structure Redis                   | Contenu                      | Limite                  | TTL    |
 | :-------------------------------- | :--------------------------- | :---------------------- | :----- |
@@ -59,11 +59,11 @@ Gérée par [src/services/workingMemory.ts](file:///home/omni/Code/HIVE-MIND-RAI
 
 Le **mode vélocité** : si plus de 10 messages arrivent en 1 minute (`velocity` > 10), l'agent passe en mode « chaos » et utilise des mentions et citations pour cibler ses réponses malgré le flux élevé.
 
-**Résilience locale** : En cas d'indisponibilité de Redis Cloud, [src/services/redisClient.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/redisClient.ts) bascule automatiquement sur un `InMemoryRedisMock` qui simule les opérations Redis classiques. L'agent reste fonctionnel hors ligne.
+**Résilience locale** : En cas d'indisponibilité de Redis Cloud, `src/services/redisClient.ts` bascule automatiquement sur un `InMemoryRedisMock` qui simule les opérations Redis classiques. L'agent reste fonctionnel hors ligne.
 
 #### Mémoire à long terme L2 — Supabase (PostgreSQL + pgvector)
 
-Gérée par [src/services/supabase.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/supabase.ts) :
+Gérée par `src/services/supabase.ts` :
 
 **Normalisation omni-canal** : Le schéma résout le problème des identités multiples : une table `users` centralise les profils, tandis que `user_identities` lie ces profils aux identifiants spécifiques de chaque canal (WhatsApp JID, Discord ID, etc.). `resolveUser()` et `resolveGroup()` convertissent les identifiants spécifiques en UUID de contexte unifiés. Les conflits de création simultanée sont gérés par `upsert` avec `onConflict`.
 
@@ -71,7 +71,7 @@ Gérée par [src/services/supabase.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/
 
 ### 2. Taxonomie MAPLE — Apprentissage structuré de l'utilisateur
 
-Le `LearningEngine` ([src/services/learning/LearningEngine.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/learning/LearningEngine.ts)) analyse en arrière-plan les 20 derniers messages pour extraire des insights structurés et les classer selon trois catégories :
+Le `LearningEngine` (`src/services/learning/LearningEngine.ts`) analyse en arrière-plan les 20 derniers messages pour extraire des insights structurés et les classer selon trois catégories :
 
 | Préfixe | Sémantique                 | Exemple                                       |
 | :------ | :------------------------- | :-------------------------------------------- |
@@ -79,7 +79,7 @@ Le `LearningEngine` ([src/services/learning/LearningEngine.ts](file:///home/omni
 | `pref:` | Préférence comportementale | `pref:ton_reponse → concis et direct`         |
 | `goal:` | Objectif en cours          | `goal:deploiement → migration Node.js LTS`    |
 
-Ces faits sont écrits dans la table Supabase `facts` et hydratés lors de la construction du prompt via un bloc XML `<user_model>` dans [src/core/context/TieredContextLoader.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/context/TieredContextLoader.ts) :
+Ces faits sont écrits dans la table Supabase `facts` et hydratés lors de la construction du prompt via un bloc XML `<user_model>` dans `src/core/context/TieredContextLoader.ts` :
 
 ```xml
 <user_model>
@@ -99,7 +99,7 @@ Ces faits sont écrits dans la table Supabase `facts` et hydratés lors de la co
 
 ### 3. Cycle de vie des souvenirs — Memory Decay & CMA
 
-Le cycle de vie des souvenirs à long terme est régi par un modèle mathématique d'oubli défini dans [src/services/memory/MemoryDecay.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/memory/MemoryDecay.ts).
+Le cycle de vie des souvenirs à long terme est régi par un modèle mathématique d'oubli défini dans `src/services/memory/MemoryDecay.ts`.
 
 #### Calcul du score de déclin
 
@@ -119,7 +119,7 @@ Si le score tombe sous **0.3**, le souvenir est archivé (`archived_at` renseign
 
 #### Plasticité synaptique — CMA Boost
 
-Lorsqu'un souvenir est rappelé avec succès lors d'une recherche RAG, la fonction SQL stockée `cma_boost_memory` ([src/supabase/migrations/20260519130000_cma_boost_memory.sql](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/supabase/migrations/20260519130000_cma_boost_memory.sql)) est appelée asynchronement :
+Lorsqu'un souvenir est rappelé avec succès lors d'une recherche RAG, la fonction SQL stockée `cma_boost_memory` (`src/supabase/migrations/20260519130000_cma_boost_memory.sql`) est appelée asynchronement :
 
 - Incrémente `recall_count` de 1.
 - Augmente `decay_score` de 0.2 (plafonné à 1.0).
@@ -147,7 +147,7 @@ flowchart TD
 
 ### 4. Recherche RAG à double portée (Hybrid RAG)
 
-La recherche sémantique dans [src/services/memory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/memory.ts) combine deux requêtes parallèles via la fonction SQL RPC `match_memories` :
+La recherche sémantique dans `src/services/memory.ts` combine deux requêtes parallèles via la fonction SQL RPC `match_memories` :
 
 | Portée         | Filtre                                              | Seuil de similarité cosinus |
 | :------------- | :-------------------------------------------------- | :-------------------------- |
@@ -156,7 +156,7 @@ La recherche sémantique dans [src/services/memory.ts](file:///home/omni/Code/HI
 
 Les résultats sont fusionnés, dédupliqués par ID et enrichis d'un indicateur d'ancienneté relative (_aujourd'hui, hier, il y a X semaines_).
 
-En complément, [src/services/graphMemory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/graphMemory.ts) gère un **Knowledge Graph** : les entités extraites (table `entities`) sont reliées par des arcs typés et pondérés (table `relationships`). La recherche via `match_entities` et l'exploration des voisins (`getNeighbors`) permettent d'interroger les relations structurelles entre concepts.
+En complément, `src/services/graphMemory.ts` gère un **Knowledge Graph** : les entités extraites (table `entities`) sont reliées par des arcs typés et pondérés (table `relationships`). La recherche via `match_entities` et l'exploration des voisins (`getNeighbors`) permettent d'interroger les relations structurelles entre concepts.
 
 **Stratégie Pull** : Aucun contenu RAG sémantique n'est injecté automatiquement dans le prompt initial. L'agent doit explicitement utiliser les outils `search_long_term_memory` ou `db_document_read` pour extraire les informations pertinentes, ce qui maintient le prompt système compact et évite les hallucinations liées à du contexte non pertinent.
 
@@ -201,10 +201,10 @@ En plus des TTL automatiques de Redis, deux mécanismes actifs complètent le ne
 
 ## Further reading
 
-- [src/services/workingMemory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/workingMemory.ts) — Mémoire de travail Redis L1
-- [src/services/memory/MemoryDecay.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/memory/MemoryDecay.ts) — Algorithme et formules de déclin mnésique
-- [src/services/learning/LearningEngine.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/learning/LearningEngine.ts) — Taxonomie MAPLE et extraction de faits
-- [src/services/memory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/memory.ts) — SemanticMemory, factsMemory, workspaceMemory
-- [src/services/graphMemory.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/graphMemory.ts) — Knowledge Graph (entités + relations)
-- [src/services/redisClient.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/redisClient.ts) — Client Redis avec fallback mock
-- [src/supabase/migrations/20260519130000_cma_boost_memory.sql](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/supabase/migrations/20260519130000_cma_boost_memory.sql) — Boost synaptique CMA
+- `src/services/workingMemory.ts` — Mémoire de travail Redis L1
+- `src/services/memory/MemoryDecay.ts` — Algorithme et formules de déclin mnésique
+- `src/services/learning/LearningEngine.ts` — Taxonomie MAPLE et extraction de faits
+- `src/services/memory.ts` — SemanticMemory, factsMemory, workspaceMemory
+- `src/services/graphMemory.ts` — Knowledge Graph (entités + relations)
+- `src/services/redisClient.ts` — Client Redis avec fallback mock
+- `src/supabase/migrations/20260519130000_cma_boost_memory.sql` — Boost synaptique CMA

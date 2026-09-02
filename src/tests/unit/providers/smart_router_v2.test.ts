@@ -1,7 +1,7 @@
 import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 
 // Mock dependencies BEFORE importing the modules that use them
-jest.unstable_mockModule('../services/redisClient.js', () => ({
+jest.unstable_mockModule('../../../services/redisClient.js', () => ({
   redis: {
     isReady: true,
     get: jest.fn(),
@@ -20,10 +20,10 @@ jest.unstable_mockModule('../services/redisClient.js', () => ({
 }));
 
 // Now we dynamically import the modules after mocking
-const { quotaManager } = await import('../services/quotaManager.js');
-const { envResolver } = await import('../services/envResolver.js');
-const { providerRouter } = await import('../providers/index.js');
-const { container } = await import('../core/ServiceContainer.js');
+const { quotaManager } = await import('../../../services/quotaManager.js');
+const { envResolver } = await import('../../../services/envResolver.js');
+const { providerRouter } = await import('../../../providers/index.js');
+const { container } = await import('../../../core/ServiceContainer.js');
 
 // Register quotaManager in the service container so callServiceRecipe resolves it correctly during tests
 container.register('quotaManager', quotaManager);
@@ -177,7 +177,7 @@ describe('Smart Router V2 Logic', () => {
 
   describe('QuotaManager V2 - Granular Tracking', () => {
     it('should return Key 2 when Key 1 has exhausted its RPM', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -205,7 +205,7 @@ describe('Smart Router V2 Logic', () => {
     });
 
     it('should keep Model B on Key 1 even if Model A exhausts Key 1', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -351,7 +351,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
 
   describe('QuotaManager V2 - getModelHealth (marges de sécurité)', () => {
     it('déclare unhealthy quand RPM dépasse le seuil (80% de la limite)', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -371,7 +371,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     });
 
     it('déclare healthy sous le seuil RPM', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -389,7 +389,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     });
 
     it('déclare blocked quand la clé est explicitement bloquée (429 antérieur)', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -413,7 +413,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
       const mockGetKeys: unknown = jest.fn().mockReturnValue([1, 2]);
       envInternals().getAvailableKeysForProvider = mockGetKeys as (provider: string) => number[];
 
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -451,7 +451,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
 
   describe('QuotaManager V2 - getHealthyFamilies', () => {
     it('retire la famille quand aucun de ses modèles n est sain', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -469,7 +469,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     });
 
     it('retient la famille quand un modèle est sain', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
       };
@@ -490,7 +490,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     // isModelAvailable (1 req/min, blocage >5min). Une panne Redis ne doit
     // pas être convertie en requêtes non protégées (tempête de 429).
     it('getModelHealth est FAIL-CLOSED quand Redis est down', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as { isReady: boolean };
       const original = redis.isReady;
       redis.isReady = false;
@@ -508,7 +508,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     });
 
     it('getAvailableKeyForModel est FAIL-CLOSED (null) quand Redis est down', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as { isReady: boolean };
       const original = redis.isReady;
       redis.isReady = false;
@@ -521,7 +521,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     });
 
     it('isModelAvailable est FAIL-CLOSED (1 req/min) quand Redis est down', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as { isReady: boolean };
       const original = redis.isReady;
       redis.isReady = false;
@@ -542,7 +542,7 @@ describe('Smart Router V2 — Audit: QuotaManager anti-429', () => {
     // pendant 2s. Désormais recordUsage peuple le L0 avec les valeurs
     // AUTORITATIVES retournées par multi.exec().
     it('peuple le L0 avec la valeur autoritative de multi.exec()', async () => {
-      const redisModule = await import('../services/redisClient.js');
+      const redisModule = await import('../../../services/redisClient.js');
       const redis = redisModule.redis as unknown as {
         get: jest.MockedFunction<(key: string) => Promise<string | null>>;
         multi: jest.MockedFunction<

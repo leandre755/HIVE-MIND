@@ -1,62 +1,89 @@
-// tests/unit/core/cotExtraction.test.ts
-// MOD 6 — Chain of Thought Extraction & Cleaning
+// src/tests/unit/core/cotExtraction.test.ts
+// Test unitaire de l extraction CoT et du nettoyage de réponse de BotCore
 import { describe, it, expect } from '@jest/globals';
 
-/**
- * Standalone test for the CoT regex logic extracted from core/index.ts.
- * Tests the thought tag extraction and cleaning pipeline.
- */
-const extractAndClean = (input: string) => {
-  const thoughtRegex = /<(think|thought|thinking)>[\s\S]*?<\/\1>/gi;
-  const extractRegex = /<(think|thought|thinking)>([\s\S]*?)<\/\1>/gi;
-  const thoughts: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = extractRegex.exec(input)) !== null) {
-    thoughts.push(match[2].trim());
-  }
-  const cleaned = input.replace(thoughtRegex, '').trim();
-  return { thoughts, cleaned };
+process.env.SUPABASE_URL = 'http://localhost:54321';
+process.env.SUPABASE_KEY = 'dummy';
+process.env.REDIS_URL = 'redis://localhost:6379';
+process.env.NODE_ENV = 'test';
+
+const { botCore } = await import('../../../core/index.js');
+
+type CoreInternalAccess = {
+  _cleanThoughtsAndSanitize: (
+    finalResponse: string,
+    iterations: number,
+  ) => { cleaned: string | null; thoughtsCount: number };
+  _extractThoughtsAndStripTags: (rawResponse: string) => { cleaned: string; thoughts: string[] };
+  _unwrapSendMessageFormat: (text: string) => string;
 };
 
-describe('CoT Extraction (MOD 6)', () => {
-  it.each([
-    ['<thought>I need to check the files</thought>Here is the answer.', 'Here is the answer.'],
-    ['<think>Reasoning step 1</think>Final answer', 'Final answer'],
-    ['<thinking>Processing request</thinking>Result here.', 'Result here.'],
-    ['<thought>Step 1</thought>Middle text<thought>Step 2</thought>End.', 'Middle textEnd.'],
-    ['<think>A</think><thought>B</thought><thinking>C</thinking>Answer', 'Answer'],
-  ])('extracts and cleans thoughts from: %s', (input, expectedCleaned) => {
-    const { thoughts, cleaned } = extractAndClean(input);
-    expect(thoughts.length).toBeGreaterThan(0);
-    expect(cleaned).toBe(expectedCleaned);
+const coreAccess = botCore as unknown as CoreInternalAccess;
+
+describe('BotCore CoT Extraction & Sanitization Pipeline (MOD 6)', () => {
+  describe('_extractThoughtsAndStripTags', () => {
+    it.each([
+      ['<thought>Analyse des besoins</thought>Voici la solution.', 'Voici la solution.'],
+      ['<think>Calcul du résultat</think>Résultat = 42', 'Résultat = 42'],
+      ['<thinking>Recherche documentaire</thinking>Document trouvé.', 'Document trouvé.'],
+      [
+        '<thought>Étape 1</thought>Intermédiaire.<thought>Étape 2</thought>Conclusion.',
+        'Intermédiaire.Conclusion.',
+      ],
+      ['<THOUGHT>Tag majuscule</THOUGHT>Réponse valide.', 'Réponse valide.'],
+    ])('extrait les pensées et épure les balises pour : %s', (input, expectedCleaned) => {
+      const { cleaned, thoughts } = coreAccess._extractThoughtsAndStripTags(input);
+      expect(cleaned).toBe(expectedCleaned);
+      expect(thoughts.length).toBeGreaterThan(0);
+    });
+
+    it('gère les pensées multilignes avec sauts de lignes et formatage riche', () => {
+      const input = '<thought>\n1. Lire le fichier\n2. Parser l AST\n</thought>Analyse effectuée.';
+      const { cleaned, thoughts } = coreAccess._extractThoughtsAndStripTags(input);
+
+      expect(cleaned).toBe('Analyse effectuée.');
+      expect(thoughts[0]).toContain('1. Lire le fichier');
+      expect(thoughts[0]).toContain('2. Parser l AST');
+    });
+
+    it('laisse le texte intact s il ne contient aucune balise de pensée', () => {
+      const input = 'Texte direct sans balise de raisonnement.';
+      const { cleaned, thoughts } = coreAccess._extractThoughtsAndStripTags(input);
+
+      expect(cleaned).toBe(input);
+      expect(thoughts).toHaveLength(0);
+    });
   });
 
-  it('returns empty thoughts for text without tags', () => {
-    const input = 'Just a normal response with no thinking.';
-    const { thoughts, cleaned } = extractAndClean(input);
-    expect(thoughts).toHaveLength(0);
-    expect(cleaned).toBe(input);
+  describe('_unwrapSendMessageFormat', () => {
+    it('déballe la charge utile textuelle d une balise <send_message> JSON', () => {
+      const input = '<send_message>{"text":"Message extrait du protocole"}</send_message>';
+      const result = coreAccess._unwrapSendMessageFormat(input);
+      expect(result).toBe('Message extrait du protocole');
+    });
+
+    it('supprime proprement les balises orphelines si le JSON est corrompu', () => {
+      const input = '<send_message>bad-json-content</send_message>';
+      const result = coreAccess._unwrapSendMessageFormat(input);
+      expect(result).toBe('bad-json-content');
+    });
   });
 
-  it('detects thought-only response (empty after cleaning)', () => {
-    const input = '<thought>I am thinking very hard about this</thought>';
-    const { thoughts, cleaned } = extractAndClean(input);
-    expect(thoughts).toHaveLength(1);
-    expect(cleaned).toBe('');
-  });
+  describe('_cleanThoughtsAndSanitize', () => {
+    it('retourne le message de repli lorsque l agent a réfléchi sans émettre de texte final', () => {
+      const thoughtOnly = '<thought>J ai terminé mes opérations</thought>';
+      const result = coreAccess._cleanThoughtsAndSanitize(thoughtOnly, 2);
 
-  it('is case-insensitive', () => {
-    const input = '<THOUGHT>Upper case</THOUGHT>text';
-    const { thoughts, cleaned } = extractAndClean(input);
-    expect(thoughts).toHaveLength(1);
-    expect(cleaned).toBe('text');
-  });
+      expect(result.thoughtsCount).toBe(1);
+      expect(result.cleaned).toBe('*(Réflexion terminée sans réponse textuelle)*');
+    });
 
-  it('handles multiline thought content', () => {
-    const input = '<thought>\nLine 1\nLine 2\nLine 3\n</thought>Response';
-    const { thoughts, cleaned } = extractAndClean(input);
-    expect(thoughts[0]).toContain('Line 1');
-    expect(thoughts[0]).toContain('Line 3');
-    expect(cleaned).toBe('Response');
+    it('retourne null si aucune pensée ni texte n ont été produits à l itération 0', () => {
+      const empty = '';
+      const result = coreAccess._cleanThoughtsAndSanitize(empty, 0);
+
+      expect(result.cleaned).toBeNull();
+      expect(result.thoughtsCount).toBe(0);
+    });
   });
 });

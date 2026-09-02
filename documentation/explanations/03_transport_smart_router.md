@@ -26,7 +26,7 @@ HIVE-MIND résout ces deux problèmes avec deux composants complémentaires :
 
 #### Le contrat `TransportInterface`
 
-Le fichier [src/core/transport/interface.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/interface.ts) définit le contrat minimal que tout adaptateur de transport doit respecter :
+Le fichier `src/core/transport/interface.ts` définit le contrat minimal que tout adaptateur de transport doit respecter :
 
 ```typescript
 interface TransportInterface {
@@ -53,7 +53,7 @@ La fonction `validateTransport()` vérifie dynamiquement à l'enregistrement que
 
 #### Le `TransportManager`
 
-Le `TransportManager` ([src/core/transport/TransportManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/TransportManager.ts)) orchestre tous les transports actifs :
+Le `TransportManager` (`src/core/transport/TransportManager.ts`) orchestre tous les transports actifs :
 
 ```mermaid
 flowchart LR
@@ -71,13 +71,13 @@ Mécanismes clés :
 
 - **Routage par `sourceChannel`** : À la réception d'un message, l'attribut `sourceChannel` (ex. `'whatsapp'`, `'discord'`) est injecté dans le `NormalizedMessage`. À l'envoi, si `sourceChannel` est fourni ou vaut `'current'`, le gestionnaire route vers le transport d'origine.
 - **Transports simulés** : Les canaux `'internal'` et `'system'` interceptent les pulsations autonomes et les tâches internes sans générer d'appels réseau externes.
-- **Chargement dynamique TUI** : Si le processus tourne en mode TTY, `HiveTransport` (adaptateur CLI/Ink) est chargé dynamiquement et le serveur WebSocket `TuiServerTransport` ([src/core/transport/TuiServerTransport.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/TuiServerTransport.ts)) est lancé pour communiquer avec l'interface Ink.
+- **Chargement dynamique TUI** : Si le processus tourne en mode TTY, `HiveTransport` (adaptateur CLI/Ink) est chargé dynamiquement et le serveur WebSocket `TuiServerTransport` (`src/core/transport/TuiServerTransport.ts`) est lancé pour communiquer avec l'interface Ink.
 
 ---
 
 ### 2. Le Smart Router (ProviderRouter)
 
-Le `ProviderRouter` ([src/providers/index.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/providers/index.ts)) est le composant responsable du routage de toutes les requêtes LLM.
+Le `ProviderRouter` (`src/providers/index.ts`) est le composant responsable du routage de toutes les requêtes LLM.
 
 ```mermaid
 flowchart TD
@@ -95,9 +95,9 @@ flowchart TD
 
 #### Résolution et rotation des clés API
 
-Le `EnvResolver` ([src/services/envResolver.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/envResolver.ts)) détecte les clés numérotées dans l'environnement (ex. `GEMINI_KEY`, `GEMINI_KEY_1`, `GEMINI_KEY_2`... jusqu'à 7 clés par fournisseur).
+Le `EnvResolver` (`src/services/envResolver.ts`) détecte les clés numérotées dans l'environnement (ex. `GEMINI_KEY`, `GEMINI_KEY_1`, `GEMINI_KEY_2`... jusqu'à 7 clés par fournisseur).
 
-**Évitement proactif des 429** : Avant chaque appel, `getAvailableKeyForModel()` interroge le `QuotaManager` ([src/services/quotaManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/quotaManager.ts)). Si toutes les clés d'un modèle ont dépassé les seuils de RPM (marge 20 %), TPM (marge 10 %) ou RPD (marge 5 %), le modèle est proactivement ignoré.
+**Évitement proactif des 429** : Avant chaque appel, `getAvailableKeyForModel()` interroge le `QuotaManager` (`src/services/quotaManager.ts`). Si toutes les clés d'un modèle ont dépassé les seuils de RPM (marge 20 %), TPM (marge 10 %) ou RPD (marge 5 %), le modèle est proactivement ignoré.
 
 **Bascule réactive** : Si malgré tout une erreur 429 survient, le routeur :
 
@@ -108,7 +108,7 @@ Le `EnvResolver` ([src/services/envResolver.ts](file:///home/omni/Code/HIVE-MIND
 
 #### Sélection et cascade de modèles
 
-La configuration des cascades est définie dans [src/config/models_config.json](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/config/models_config.json) :
+La configuration des cascades est définie dans `src/config/models_config.json` :
 
 ```json
 {
@@ -136,7 +136,7 @@ La résolution suit trois niveaux :
 
 - **Circuit Breaker par famille** : Après des échecs répétés, une famille IA (ex. `groq`) entre en cooldown progressif (1 min → 5 min → 15 min max). Tout succès réinitialise le circuit.
 - **Reliability Scoring par modèle** : Les pénalités s'accumulent sur les modèles subissant des erreurs fonctionnelles (parsing, timeout) et décroissent selon une demi-vie de 30 minutes. `_sortModelsByReliability()` classe les candidats en conséquence.
-- **KKT Throttling** : Si le multiplicateur lagrangien $\lambda = (\text{coût\_session} / \text{budget\_max})^4 > 0.05$, le routeur réduit proportionnellement `max_tokens` : $\text{max\_tokens} \times (1 - \lambda)$. Si $\lambda > 0.8$, des directives d'urgence `<kkt_emergency>` sont injectées dans le prompt système via [src/core/context/TieredContextLoader.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/context/TieredContextLoader.ts).
+- **KKT Throttling** : Si le multiplicateur lagrangien $\lambda = (\text{coût\_session} / \text{budget\_max})^4 > 0.05$, le routeur réduit proportionnellement `max_tokens` : $\text{max\_tokens} \times (1 - \lambda)$. Si $\lambda > 0.8$, des directives d'urgence `<kkt_emergency>` sont injectées dans le prompt système via `src/core/context/TieredContextLoader.ts`.
 
 ---
 
@@ -163,9 +163,9 @@ La résolution suit trois niveaux :
 
 ## Further reading
 
-- [src/core/transport/interface.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/interface.ts) — Contrat `TransportInterface`
-- [src/core/transport/TransportManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/TransportManager.ts) — Routage et normalisation des canaux
-- [src/core/transport/TuiServerTransport.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/core/transport/TuiServerTransport.ts) — Serveur WebSocket pour la TUI
-- [src/providers/index.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/providers/index.ts) — Smart Router (ProviderRouter)
-- [src/services/quotaManager.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/quotaManager.ts) — Gestion des quotas de clés API
-- [src/services/envResolver.ts](file:///home/omni/Code/HIVE-MIND-RAILWAY/src/services/envResolver.ts) — Résolution des clés numérotées
+- `src/core/transport/interface.ts` — Contrat `TransportInterface`
+- `src/core/transport/TransportManager.ts` — Routage et normalisation des canaux
+- `src/core/transport/TuiServerTransport.ts` — Serveur WebSocket pour la TUI
+- `src/providers/index.ts` — Smart Router (ProviderRouter)
+- `src/services/quotaManager.ts` — Gestion des quotas de clés API
+- `src/services/envResolver.ts` — Résolution des clés numérotées
