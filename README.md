@@ -1,755 +1,300 @@
+<!-- BLOCK 1: Static Landscape Hero (1280x640, 16:9, border-radius 8px) -->
 <p align="center">
-  <img src="assets/logo.jpeg" alt="HIVE-MIND Logo" width="180" style="border-radius: 12px;" />
+  <img src="https://files.catbox.moe/b3i12u.png" alt="HIVE-MIND — The Omni-Source Harness for LLM Agents"
+       width="100%" style="border-radius: 8px;" />
 </p>
 
+<!-- BLOCK 2: Title + Transparent Logo (512x512 No-BG) -->
+<h1 align="center">
+  <img src="https://files.catbox.moe/uq7jny.png" alt="HIVE-MIND Logo" width="92"
+       style="vertical-align: middle; margin-right: 12px; border-radius: 8px;" />
+  HIVE-MIND
+</h1>
+
+<!-- BLOCK 3: Language Switcher -->
 <p align="center">
-  <img src="https://img.shields.io/badge/HIVE--MIND-V3-0D1117?style=for-the-badge&labelColor=0D1117&color=58A6FF&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQyIDAtOC0zLjU4LTgtOHMzLjU4LTggOC04IDggMy41OCA4IDgtMy41OCA0LTggOHptLTItM2g0di0ySDEwdjJ6bTAtNGg0VjdoLTR2NnoiLz48L3N2Zz4=" alt="HIVE-MIND V3" />
+  🌐 <b><a href="README.md">English</a></b> | <b><a href="README.fr.md">Français</a></b>
 </p>
 
-<h1 align="center">HIVE-MIND</h1>
-
+<!-- BLOCK 4: Navigation Badges (primary #F59E0B, flat-square, arrow →) -->
 <p align="center">
-  <strong>Autonomous AI Agent Framework</strong>
+  <a href="#architecture">
+    <img src="https://img.shields.io/badge/Architecture-→-F59E0B?style=flat-square" alt="Architecture" />
+  </a>
+  <a href="#capabilities">
+    <img src="https://img.shields.io/badge/Capabilities-→-F59E0B?style=flat-square" alt="Capabilities" />
+  </a>
+  <a href="#how-it-works">
+    <img src="https://img.shields.io/badge/Workflow-→-F59E0B?style=flat-square" alt="Workflow" />
+  </a>
+  <a href="#providers">
+    <img src="https://img.shields.io/badge/Providers-→-F59E0B?style=flat-square" alt="Providers" />
+  </a>
+  <a href="#quick-start">
+    <img src="https://img.shields.io/badge/Quick_Start-→-F97316?style=flat-square" alt="Quick Start" />
+  </a>
+  <a href="#live-demonstration">
+    <img src="https://img.shields.io/badge/Demo-→-F97316?style=flat-square" alt="Demo" />
+  </a>
 </p>
 
+<!-- BLOCK 5: Metadata Badges (labelColor #0D1117) -->
 <p align="center">
-  <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-→-58A6FF?style=flat-square" alt="Quick Start" /></a>
-  <a href="#-architecture"><img src="https://img.shields.io/badge/Architecture-→-58A6FF?style=flat-square" alt="Architecture" /></a>
-  <a href="#-plugins"><img src="https://img.shields.io/badge/Plugins-→-58A6FF?style=flat-square" alt="Plugins" /></a>
-  <a href="#-deployment"><img src="https://img.shields.io/badge/Deploy-→-58A6FF?style=flat-square" alt="Deploy" /></a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Version-3.5.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
-  <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="License" />
-  <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node.js 22+" />
+  <img src="https://img.shields.io/badge/Version-1.0.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript Strict" />
+  <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
+  <img src="https://img.shields.io/badge/Harness-Experimental-0D1117?style=flat-square&labelColor=0D1117&color=F59E0B" alt="Experimental Harness" />
 </p>
 
 ---
 
-## Overview
+### The Philosophy: Why HIVE-MIND?
 
-HIVE-MIND is a production-grade **Autonomous AI Agent Framework** built in strict TypeScript. It features a cognitive architecture driven by declarative blueprints, motivation drives, and a closed-loop security manifold.
+Modern LLM deployments look strong in demos yet fail in the wild — not because models lack capability, but because the harness around them is thin. A stateless prompt loop cannot remember, cannot budget, cannot coordinate, and cannot recover from a tool error without human help. The model is naked without the harness; a harness without a model is dead.
 
-The agent reasons, plans, executes multi-step tasks, orchestrates sub-agents, manages its own memory lifecycle, and proactively engages across multiple communication channels — all governed by strict budget, safety, and behavioral constraints.
+**HIVE-MIND** was engineered to invert that hierarchy. It treats the harness itself as the primary artifact — a research testbed where every seam is measurable. Five strict layers, twenty-six extractable subsystems, eight provider families and five channels are not features but instruments for asking: what scaffolding actually makes a model better at tasks it was never trained to do?
 
-**Key differentiators:**
-
-- 🧠 **Cognitive Memory Architecture** — Proactive motivation drives, user preference profiling, memory decay & consolidation
-- 📐 **Blueprint-Driven Governance** — Declarative agent blueprints, constraint manifold tool pruning, Zod-validated schemas
-- 🛡️ **Runtime Infrastructure** — Input/output safety validation, completeness checking, budget throttling
-- 🌐 **Omni-Channel** — WhatsApp · Discord · Telegram · CLI with unified identity
-- 🔀 **Smart Router V2** — Multi-key rotation across 10+ AI providers with zero-429 quota management
-- 🐝 **Swarm Architecture** — Dynamic sub-agent orchestration with ephemeral blueprints
-- ⚡ **Programmatic Tool Calling (PTC)** — AST-validated JS execution in a sandboxed VM
-- 🎙️ **Native Audio** — Voice-to-voice via Gemini Live, TTS via Gemini/Minimax
+The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that saves 80–95% of tokens, a hash-anchored Myers reconciler that eliminates drift, an AST skeleton that cuts 90% of code context, a two-tier memory with Ebbinghaus forgetting, and a Smart Router that rotates quotas with zero 429s. **HIVE-MIND** exists to prove, instrument and iterate on that hypothesis in public, as an experimental harness.
 
 ---
 
-## Table of Contents
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f3d7_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
 
-- [Overview](#overview)
-- [Architecture](#-architecture)
-- [Core Systems](#-core-systems)
-- [Supported Providers](#-supported-providers)
-- [Plugins](#-plugins)
-- [Quick Start](#-quick-start)
-- [Configuration](#-configuration)
-- [Project Structure](#-project-structure)
-- [Scripts & Commands](#-scripts--commands)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Security](#-security)
-- [Contributing](#-contributing)
-- [License](#-license)
+HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`docs/subsystems_report.pdf`](docs/subsystems_report.pdf) with Martin instability metrics.
 
----
+<p align="center">
+  <img src="https://files.catbox.moe/zhthbm.svg" alt="HIVE-MIND Five-Layer Harness"
+       width="100%" style="border-radius: 12px;" />
+</p>
 
-## 🏗 Architecture
-
-HIVE-MIND follows a strict **layered architecture** with one-way dependency flow, governed by a declarative blueprint system and a cognitive layer:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TRANSPORT LAYER                              │
-│   WhatsApp (Baileys)  ·  Discord  ·  Telegram  ·  CLI (Ink TUI)    │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                       ORCHESTRATION CORE                            │
-│  ┌──────────┐  ┌───────────────┐  ┌────────────┐  ┌─────────────┐  │
-│  │ ReAct    │  │ Smart Router  │  │ Permission │  │ Fairness    │  │
-│  │ Engine   │  │ V2 (Zero-429) │  │ Manager    │  │ Queue       │  │
-│  └──────────┘  └───────────────┘  └────────────┘  └─────────────┘  │
-│  ┌──────────┐  ┌───────────────┐  ┌────────────────────────────┐   │
-│  │ Context  │  │ Blueprint     │  │ Service Container (DI)     │   │
-│  │ Loader   │  │ Manager       │  │                            │   │
-│  └──────────┘  └───────────────┘  └────────────────────────────┘   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     RUNTIME INFRASTRUCTURE                          │
-│  ┌──────────────┐  ┌───────────────┐  ┌────────────────────────┐   │
-│  │ Safety       │  │ Task Checker  │  │ Budget Throttle        │   │
-│  │ Guard        │  │               │  │                        │   │
-│  └──────────────┘  └───────────────┘  └────────────────────────┘   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         COGNITIVE LAYER                             │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │ Memory   │  │ Learning  │  │ Driver   │  │ Consciousness    │   │
-│  │          │  │ Engine    │  │ System   │  │ (WakeSystem)     │   │
-│  └──────────┘  └───────────┘  └──────────┘  └──────────────────┘   │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │ Agentic  │  │ PTC &     │  │ Browser  │  │ Voice & Audio    │   │
-│  │ Swarm    │  │ Sandbox   │  │ Agent    │  │ Pipeline         │   │
-│  └──────────┘  └───────────┘  └──────────┘  └──────────────────┘   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     INFRASTRUCTURE LAYER                            │
-│     Supabase (PostgreSQL + pgvector)  ·  Redis (Upstash)            │
-│     AI Providers (Gemini, Groq, OpenRouter, ...)  ·  Playwright     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Design Principles
-
-| Principle                  | Implementation                                                             |
-| -------------------------- | -------------------------------------------------------------------------- |
-| **SOLID**                  | Service Container with dependency injection, single-responsibility modules |
-| **Strict Typing**          | TypeScript strict mode, Zod validation on external payloads and blueprints |
-| **Immutability**           | Spread-only state updates, read-only properties                            |
-| **Fail-Closed Security**   | Safety guard rejects by default, tool pruning filters forbidden tools      |
-| **Event-Driven**           | Core EventBus + Redis EventInbox for decoupled inter-module communication  |
-| **Declarative Governance** | Agent behavior defined by JSON blueprints, not hardcoded logic             |
+| Layer | Role | Core Components |
+| :--- | :--- | :--- |
+| **Transport** | Unified ingress / egress | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001 |
+| **Orchestration** | ReAct loop, IoC, scheduling | BotCore, ServiceContainer, FairnessQueue, BlueprintManager, Planner, PTC VM |
+| **Runtime** | Safety & cost governance | VIGIL, Ralph, ConstraintManifold, ContextWindowService |
+| **Cognitive** | Hierarchical memory | Redis L1 <50ms, Supabase pgvector L2, MAPLE, HNSW |
+| **Smart Router** | Model routing | Layer 1 SmartLayer (quota rotation, circuit breakers), Layer 0 ExecutionLayer (8 adapters) |
 
 ---
 
-## 🧠 Core Systems
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
 
-### ReAct Engine
+Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/). The board below is editorial — amber on `#0D1117`, 12px radius, balanced 16:9 geometry.
 
-The central reasoning loop follows the **ReAct** pattern (Reasoning + Acting):
+<p align="center">
+  <img src="https://files.catbox.moe/5gutop.svg" alt="HIVE-MIND 26 Subsystems Board"
+       width="100%" style="border-radius: 12px;" />
+</p>
 
-1. **Perceive** — Multi-channel input analysis with context hydration (Thought Stream)
-2. **Think** — Internal reasoning via `<thought>` blocks with chain-of-thought protocol
-3. **Act** — Tool execution with Constraint Manifold pruning, PTC batching, or Swarm delegation
-4. **Observe** — Result analysis with automatic error recovery, retry, and task completion verification
+<details>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
 
-### Blueprint-Driven Governance
+| Domain | Subsystems | Responsibility |
+| :--- | :--- | :--- |
+| **01 Core & Concurrency** | SS-01 → SS-09 | ServiceContainer (I=0.00), FairnessQueue DRR, SwarmDispatcher, BlueprintManager, EventBus, Planner DAG, SubAgentEngine, PTC VM, PermissionManager |
+| **02 Model Intelligence** | SS-10 → SS-14 | ExecutionLayer, ParamConverter pivot↔wire, SmartLayer, OAuth PKCE, Voice (Live/STT/TTS) |
+| **03 Gateways & IPC** | SS-15 → SS-17 | Universal TransportInterface, TuiServer WS IPC, CLI Auth Wizard |
+| **04 Memory & Cognition** | SS-18 → SS-20 | Multi-Tier Memory L1/L2, MAPLE Ebbinghaus, Local HNSW Media DB |
+| **05 Runtime Safety** | SS-21 → SS-26 | VIGIL + Ralph, Tiered Context, Hash-Anchored Edit (FNV-1a Myers), AST Tree-Sitter, Plugin Pipeline, SafeFs |
 
-Agent behavior is defined by **Blueprints** (`config/blueprints/*.json`) validated with Zod:
-
-```json
-{
-  "metadata": { "id": "hive_main", "name": "HIVE-MIND Core", "version": "1.0.0" },
-  "mind": {
-    "drives": ["Maintain system health", "Engage user proactively", "Learn from interactions"]
-  },
-  "action_space": {
-    "allowed_tools": ["google_ai_search", "code_execution", "read_file", "..."]
-  },
-  "constraints": {
-    "read_only_fs": false,
-    "max_budget_usd": 1.0,
-    "max_iterations": 15
-  }
-}
-```
-
-- **Constraint Manifold** — `projectActionSpace()` physically removes unauthorized tools from the LLM's action space before each API call, achieving `P(forbidden_action) = 0`
-- **Ephemeral Blueprints** — Sub-agents receive dynamically generated blueprints in RAM, validated by the same Zod schema, and garbage-collected after completion
-
-### Runtime Infrastructure
-
-Unified control plane replacing the legacy CostTracker, MoralCompass, and MultiAgent services:
-
-| Module                | Role              | Mechanism                                                                                             |
-| --------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
-| **Safety Guard**      | Safety evaluation | Blueprint whitelist → Read-only FS check → LLM safety review (3-layer cascade)                        |
-| **Task Checker**      | Anti-laziness     | Detects premature closure ("I've finished" without evidence) → forces kickback with correction prompt |
-| **Budget Throttling** | Budget control    | Dynamic budget throttling, physical `max_tokens` reduction                                            |
-
-### Cognitive Layer
-
-#### Memory Stack
-
-| Layer                     | Backend             | Purpose                                       | Latency |
-| ------------------------- | ------------------- | --------------------------------------------- | ------- |
-| **L0 — Working Memory**   | In-process          | Current conversation turn                     | ~0ms    |
-| **L1 — Context Cache**    | Redis               | Passport, Scratchpad, Action History (5 msgs) | ~2ms    |
-| **L2 — Semantic Memory**  | Supabase pgvector   | Long-term recall via RAG embeddings + boost   | ~50ms   |
-| **L3 — Persistent Store** | Supabase PostgreSQL | User profiles, goals, graph relations, facts  | ~30ms   |
-
-**Memory Boost:** Every RAG recall triggers an asynchronous database RPC that strengthens the retrieved memory's score, implementing a "use it or lose it" principle.
-
-#### Memory Decay System
-
-Exponential forgetting based on `exp(-ageHours / τ)`:
-
-- **Recency** — Older memories decay faster
-- **Frequency** — Frequently recalled memories resist decay
-- **Importance** — Keyword-based semantic importance scoring
-- **Consolidation** — When ≥ 5 memories are archived, a background gist synthesis creates a dense summary and stores it back
-
-#### User Profile Learning Engine
-
-Asynchronous extraction of structured knowledge from conversations:
-
-- `fact:` — Static facts about the user ("Developer", "Lives in Paris")
-- `pref:` — Behavioral preferences ("Prefers concise answers", "Uses Python")
-- `goal:` — Active objectives ("Deploy web app by Friday")
-
-Injected into the Thought Stream as `<user_model>` XML blocks.
-
-#### DriverSystem (Proactive Motivation)
-
-Blueprint-defined "drives" (motivations) that trigger autonomous behavior during idle periods:
-
-1. Scheduler fires `consciousPulse` on cron
-2. DriverSystem loads blueprint drives and selects one via round-robin
-3. A `spontaneous_thought` event is pushed to the Redis EventInbox
-4. The ReAct engine processes the thought and takes proactive action
-
-Redis `driver_lock` with 1h TTL prevents spam.
-
-### Smart Router V2 (Zero-429)
-
-Intelligent multi-provider routing with proactive quota management:
-
-- **Multi-Key Rotation** — Up to 7 API keys per provider with granular Redis-tracked quotas
-- **Tiered Fallback** — S → A → B → C tier cascade across providers
-- **Zero-429 Strategy** — Proactive key rotation before rate limits hit
-- **Inner Retry Loop** — On 429, transparently pivots to the next key for the same model
-- **Real-Time Metrics** — Per-key usage tracking with L0 in-memory cache (2s TTL)
-
-### Agentic Swarm
-
-Dynamic multi-agent orchestration for complex tasks:
-
-- **Planner** — Decomposes goals into executable sub-tasks with tool validation
-- **SubAgentEngine** — Spawns specialized agents with isolated ReAct loops and tool whitelists
-- **SpawnSubAgentTool** — LLM-facing tool that constructs ephemeral blueprints at runtime
-
-### Programmatic Tool Calling (PTC)
-
-Instead of sequential tool calls (N round-trips), the LLM generates JavaScript that calls multiple tools in a single execution:
-
-```
-Traditional:  LLM → Tool₁ → LLM → Tool₂ → LLM → Tool₃  (6 steps)
-PTC:          LLM → JS{Tool₁ + Tool₂ + Tool₃}            (2 steps)
-```
-
-Security enforced via **SafeScript** AST validation:
-
-- Static analysis with `acorn` parser
-- Blocked patterns: `process.exit`, `require`, `eval`, `__proto__`
-- Sandboxed execution in Node.js `vm` with timeout
-- Model classification: Tier S (full PTC) → Tier C (disabled)
-
-### Consciousness Layer (WakeSystem)
-
-Background autonomous loop that enables proactive behavior:
-
-- **Watchdog Scheduler** — Fires `consciousPulse`, `memoryDecay`, `dbMonitoring` on cron
-- **EventInbox** — Redis-backed async event queue with `read_event_inbox` / `clear_event_inbox` tools
-- **MailboxWatcher** — Polls the EventInbox and triggers the ReAct engine on new events
-- **ActionMemory** — Tracks long-running tasks with zombie detection (`getStalledActions`) and heartbeat (`pulseAction`)
-- **WakeSystem** — `HIVE.sleepAndWake(delayMs, prompt)` bridge for deferred autonomous actions
-
-### Context Engineering (Thought Stream)
-
-The `TieredContextLoader` hydrates the `system.md` template into a structured XML prompt:
-
-```xml
-<system_prompt>
-  <core_identity>...</core_identity>
-  <motivation_drives>- Maintain system health\n- Engage user...</motivation_drives>
-  <user_model>
-    <facts>Developer | Lives in Paris</facts>
-    <preferences>Concise answers | Python</preferences>
-    <active_goals>Deploy web app</active_goals>
-  </user_model>
-  <execution_harness>
-    <scratchpad>Current task state...</scratchpad>
-    <ongoing_goal>Scan network</ongoing_goal>
-  </execution_harness>
-  <economic_constraint>
-    <max_budget_usd>1.0</max_budget_usd>
-    <max_iterations>15</max_iterations>
-  </economic_constraint>
-  <current_consciousness_state>...</current_consciousness_state>
-  <execution_engine>...</execution_engine>
-</system_prompt>
-```
-
-Dynamic blueprint resolution per group: each WhatsApp group can have its own `blueprintId` in the database, overriding the default `hive_main`.
+</details>
 
 ---
 
-## 🤖 Supported Providers
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
 
-### LLM Providers
+From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters. The diagram below is a compact landscape (1280×520) exported from hand-crafted SVG — zero raw Mermaid in markdown.
 
-| Provider        | Key Models                                         | PTC Tier | Use Case                                            |
-| --------------- | -------------------------------------------------- | -------- | --------------------------------------------------- |
-| **Google**      | Gemini 3.5 Flash, 3.1 Pro, Gemma 4 31B             | S        | **Primary** — reasoning, coding, vision, multimodal |
-| **Anthropic**   | Claude 4.5 Opus, Sonnet                            | S        | Complex reasoning                                   |
-| **OpenAI**      | GPT-5.2, GPT-5 Mini                                | S        | General purpose                                     |
-| **Mistral**     | Mistral Large, Codestral                           | A        | European alternative, coding                        |
-| **Kimi**        | Kimi K2.6 (via NVIDIA NIM)                         | S        | Coding specialist                                   |
-| **Groq**        | LLaMA 3.3 70B, GPT-OSS 120B, Qwen3 32B, Whisper v3 | A-B      | Fast inference, STT                                 |
-| **GitHub**      | DeepSeek R1/V3, LLaMA 3.3, Phi-4                   | A-C      | Free-tier models                                    |
-| **NVIDIA**      | Kimi K2.6, GLM 5.1, Minimax M2.7                   | S-C      | NIM inference                                       |
-| **OpenRouter**  | Minimax M2.5, GLM 4.5 Air (free)                   | S-B      | Gateway fallback                                    |
-| **HuggingFace** | LLaMA 3 8B, Kimi K2                                | B-C      | Experimental                                        |
-| **Moonshot**    | Moonshot v1 (8k/32k/128k)                          | C        | Budget fallback                                     |
+<p align="center">
+  <img src="https://files.catbox.moe/aa8urv.svg" alt="HIVE-MIND How It Works — ReAct loop"
+       width="100%" style="border-radius: 12px;" />
+</p>
 
-### Audio & Media
-
-| Capability         | Provider              | Details                                                 |
-| ------------------ | --------------------- | ------------------------------------------------------- |
-| **Voice-to-Voice** | Gemini Live           | Native bidirectional audio streaming via WebSocket      |
-| **Text-to-Speech** | Gemini TTS / Minimax  | Director's Chair persona voices (Kore, Erina-clone)     |
-| **Speech-to-Text** | Groq Whisper v3 Turbo | Ultra-fast transcription                                |
-| **Web Search**     | SerpApi               | Google AI Search (Standard, Chat, News)                 |
-| **Browser Agent**  | Playwright            | Headless Chromium with viewport & full-page screenshots |
+| Step | Harness Action | Key Code |
+| :--- | :--- | :--- |
+| 1 | Normalize ingress | `TransportInterface` → `NormalizedMessage` (`src/core/transport/`) |
+| 2 | Schedule fairly | `FairnessQueue.ts` DRR + VIP sub-queues |
+| 3 | Hydrate context | `tieredContextLoader.ts` + `ContextWindowService.ts` with Ebbinghaus `0.4·e^{-t/τ}` |
+| 4 | Route model | `SmartLayer.ts` → `ExecutionLayer.ts` (8 adapters, zero-429) |
+| 5 | ReAct loop ×10 | `BotCore.ts` + `SubAgentEngine.ts` (fork/fresh) |
+| 6 | Execute tools | `PTC ProgrammaticExecutor.ts` in `vm` + Acorn validation |
+| 7 | Guard | `VIGIL` pre-action + `Ralph` post-audit + `λ=(cost/budget)^4` |
+| 8 | Persist | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW) |
 
 ---
 
-## 🔌 Plugins
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f916_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Providers
 
-HIVE-MIND uses a modular plugin architecture with auto-discovery. Every plugin returns a standardized `{ success: boolean, message: string }` signature.
+The two-layer Smart Router speaks **8 provider families** through a unified pivot. Layer 1 rotates keys and tiers with sliding-window circuit breakers; Layer 0 adapts `GenerationParams` to each wire protocol.
 
-### Base (Core Agent Tools)
-
-| Plugin            | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `memory`          | `remember_fact`, `recall_fact`, `search_long_term_memory`, `update_scratchpad`      |
-| `goals`           | `create_goal`, `list_goals`, `complete_goal`, `cancel_goal` — autonomous scheduling |
-| `sys_interaction` | `send_message`, `send_file`, `send_contact`, `create_poll` — omni-channel           |
-| `system`          | `get_my_capabilities`, `get_time`, `get_bot_info`                                   |
-| `admin`           | User management, plugin control, system administration                              |
-| `dev_tools`       | `spawn_sub_agent`, `execute_bash_command`, `run_scratchpad`, AST tools              |
-| `mcp_tools`       | MCP client bridge for external tool servers                                         |
-
-### System
-
-| Plugin          | Description                                                      |
-| --------------- | ---------------------------------------------------------------- |
-| `event_manager` | `read_event_inbox`, `clear_event_inbox` — async event processing |
-
-### Web & Research
-
-| Plugin             | Description                                      |
-| ------------------ | ------------------------------------------------ |
-| `google_ai_search` | Google AI Search via SerpApi with multiple modes |
-| `deep_research`    | Multi-source deep research with synthesis        |
-| `crawlfire_web`    | Web page crawling and content extraction         |
-| `duckduck_search`  | DuckDuckGo search fallback                       |
-| `wikipedia`        | Wikipedia knowledge lookup                       |
-
-### Tools & Utilities
-
-| Plugin            | Description                                              |
-| ----------------- | -------------------------------------------------------- |
-| `shopping`        | Product search and comparison                            |
-| `send_email`      | Email composition and dispatch via n8n webhook           |
-| `send_sticker`    | Mood-based sticker selection from `storage_hm/stickers/` |
-| `translate`       | Multi-language translation                               |
-| `daily_pulse`     | Daily briefing and news aggregation                      |
-| `visual_reporter` | PDF report generation with PDFKit                        |
-
-### WhatsApp-Specific
-
-| Plugin          | Description                                          |
-| --------------- | ---------------------------------------------------- |
-| `sticker`       | Sticker creation from images                         |
-| `group_manager` | Group administration (ban, promote, keyword filters) |
-
-### Media
-
-| Plugin | Description                                                            |
-| ------ | ---------------------------------------------------------------------- |
-| `tts`  | Text-to-speech audio generation (Gemini TTS / Minimax / gTTS fallback) |
+| Provider | Protocol Family | Strength |
+| :--- | :--- | :--- |
+| **Google Gemini** | Native Gemini | Multimodal, 2M context, Live audio |
+| **Anthropic Claude** | Anthropic | Extended thinking, tool use |
+| **OpenAI** | OpenAI-compatible | GPT-4o, o3, vision |
+| **Groq** | OpenAI-compatible | 300+ tok/s |
+| **Cohere** | Cohere native | Command R+, RAG |
+| **Cloudflare AI** | Workers AI | Edge inference |
+| **HuggingFace** | HF Inference | Open-source |
+| **Codex / Gemini CLI** | OAuth PKCE | Personal free-tier via headless CLI |
 
 ---
 
-## 🚀 Quick Start
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4e1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Channels & Transports
 
-### Prerequisites
+| Channel | Status | Transport File | Notes |
+| :--- | :--- | :--- | :--- |
+| **WhatsApp** | ![Active](https://img.shields.io/badge/Active-3FB950?style=flat-square) | `baileys.ts` | Multi-device, media, stickers, voice |
+| **Discord** | ![Active](https://img.shields.io/badge/Active-3FB950?style=flat-square) | `discord.ts` | Guilds, DMs |
+| **Telegram** | ![Active](https://img.shields.io/badge/Active-3FB950?style=flat-square) | `telegram.ts` | Groups, inline bots |
+| **CLI** | ![Active](https://img.shields.io/badge/Active-3FB950?style=flat-square) | `cli.ts` | Full interactive UX |
+| **TUI Server** | ![Active](https://img.shields.io/badge/Active-3FB950?style=flat-square) | `TuiServerTransport.ts` | Loopback WS :5001 to standalone `HIVE-MIND-TUI` |
 
-| Component   | Minimum                     | Recommended     |
-| ----------- | --------------------------- | --------------- |
-| **Node.js** | 22.x LTS                    | 24.x LTS        |
-| **OS**      | Windows 10+ / Linux / macOS | Debian / Ubuntu |
-| **RAM**     | 512 MB                      | 1 GB+           |
+---
 
-### Required Services (Free Tiers Available)
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Quick Start
 
-| Service              | Purpose                                | Sign Up                                            |
-| -------------------- | -------------------------------------- | -------------------------------------------------- |
-| **Supabase**         | Database & Vector memory               | [supabase.com](https://supabase.com)               |
-| **Redis (Upstash)**  | Cache & Ephemeral context              | [upstash.com](https://upstash.com)                 |
-| **Google AI Studio** | Primary AI provider (Gemini 3.5 Flash) | [aistudio.google.com](https://aistudio.google.com) |
+> **Note** — HIVE-MIND is an **experimental research harness**, not a product. Interfaces are unstable and may change without notice.
 
-### Installation
+<details>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Clone & Install (Node 22+ required)</b></summary>
 
 ```bash
-# 1. Clone the repository
+# Clone the harness
 git clone https://github.com/leandre755/HIVE-MIND.git
 cd HIVE-MIND
 
-# 2. Install dependencies
+# Install dependencies
 npm install
+```
 
-# 3. Configure environment
+</details>
+
+<details>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configure Environment</b></summary>
+
+```bash
+# Copy the template and fill at least one LLM key + Supabase + Redis
 cp .env.example .env
-# Edit .env with your API keys and service credentials
+nano .env
+```
 
-# 4. Deploy database schema
-# Execute supabase/supabase_setup.sql in your Supabase SQL editor
+</details>
 
-# 5. Start the agent
+<details>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Launch the Harness</b></summary>
+
+```bash
+# Interactive startup menu — channel auth + provider selection
+npm start
+
+# Watch mode — auto-restart on source change
 npm run dev
 ```
 
-> **WhatsApp:** On first launch, scan the QR code displayed in the terminal with your WhatsApp app to link the session.
+</details>
 
-### CLI Mode (No WhatsApp Required)
-
-```bash
-npm run cli
-```
-
-Launches an interactive terminal interface (Ink TUI) for local development and testing without any messaging platform.
-
----
-
-## ⚙ Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and configure the following sections:
-
-#### Database (Required)
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
-REDIS_URL=redis://default:password@host:port
-```
-
-#### AI Providers (Smart Router V2)
-
-HIVE-MIND supports **multi-key rotation** — up to 7 keys per provider for zero-downtime:
-
-```env
-# Primary key
-GEMINI_KEY=your-gemini-api-key
-
-# Rotation keys (optional, improves quota resilience)
-GEMINI_KEY_1=your-first-key
-GEMINI_KEY_2=your-second-key
-# ... up to GEMINI_KEY_7
-```
-
-Same pattern applies to: `GROQ_KEY`, `MISTRAL_KEY`, `MOONSHOT_KEY`, `MINIMAX_KEY`, `HF_KEY`, `NVIDIA_KEY`, `OPENROUTER_KEY`.
-
-> **Note:** Legacy `VOTRE_CLE_*` environment variable names are no longer supported. Use the strict `PROVIDER_KEY` / `PROVIDER_KEY_N` format.
-
-#### Behavioral Settings
-
-```env
-TZ=Europe/Paris                    # Timezone for scheduler
-DEBUG=false                        # Verbose logging
-SEND_DELIVERY_RECEIPTS=true        # WhatsApp blue ticks
-PTC_ENABLED=true                   # Programmatic Tool Calling
-PTC_TIMEOUT_MS=30000               # PTC execution timeout
-```
-
-#### Browser Agent
-
-```env
-AGENT_BROWSER_IDLE_TIMEOUT_MS=300000    # Auto-shutdown after 5min idle
-# AGENT_BROWSER_BLOCKED_DOMAINS=malware.com,phishing.net
-```
-
-### Runtime Configuration
-
-| File                                     | Purpose                                                     |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| `config/config.json`                     | Backlog protection, voice transcription mode                |
-| `config/models_config.json`              | Model families, tiers, PTC capabilities                     |
-| `config/pricing.json`                    | Per-model cost tracking                                     |
-| `config/scheduler.json`                  | Cron jobs (`consciousPulse`, `memoryDecay`, `dbMonitoring`) |
-| `config/blueprints/hive_main.json`       | Primary agent blueprint (drives, tools, constraints)        |
-| `config/blueprints/deep_researcher.json` | Deep research sub-agent blueprint                           |
-
----
-
-## 📂 Project Structure
-
-```
-HIVE-MIND/
-├── bin/                    # CLI entrypoint (hive-mind.ts)
-├── core/                   # Orchestration layer
-│   ├── index.ts            # Main ReAct engine & message loop (~2200 lines)
-│   ├── orchestrator.ts     # High-level orchestration
-│   ├── ServiceContainer.ts # Dependency injection container
-│   ├── FairnessQueue.ts    # Per-user message queuing
-│   ├── blueprint/          # Declarative blueprints (Zod schema, BlueprintManager)
-│   ├── context/            # TieredContextLoader (Thought Stream hydration)
-│   ├── handlers/           # schedulerHandler (consciousPulse, memoryDecay)
-│   ├── security/           # PermissionManager (RBAC)
-│   ├── transport/          # Omni-channel adapters
-│   │   ├── baileys.ts      # WhatsApp (Baileys)
-│   │   ├── discord.ts      # Discord
-│   │   ├── telegram.ts     # Telegram
-│   │   ├── cli.ts          # Terminal CLI
-│   │   └── ink/            # Ink TUI components
-│   └── types/              # Core type definitions
-├── services/               # Domain services
-│   ├── runtime/            # RuntimeInfrastructure (Safety, Verification, Budget)
-│   ├── mindos/             # Motivation DriverSystem (proactive motivations)
-│   ├── memory/             # SemanticMemory, MemoryDecay, ActionMemory
-│   ├── learning/           # LearningEngine (User preference extraction)
-│   ├── events/             # EventInboxService, MailboxWatcher
-│   ├── agentic/            # SubAgentEngine, Planner
-│   ├── ptc/                # PTC Executor, SafeScript, WakeSystem, HIVE bridge
-│   ├── browser/            # Playwright-based browser agent (BrowserService)
-│   ├── voice/              # TTS providers (Minimax, Gemini TTS, gTTS)
-│   ├── audio/              # Audio conversion & Gemini Live WebSocket
-│   ├── ast/                # TreeSitter service (AST-native code tools)
-│   ├── anchor/             # Hash-Anchored edit system (Hash-anchored protocol)
-│   ├── monitoring/         # Database health monitoring
-│   ├── state/              # StateManager, IdentityMap (UUID-based)
-│   ├── memory.ts           # Supabase memory operations
-│   ├── workingMemory.ts    # Redis working memory (L1)
-│   ├── redisClient.ts      # Redis connection management
-│   ├── supabase.ts         # Supabase client & queries
-│   ├── quotaManager.ts     # Smart Router V2 quota tracking
-│   └── ...                 # User, group, admin, feedback, goals services
-├── plugins/                # Modular plugin system
-│   ├── loader.ts           # Auto-discovery & registration (CORE_TOOLS injection)
-│   ├── base/               # Core plugins (memory, admin, goals, dev_tools, system, mcp)
-│   ├── system/             # System plugins (event_manager)
-│   ├── tools/              # Utility plugins (shopping, email, sticker, translate, ...)
-│   ├── web/                # Web & research plugins (google, duckduck, crawlfire, wiki)
-│   ├── media/              # Media plugins (tts)
-│   └── whatsapp/           # WhatsApp-specific plugins (sticker, group_manager)
-├── providers/              # AI provider adapters
-│   ├── index.ts            # Smart Router V2 (provider selection, budget throttle)
-│   └── adapters/           # 15 provider implementations
-│       ├── gemini.ts       # Google Gemini
-│       ├── geminiLive.ts   # Gemini Live audio streaming
-│       ├── geminiTTS.ts    # Gemini TTS
-│       ├── groq.ts         # Groq
-│       ├── anthropic.ts    # Anthropic Claude
-│       ├── openai.ts       # OpenAI
-│       ├── mistral.ts      # Mistral AI
-│       ├── nvidia.ts       # NVIDIA NIM
-│       ├── kimi.ts         # Kimi
-│       ├── moonshot.ts     # Moonshot
-│       ├── openrouter.ts   # OpenRouter gateway
-│       ├── github.ts       # GitHub Models
-│       ├── huggingface.ts  # HuggingFace
-│       ├── minimaxTTS.ts   # Minimax TTS
-│       └── gttsTTS.ts      # Google TTS (gTTS) fallback
-├── config/                 # Configuration files
-│   └── blueprints/         # AgenticFormat blueprints (hive_main, deep_researcher)
-├── persona/                # Agent personality & system prompt template (system.md)
-├── scripts/                # Utility & diagnostic scripts
-│   ├── test_cli_e2e.ts     # Local CLI E2E test runner
-│   └── test_wa_e2e.ts      # Production WhatsApp E2E test runner
-├── supabase/               # Database schema (SQL)
-├── tests/                  # Test suites
-│   ├── unit/               # Unit tests
-│   └── integration/        # Integration tests
-├── types/                  # Global TypeScript declarations
-├── utils/                  # Shared utilities (responseSanitizer, helpers)
-├── Sandbox1/               # PTC sandboxed execution environment
-└── storage_hm/             # Persistent agent data (screenshots, stickers, files)
-```
-
----
-
-## 📜 Scripts & Commands
-
-| Script               | Command                    | Description                               |
-| -------------------- | -------------------------- | ----------------------------------------- |
-| **Start**            | `npm start`                | Production launch                         |
-| **Dev**              | `npm run dev`              | Development with hot-reload (tsx --watch) |
-| **CLI**              | `npm run cli`              | Local CLI mode (no WhatsApp)              |
-| **Build**            | `npm run build`            | TypeScript type-check (noEmit)            |
-| **Lint**             | `npm run lint`             | ESLint static analysis                    |
-| **Lint Fix**         | `npm run lint:fix`         | Auto-fix lint issues                      |
-| **Test**             | `npm test`                 | Run all test suites                       |
-| **Test Unit**        | `npm run test:unit`        | Unit tests only                           |
-| **Test Integration** | `npm run test:integration` | Integration tests only                    |
-| **Test E2E**         | `npm run test:e2e`         | End-to-end tests only                     |
-| **Repair Session**   | `npm run repair`           | Repair corrupted WhatsApp session         |
-| **Audit Group**      | `npm run audit:group`      | Audit WhatsApp group metadata             |
-| **Fix Usernames**    | `npm run fix:usernames`    | Backfill missing user display names       |
-
----
-
-## 🧪 Testing
-
-HIVE-MIND follows a **TDD workflow** with a two-tier E2E strategy:
-
-### Test Tiers
+<details>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Verify (build + lint + tests)</b></summary>
 
 ```bash
-# Run all tests
-npm test
-
-# Run specific tier
+# 73 suites — 595 unit tests
 npm run test:unit
-npm run test:integration
 
-# Local CLI E2E (real Supabase, Redis, AI)
-npx tsx scripts/test_cli_e2e.ts
-
-# Production WhatsApp E2E (against live Railway deployment)
-npx tsx scripts/test_wa_e2e.ts --account user
+# Full local gate
+npm run build && npm run lint:fast && npm run test:unit
 ```
 
-### Test Stack
-
-| Tool           | Version                     | Purpose                  |
-| -------------- | --------------------------- | ------------------------ |
-| **Jest**       | 30.x                        | Test runner & assertions |
-| **ts-jest**    | 29.x                        | TypeScript transformer   |
-| **VM Modules** | `--experimental-vm-modules` | ESM support in tests     |
-
-### E2E Strategy
-
-| Level             | Script                    | Environment           | Purpose                                         |
-| ----------------- | ------------------------- | --------------------- | ----------------------------------------------- |
-| **Local CLI**     | `scripts/test_cli_e2e.ts` | Local (real services) | Validate features before pushing                |
-| **Production WA** | `scripts/test_wa_e2e.ts`  | Live Railway          | Validate production (voice, media, permissions) |
+</details>
 
 ---
 
-## 🚢 Deployment
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Project Structure
 
-### Railway (Recommended)
-
-HIVE-MIND is pre-configured for [Railway](https://railway.app) deployment via `nixpacks.toml`:
-
-```toml
-[phases.setup]
-nixPkgs = ["...", "chromium", "playwright-driver"]
-
-[phases.install]
-cmds = ["npm install"]
-
-[phases.build]
-cmds = ["npm run build"]
+```
+hive-mind/
+├── src/
+│   ├── bin/              # daemon entry — hive-mind.ts
+│   ├── cli/              # startupMenu, whatsappAuthHelper, authSessionManager
+│   ├── config/           # Zod schemas, pricing, keyResolver, blueprints
+│   ├── core/             # BotCore, ServiceContainer, FairnessQueue, transports
+│   ├── persona/          # system prompts + lessons_learned.md
+│   ├── plugins/          # modular tools (manifest Zod-validated)
+│   ├── providers/        # Layer0 ExecutionLayer + Layer1 SmartLayer + families
+│   ├── scheduler/        # node-cron + dbMonitoring
+│   ├── services/         # memory L1/L2, agentic Planner/SubAgent, PTC VM, runtime
+│   ├── supabase/         # SQL migrations, pgvector match_* functions
+│   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
+├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
+├── src/tests/
+│   ├── unit/             # 73 suites — core/providers/runtime/services
+│   ├── integration/      # 5 suites, 34 tests
+│   └── e2e/              # harness + WebSocket cross-process
+├── .GCC/                 # Git-Context-Controller session state
+└── .gouvernance/         # review-policy, accompanied-agent, governance
 ```
 
-**Steps:**
+---
 
-1. Push to your GitHub repository
-2. Connect the repo to a Railway project
-3. Set all environment variables from `.env.example` in the Railway dashboard
-4. Deploy — Railway auto-detects Nixpacks and builds
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
 
-### Environment Requirements
+| Command | Purpose | Gate |
+| :--- | :--- | :--- |
+| `npm run build` | TypeScript strict `tsc --noEmit` | 0 errors on 330 files |
+| `npm run lint:fast` | Oxlint, 96 rules, 4 threads | 0 warnings |
+| `npm run lint:arch` | dependency-cruiser boundaries | 0 violations |
+| `npm run test:unit` | Jest, 73 suites | 595 / 595 passing |
+| `npm run test:integration` | 5 suites | 34 / 34 passing |
+| `npm audit` | High/Moderate CVEs + GPL-2.0 deny | 0 vulnerabilities |
 
-| Service      | Required | Notes                                      |
-| ------------ | -------- | ------------------------------------------ |
-| **Supabase** | ✅       | Deploy `supabase/supabase_setup.sql` first |
-| **Redis**    | ✅       | Upstash recommended for serverless         |
-| **Chromium** | ⚠️       | Required only if Browser Agent is used     |
+---
 
-### Health Monitoring
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e0_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
+
+Animated media is reserved for concrete proof of execution. Below is the editorial teaser (GIF, 1280×480, 24 frames) — the static hero stays static by design.
+
+<p align="center">
+  <img src="https://files.catbox.moe/g6t6vt.gif" alt="HIVE-MIND harness — terminal teaser"
+       width="100%" style="border-radius: 8px;" />
+</p>
+
+> Teaser loop: `npm start` → harness boots → transports connect → ReAct ×10 → memory persists → WS streams to TUI. Replace with your own screen capture for proof of work.
+
+---
+
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f91d_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Contributing
+
+All non-trivial work ships through **Pull Requests only**. An agent never approves its own code.
+
+- Read [`AGENTS.md`](AGENTS.md) — mandatory rules for every agent and human
+- Read [`ARCHITECTURE.md`](ARCHITECTURE.md) — layer blueprint and 26 SS boundaries
+- Read [`.gouvernance/review-policy.md`](.gouvernance/review-policy.md) — Strict Review, dual-layer defense, acceptance gates
 
 ```bash
-# Stream live production logs
-railway logs --tail
+# Branch naming — Conventional Commits enforced at pre-commit
+git checkout -b feat/my-feature
+git checkout -b fix/issue-description
 
-# Last 5 minutes
-railway logs --tail --since 5m
+# PR budget: ≤1000 lines warning, 2500 hard limit (docs/assets excluded)
 ```
 
 ---
 
-## 🛡 Security
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f6e1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Security
 
-### Defense-in-Depth Architecture (6 Layers)
+Private disclosure only — never via public issues. See [`SECURITY.md`](SECURITY.md).
 
-| Layer               | Component                     | Strategy                                                                                   |
-| ------------------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
-| **L1 — Input**      | Permission Manager            | RBAC with Super-Admin, Admin, User roles                                                   |
-| **L2 — Governance** | Constraint Manifold           | Blueprint `allowed_tools` whitelist prunes the action space before API calls               |
-| **L3 — Safety**     | Safety Guard                  | 3-layer cascade: blueprint check → destructive tool guard → LLM safety review              |
-| **L4 — Execution**  | SafeScript (AST) + VM Sandbox | Static acorn analysis blocking dangerous patterns, isolated execution with timeout         |
-| **L5 — Budget**     | Budget Control                | Dynamic budget throttling, physical `max_tokens` reduction, kill switch on budget exceeded |
-| **L6 — Behavior**   | Task Checker                  | Completeness verification ensuring the agent completes tasks before closing                |
-
-### Permission Model
-
-```
-Global Owner  →  Full system control (HITL approvals routed here)
-Super Admin   →  Plugin management, user administration
-Admin         →  Group management, moderation
-User          →  Standard interaction
-```
-
-### Key Security Features
-
-- **Human-in-the-Loop (HITL)** — Dangerous operations require explicit owner approval (dual-logic: Admin Hub + In-Band escalation)
-- **Universal Read / Restricted Write** — Agent can read system files but writes are sandboxed to `Sandbox1/` and `storage_hm/`
-- **Constraint Manifold** — Tools not in the blueprint's `allowed_tools` are physically removed from the LLM's action space (`P(action) = 0`)
-- **AST Validation** — Every PTC script is parsed and analyzed before execution
-- **Automatic Cooldown** — Rate limiting and backlog protection prevent abuse
-- **2-Layer Response Defense** — Detects missing `<thought>` tags, leaked tool calls, and raw code dominance; forces retry or strips before sending
-
-> ⚠️ **Important:** Configure your Super-Admin users in the Supabase `users` table before deploying to production. Unconfigured instances default to open access.
-
----
-
-## 🤝 Contributing
-
-### Development Workflow
-
-1. **Read Context** — Check `.GCC/main.md` for current project state
-2. **Design First** — Create or update `docs/design_docs/` before coding
-3. **Write Tests** — Tests must compile and fail (red) before implementation
-4. **Implement** — Write the minimum code to pass tests (green)
-5. **Verify** — Run `npx tsx scripts/test_cli_e2e.ts` for full validation
-
-### Code Standards
-
-- TypeScript strict mode — no `any` (use `unknown`), explicit return types
-- Functions: max 20 lines, max 2 parameters (use objects beyond)
-- Naming: intent-revealing, no abbreviations, booleans use verbs (`isLoading`)
-- Error handling: `Result<T, Error>` pattern or explicit throws — never silent `null`
-- Comments explain **why**, not **how**
-- Zero TODO comments in source — future work tracked in `.GCC/afaire.md`
-
-### Branch Strategy
-
-- `main` — Production (auto-deploys to Railway)
-- Feature branches merged via PR with review
-
----
-
-## 📄 License
-
-This project is licensed under the [Apache License 2.0](LICENSE) — the grant includes a patent license that terminates if you file a patent claim against this project, and modified files must carry a notice of change.
+- Every filesystem access goes through [`src/utils/safeFs.ts`](src/utils/safeFs.ts) (`resolveWithinRoot` traversal-safe)
+- Secrets are scanned on every commit and push via `gitleaks` (staged + full history), `ALLOW_CONFIG_EDIT=1` for protected files
+- `ALLOW_CONFIG_EDIT=1 git commit` is the only authorized path for `package.json`, `.githooks/` etc. — `--no-verify` stays forbidden
 
 ---
 
 <p align="center">
-  <sub>Built by <a href="https://github.com/leandre755">leandre755</a> — HIVE-MIND V3.5</sub>
+  <sub>
+    HIVE-MIND is an experimental research harness — the scaffolding is the artifact.<br/>
+    Editorial premium — amber <code>#F59E0B</code> · orange <code>#F97316</code> on <code>#0D1117</code> · Fluent 3D icons<br/>
+    Apache-2.0 &nbsp;·&nbsp; leandre755 &nbsp;·&nbsp; 2026
+  </sub>
 </p>

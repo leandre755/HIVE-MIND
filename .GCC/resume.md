@@ -1,43 +1,37 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Documenter intégralement les 26 sous-systèmes autonomes de HIVE-MIND (SS-01 à SS-26) selon le framework Diátaxis (`*-explanation.md`, `*-reference.md`, `*-howto.md`), intégrer ces 26 sous-systèmes dans `ARCHITECTURE.md` à la racine, éradiquer les "faux tests" (tautologies locales, assertions inversées, tests E2E sur-mockés accédant aux membres privés) identifiés dans `TEST_RESULT/qa_test_suite_audit.md`, et reclasser/écrire les tests réels des sous-systèmes pour atteindre une couverture $\ge 90\%$.
+- **Requested Task**: Déplacer `documentations/tui/` vers `HIVE-MIND-TUI/documentation/`, refondre les READMEs bilingues (`README.md` et `README.fr.md`) selon le skill `build-readme`, aligner les workflows GitHub Actions (`release.yml` sur Node 22), consigner le remplacement du plugin de recherche par TinyFish Search dans `todo.md` et `.GCC/main.md`, et soumettre l'ensemble à l'évaluation adversariale multi-critiques indépendants.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `npm run build` (`tsc --noEmit`) : 0 erreur de type TypeScript sur l'ensemble des 330 fichiers.
-  - `npm run lint:fast` (`oxlint --deny-warnings src/`) : 0 warning, 0 erreur sur 330 fichiers.
-  - `npm run test:unit` : 73/73 suites Jest validées, 595/595 tests unitaires passés (100% au vert).
-  - Tests E2E refactorisés réels :
-    - `src/tests/e2e/harness.test.ts` : 7/7 branches de `SubAgentEngine` validées (résolution directe, outils multi-étapes, correction sur erreur de validation, rejet d'outils hors blueprint, forçage sur limite de boucle, crash 503 fail-safe, fork avec parentHistory).
-    - `src/tests/e2e/bot.e2e.test.ts` : 8/8 tests du pipeline de messages et de sécurité passés sans accès privé.
-  - Corpus documentaire Diátaxis : 97 fichiers markdown organisés en 6 domaines (`core/`, `providers/`, `transport/`, `memory/`, `runtime/`, `plugins/`) et centralisés par `documentation/00_index.md`.
-  - Architecture : `ARCHITECTURE.md` mis à jour avec les 26 sous-systèmes, leurs contrats d'isolement, leurs patterns transversaux ($P_1$ à $P_5$) et la roadmap d'extraction en 3 phases.
+  - `python3 .github/scripts/verify_workflows.py` : Validation succeeded: 7 workflow(s) compliant (code 0).
+  - `npm run build` (`tsc --noEmit`) : 0 erreur de compilation sur les 330 fichiers de `src/`.
+  - `npm run lint:fast` (`oxlint --deny-warnings src/`) : 0 warning, 0 error sur 330 fichiers (204ms).
+  - `wc -l README.md README.fr.md` : Exactement 300 lignes de contenu structuré chacun (isomorphisme strict, palette ambre `#F59E0B`/orange `#F97316` sur `#0D1117`, zéro émoji brut dans les titres, zéro diagramme Mermaid brut).
+  - Validation dual-critic indépendante (`Fix-Verifier` & `Global System Critic`) : 100% des anomalies corrigées (ancres sans tiret initial `#architecture`, `#capacités`, etc., réalignement des 4 chemins résiduels de `documentation/explanations/06_tui_plugins.md` vers `HIVE-MIND-TUI/src/ui/`, 0 lien `file:///` résiduel).
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `ARCHITECTURE.md`
-  - **Scope**: Cartographie complète des 26 sous-systèmes autonomes (SS-01 à SS-26).
-  - **Exact Technical Change**: Ajout du tableau des 26 sous-systèmes regroupés en 5 domaines, formalisation des 5 patterns transversaux (Inversion de contrôle, Mémoire hiérarchique avec décroissance d'Ebbinghaus, Sandboxing VM PTC, Contrôle en boucle fermée FinOps/VIGIL/Ralph, Myers diff ancré par hachage FNV-1a) et roadmap d'extraction en paquets indépendants.
-- **File**: `src/tests/e2e/harness.test.ts`
-  - **Scope**: Test unitaire et fonctionnel approfondi de `SubAgentEngine` (SS-07).
-  - **Exact Technical Change**: Remplacement du test superficiel par 7 scénarios réels validant le cycle ReAct, la validation stricte d'arguments, la sécurité des outils autorisés et la résilience aux pannes.
-- **File**: `src/tests/e2e/bot.e2e.test.ts`
-  - **Scope**: Test d'intégration bout-en-bout du pipeline de messages et d'orchestration.
-  - **Exact Technical Change**: Suppression des accès illégaux aux attributs privés, validation du cycle de vie du transport, de la priorité de la file d'orchestration, du filtrage utilisateur mute, de la gestion des événements de groupe et de l'assainissement de réponse (`responseSanitizer.ts`).
-- **File**: `src/tests/unit/core/compactHistory.test.ts` & `src/tests/unit/core/cotExtraction.test.ts`
-  - **Scope**: Éradication des tests tautologiques.
-  - **Exact Technical Change**: Suppression des fonctions simulées en local, import et test direct des méthodes réelles de `BotCore`.
-- **File**: `src/tests/unit/core/m2_challenger_edge_cases.test.ts`
-  - **Scope**: Assainissement des assertions de résilience runtime.
-  - **Exact Technical Change**: Suppression de l'assertion inversée affirmant des régressions, remplacement par des tests de robustesse réels sur `ContextWindowService` et `WakeSystem`.
-- **Files**: `src/tests/unit/core/BotCore.test.ts`, `FairnessQueue.test.ts`, `ServiceContainer.test.ts`, `SwarmDispatcher.test.ts`, `runtime/RuntimeSentinel.test.ts`, `runtime/ContextWindowService.test.ts`, `services/anchor/AnchorStateManager.test.ts`
-  - **Scope**: Suites de tests manquantes pour les sous-systèmes critiques.
-  - **Exact Technical Change**: Implémentation des tests unitaires validant l'ordonnancement équitable, le fail-closed VIGIL sur actions critiques, l'ancrage de hachage FNV-1a et la sérialisation des messages.
-- **Directory**: `documentation/`
-  - **Scope**: Rédaction modulaire Diátaxis des 26 sous-systèmes.
-  - **Exact Technical Change**: Création de 97 fichiers (`*-explanation.md`, `*-reference.md`, `*-howto.md` et `index.md` par domaine) et mise à jour de `documentation/00_index.md`.
+- **File**: `README.md` & `README.fr.md`
+  - **Scope**: Landing page bilingue du projet HIVE-MIND.
+  - **Exact Technical Change**: Refonte complète selon le skill `build-readme` (hero 16:9, badges de navigation ancrés sans tiret, cartographie des 26 sous-systèmes SVG, boucle ReAct vectorielle, absence totale d'émojis bruts dans les titres, 300 lignes chacun).
+- **File**: `.github/workflows/release.yml`
+  - **Scope**: Workflow de release sémantique GitHub Actions.
+  - **Exact Technical Change**: Mise à niveau du setup Node.js à `node-version: '22'` (l. 43) pour alignement sur `package.json` (`engines.node >= 22.0.0`) et `AGENTS.md` §2.
+- **File**: `documentation/explanations/06_tui_plugins.md`
+  - **Scope**: Architecture de communication IPC TUI ↔ Core et système de plugins.
+  - **Exact Technical Change**: Alignement des références vers le client autonome `HIVE-MIND-TUI` et vers `src/core/transport/TuiServerTransport.ts` / `src/core/transport/tui/HiveTransport.ts`.
+- **File**: `todo.md`
+  - **Scope**: Backlog d'architecture et plugins.
+  - **Exact Technical Change**: Fiche technique dédiée pour l'intégration de TinyFish Search (gratuit, SOTA benchmarks).
+- **File**: `docs/tasks/todo.md`
+  - **Scope**: Suivi d'avancement des tâches de découplage TUI et TinyFish.
+  - **Exact Technical Change**: Validation des tâches 1 à 9 (Phases 1 à 4) cochées à `[x]`, Phase 5 (Task 10 TinyFish) en attente.
+- **File**: `.GCC/main.md`
+  - **Scope**: Journal de persistance macro du projet.
+  - **Exact Technical Change**: Décision d'architecture TinyFish Search consignée, mise à jour des entrées de dette technique résolues (Node 22 workflow, liens absolus doc, bug Anthropic `role: 'tool'`), et alignement de la section `Objective`.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast`
+- **Verification Command Run**: `npm run build && npm run lint:fast && python3 .github/scripts/verify_workflows.py`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -47,16 +41,20 @@
 > oxlint --deny-warnings src/
 
 Found 0 warnings and 0 errors.
-Finished in 211ms on 330 files with 96 rules using 4 threads.
+Finished in 204ms on 330 files with 96 rules using 4 threads.
+
+Validation succeeded: 7 workflow(s) compliant.
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- Aucun blocage résiduel.
-- 18+ commits locaux sont prêts à être poussés vers GitHub (`git push origin master` ou branche dédiée selon les consignes du mainteneur).
+- **Blocker / Failure Explanation**: Aucun blocage fonctionnel. Les modifications sont prêtes à être committées sur une branche dédiée (`docs/tui-decoupling-and-readme-rework`) sous Conventional Commits, puis soumises par PR conformément à `.gouvernance/review-policy.md`.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target Area**: Push Git et publication.
+1. **Target File**: `README.md` et `.GCC/main.md`.
 2. **Immediate Action**:
-   - Pousser les commits locaux vers le dépôt distant (`git push origin master`).
-   - S'assurer que les workflows CI GitHub Actions s'exécutent avec succès.
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
+   - Créer la branche dédiée : `git checkout -b docs/tui-decoupling-and-readme-rework`.
+   - Committer avec message Conventional Commits :
+     `git add README.md README.fr.md .github/workflows/release.yml documentation/explanations/06_tui_plugins.md todo.md docs/tasks/todo.md .GCC/main.md .GCC/resume.md .gitignore`
+     `git commit -m "docs(readme): rework landing-page readme and decouple tui documentation"`
+   - Pousser la branche et ouvrir la PR (`gh pr create`).
+3. **Verification Command**: `npm run build && npm run lint:fast && python3 .github/scripts/verify_workflows.py`
