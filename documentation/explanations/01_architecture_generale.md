@@ -121,4 +121,4 @@ L'architecture en couches représente un équilibre entre la simplicité opérat
 - [04 — Sécurité, PTC & Supervision Runtime](./04_securite_runtime.md)
 - [05 — Mémoire Cognitive & Bases de Données](./05_memoire_cognitive.md)
 - [06 — TUI & Système de Plugins](./06_tui_plugins.md)
-- [PROJECT.md](../../PROJECT.md) — Contrats d'interface et layout du code
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Contrats d'interface et layout du code

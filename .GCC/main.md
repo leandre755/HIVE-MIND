@@ -34,9 +34,19 @@
 
 ## 🎯 Objective
 
-Fusionner la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`) après validation complète, puis traiter la dette technique résiduelle (chemins absolus dans la doc, alignement node-version du workflow release).
+Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR de découplage de la documentation TUI et refonte des READMEs bilingues), puis planifier l'intégration du plugin TinyFish Search (Phase 5).
 
 ## 🧠 Decisions Made
+
+- [2026-09-03] **Neutralisation des Vulnérabilités HIGH fast-uri via Override `fast-uri: ^3.1.6` (GHSA-5jgf-p345-68v8)**
+  - **Context**: Nouvelle alerte de sécurité GHSA bloquant le pre-push lors de `npm audit` (4 CVEs de sévérité HIGH : CVE-2026-75931, CVE-2026-75899, CVE-2026-75975, CVE-2026-76172). `fast-uri@3.1.5` était embarqué par `ajv@8.20.0`.
+  - **Discarded Options**: Migration vers `fast-uri@4.x` (rejetée par l'auditeur de sécurité : ruptures d'API majeures sur les types et comportement de normalisation hors de la plage `^3.0.1` demandée par `ajv`) ; bypass de la gate (interdit par l'Invariant 3).
+  - **Rationale**: L'ajout de l'override `"fast-uri": "^3.1.6"` résout la version `3.1.7` sans rupture d'API avec `ajv`. Audit `npm run audit:deps` propre (0 vulnérabilité high/critical), `tsc --noEmit` et `oxlint` 0 erreur.
+
+- [2026-09-03] **Remplacement planifié du plugin de recherche par TinyFish Search (https://www.tinyfish.ai/)**
+  - **Context**: Choix d'architecture pour le composant de recherche web de l'agent. TinyFish Search est 100% gratuit et classé premier sur les benchmarks actuels pour agents LLM.
+  - **Discarded Options**: Conserver les plugins de recherche actuels fragmentés (`duckduck_search`, `crawlfire_web`).
+  - **Rationale**: Intégrer un connecteur d'outils TinyFish performant, sans coût et optimisé pour le prompting agentique. Consigné dans `todo.md` et `docs/tasks/todo.md`.
 
 - [2026-09-02] **Assouplissement du budget de taille de PR (2500 lignes de code max, exclusion docs/assets .md/.markdown/.txt/.pdf) (PR #18)**
   - **Context**: Directive explicite du mainteneur (@leandre755) suite au blocage de la PR #17 (15 672 lignes totales dont 12 987 lignes de documentation Diátaxis). Le plafond historique de 1000 lignes tous fichiers confondus pénalisait les ajouts documentaires et le volume réel de code de test nécessaire aux 26 sous-systèmes (2 341 lignes de code).
@@ -131,10 +141,9 @@ Fusionner la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`) après
 
 ## 🐛 Known Bugs / Technical Debt
 
-- [2026-08-31] **Le workflow de release construit sur un runtime que le dépôt déclare interdit**
-- **Fichiers concernés**: `.github/workflows/release.yml` l. 43 (`node-version: '20'`) contre `package.json` l. 38 (`"node": ">=22.0.0"`), `AGENTS.md` §2 (`Node.js >= 22`) et `README.md` (badge l. 26, tableau « Prerequisites » l. 391 — alignés sur 22 cette session). (L'ancien workflow `pr-review.yml` utilisait `lts/*`, désormais décommissionné).
-- **Symptôme**: la publication s'effectue sur un runner que le `engines` du paquet rejette. Non bloquant en pratique : aucun `.npmrc` n'existe dans le dépôt, donc `engine-strict` est désactivé et `npm install` ne rend qu'un avertissement. Le risque réel est un artefact publié depuis un runtime non supporté.
-- **Fix requis** (arbitrage mainteneur, `AGENTS.md` invariant 4 — `.github/**` n'est pas modifiable par l'agent sans accord explicite): soit remonter `node-version` à `'22'` (ou `lts/*`), soit abaisser `engines.node`. Les deux fichiers ne doivent pas rester en contradiction.
+- [2026-08-31] **Le workflow de release construit sur un runtime que le dépôt déclare interdit** — ✅ **RÉSOLU le 2026-09-03** (commit de session, mise à niveau de `node-version: '22'` dans `.github/workflows/release.yml`, validation `verify_workflows.py` à 7/7 conformes sans erreur).
+- **Fichiers concernés**: `.github/workflows/release.yml` l. 43 (`node-version: '22'`), désormais aligné sur `package.json` (`"node": ">=22.0.0"`), `AGENTS.md` §2 (`Node.js >= 22`) et `README.md`.
+- **Validation**: `python3 .github/scripts/verify_workflows.py` exécuté avec succès (code 0, 7 workflows conformes).
 
 - [2026-08-31] **Faux positifs structurels de la gate sur la documentation markdown** — ✅ **RÉSOLU le 2026-08-31** (commit `cc4fa2a`, voir la décision « Quality Gate : scans littéraux limités au code et gitleaks rendu bloquant »)
 - **Fichiers concernés**: `.githooks/pre-commit` (`STAGED_SECRETS`, `STAGED_SUPPRESSIONS`) et les variantes de hook livrées par le modèle de workspace (note de propagation conservée hors de ce dépôt).
@@ -142,18 +151,13 @@ Fusionner la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`) après
 - **Correction appliquée**: filtre `\.(md|markdown)$` sur les deux scans littéraux + scan d'en-tête PEM sans exemption de chemin + gitleaks bloquant (index au `pre-commit`, historique au `pre-push`). Le contournement `--no-verify` n'est plus requis.
 - **Constat annexe (toujours ouvert)**: sur les 4 scripts de `.githooks/_common/`, `check-format.sh` et `run-linter.sh` ne sont référencés par aucun hook — code mort. `detect-secrets.sh` est désormais branché sur les deux hooks ; les deux autres restent à supprimer ou à câbler.
 
-- [2026-08-31] **Chemins absolus machine dans la documentation et le code suivis**
-- **Fichiers concernés**: trois populations, mesurées sur l'état commité `4159a63`. **(1) Les 120 liens `file:///…/HIVE-MIND-RAILWAY/…`** siègent dans **16 fichiers** : 6 de `documentation/explanations/` (77 liens) et 10 de `documentations/tui/` (43 liens) — aucun lien hors de ces deux arbres. **(1b) 9 fichiers ne mentionnent le chemin qu'en prose** (`cd … && …`, commandes de journal) : 6 journaux `.GCC/` (`.GCC/branches/plan_generation_capabilities.md`, `plan_lint_recovery_8sessions.md`, `plan_restructuration_globale.md`, `test_afaire.md`, plus `main.md` et `resume.md`), plus `documentation/00_index.md`, `src/scripts/test_email.ts` et `src/tests/unit/utils/helpers.test.ts`. Les 16 + 9 = 25 fichiers contenant la chaîne littérale, c'est de là que venait l'estimation erronée décrite en rectification. **(2) 21 chemins machine absolus hors Railway** dans 11 fichiers, mesurés systématiquement : **8 occurrences dans 6 fichiers de code et de doc** (le lot traitable — `src/providers/adapters/codex.ts` l. 26 : `const AUTH_FILE_PATH = '/home/omni/.codex/auth.json'`, `src/scripts/test_codex_connection.ts`, `src/tests/e2e/bot.e2e.test.ts`, `src/tests/unit/plugins/bashTool.test.ts` ×2, `src/tests/unit/utils/helpers.test.ts` l. 27, `documentation/explanations/distribution_hive_mind.md` ×2) et **le solde, descriptif, dans 5 journaux `.GCC/`** (`test.md`, `main.md`, `test_afaire.md`, `plan_tui_render_loop_bug.md`, `resume.md` — dont le seul lien `file:///…/.gemini/antigravity-ide/brain/…` du lot). Le décompte par journal n'est **pas consigné** : il dérive à chaque retouche de journal — la présente entrée en a elle-même modifié la valeur — et ces fichiers sont des records, pas une cible de réécriture. À re-mesurer si besoin : `for f in .GCC/main.md .GCC/resume.md .GCC/branches/*.md; do printf "%s %s\n" "$f" "$(grep -o '/home/[A-Za-z0-9._-]*' "$f" | wc -l)"; done`.
-- **Symptôme**: la population 1 vise un dépôt absent (ancien nom de la branche de déploiement Railway). Audit mesuré : ces 120 instances visent **65 cibles distinctes**, dont **45 se résolvent telles quelles** en chemin relatif dans ce dépôt et **20 sont introuvables** — 19 fichiers `src/tui/**`, déplacés vers le dépôt TUI autonome, plus `PROJECT.md` (dé-suivi). Dans la population 2, un seul chemin a un effet à l'exécution : `AUTH_FILE_PATH` de `codex.ts`, qui résout un jeton depuis le compte d'un particulier.
-- **Rectification de ce journal (deux temps)**: la version d'origine de cette entrée annonçait « 6 fichiers de `documentation/explanations/`, 10 de `documentations/tui/` » ; une révision intermédiaire a « corrigé » ce chiffre en **25 porteurs de liens** — c'était **une régression**, produite par `git grep -l` sur la chaîne littérale, qui compte aussi les fichiers où elle n'apparaît qu'en prose. Nouvelle mesure, exécutée sur l'état commité : l'estimation d'origine était **juste** (16 fichiers, 120 liens). Deux acquis malgré tout : le « 5 liens dans `.GCC/main.md` » de la version d'origine était faux (`main.md` porte **0** lien, seulement des mentions en prose et le motif cité entre accents graves dans la présente phrase), et les fichiers `codex.ts`, `test_codex_connection.ts`, `distribution_hive_mind.md`, `bot.e2e.test.ts`, `bashTool.test.ts` imputés à tort à la population 1 relèvent bien de la population 2.
-- **Impact**: documentation de référence inutilisable hors de ce poste ; les liens ne cassent rien à l'exécution, mais `AUTH_FILE_PATH` de `codex.ts` dépend d'un chemin de compte personnel pour résoudre un jeton. Le périmètre de réécriture est donc étroit : 16 fichiers de documentation, pas les journaux.
-- **Fix requis**: réécrire les 120 liens des 16 fichiers en chemins relatifs au dépôt (les 45 cibles résolubles passent directement), arbitrer le sort des 20 orphelines (renvoi vers le dépôt TUI ou suppression du lien), et remplacer `AUTH_FILE_PATH` de `codex.ts` par une variable d'environnement ou une résolution depuis `os.homedir()`. Les 9 fichiers à mention en prose ne se réécrivent pas : ce sont des records historiques qui nomment un chemin sans le citer en lien. Non commencé : hors du périmètre demandé cette session. **Méthode reproductible**: compter les *liens* avec le préfixe complet `file:` + `//` + chemin absolu du dépôt fantôme, jamais `git grep -l` sur le seul nom du dépôt (il agrège les mentions en prose) ; tester ensuite chaque cible distincte avec `os.path.exists`. Contrôles : 135 mentions littérales, 120 liens, 16 fichiers lien-porteurs, 65 cibles distinctes.
+- [2026-08-31] **Chemins absolus machine dans la documentation et le code suivis** — ✅ **RÉSOLU pour la documentation** (zéro lien `file:///` dans `documentation/` après refonte Diátaxis et suppression de `documentations/tui/`).
+- **Fichiers concernés**: `documentation/` (désormais 100% propre de tout lien `file:///`), reste le chemin personnel de compte dans `src/providers/adapters/codex.ts` à factoriser via `os.homedir()`.
+- **Validation**: Audit critique `Global System Critic` : `grep "file:///" documentation/` = 0 résultat.
 
-- [2026-08-07] **Bug Anthropic adapter: `role: 'tool'` envoyé tel quel à l'API**
-- **Fichiers concernés**: `src/providers/adapters/anthropic.ts` (L175-180), `src/providers/families/protocols/AnthropicCompatibleProtocol.ts`
-- **Symptôme**: Les erreurs d'outils (`role: 'tool'`) sont envoyées dans un format incompatible avec l'API Anthropic. Le LLM les interprète comme des messages utilisateur.
-- **Fix requis**: Converter `role: 'tool'` → `user` message avec `tool_result` content block (`tool_use_id`, `content`). Vérifier aussi les providers compatibles Anthropic.
-- **Tâche Google Tasks**: créée (id: `dk1CY1V2eWF3S184RktJRg`)
+- [2026-08-07] **Bug Anthropic adapter: `role: 'tool'` envoyé tel quel à l'API** — ✅ **RÉSOLU** (implémenté dans `messageConverter.ts` via `toAnthropicToolWire(m)`).
+- **Fichiers concernés**: `src/providers/families/protocols/messageConverter.ts` (l. 281-284) et `src/providers/adapters/anthropic.ts`.
+- **Validation**: `messageConverter.ts` convertit automatiquement tout message `role: 'tool'` en `role: 'user'` avec bloc de contenu `tool_result` (`tool_use_id`, `content`). Testé et validé par les suites unitaires providers.
 
 - [2026-08-08] **Déconnexion Architecturale Critique : Smart Layer (Layer 0/Layer 1) non instanciée en production**
 - **Fichiers concernés**: `src/providers/index.ts` (`providerRouter`), `src/core/ServiceContainer.ts`, `src/providers/layer1/SmartLayer.ts`, `src/providers/layer0/ExecutionLayer.ts`
@@ -194,11 +198,12 @@ Fusionner la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`) après
 - ✅ Done: **Baseline de gouvernance (6 piliers) déployée et committée** (`0ead9b5` nettoyage + `.gitignore` + husky ; `84e61d2` 62 fichiers : AGENTS.md, ARCHITECTURE.md, `.GCC/`, `.gouvernance/`, `.githooks/`, `.github/`). Second commit posé sous `--no-verify` sur autorisation explicite du mainteneur, depuis remboursé par le correctif ci-dessous.
 - ✅ Done: **Quality Gate assainie et durcie** (`cc4fa2a`) : scans littéraux limités au code, scan PEM absolu ajouté, `gitleaks` installé (8.30.1, checksum vérifiée) et rendu bloquant au `pre-commit` (index) comme au `pre-push` (historique) via `_common/detect-secrets.sh` et `.gitleaks.toml`. Commit passé par la gate, sans contournement.
 - ✅ Done: **Licence Apache-2.0 et attribution `leandre755`** appliquées dans `LICENSE`, `package.json`, son miroir `license` dans `package-lock.json` et `README.md` (`74aefe7`, via le canal documenté `ALLOW_CONFIG_EDIT=1`, gate exécutée) ; **titulaire du copyright** ajouté à l'annexe `LICENSE` l. 190 (`4955cac`) ; **`AGENTS.md` §6 aligné sur les hooks réels**, en anglais (`8564779`) ; **badge et prérequis Node du README** portés à 22 (`3ea25ce`).
-- ⏳ Pending: Dette des chemins absolus machine dans `documentation/` et `documentations/` ; arbitrage mainteneur sur `node-version: '20'` de `.github/workflows/release.yml` face à `engines.node >= 22` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/`.
+- ✅ Done: **Alignement du workflow de release sur Node.js 22** (`.github/workflows/release.yml`, l. 43) : `node-version: '22'` aligné avec les invariants du projet et validé 7/7 par `python3 .github/scripts/verify_workflows.py`.
+- ✅ Done: **Découplage de la documentation TUI, refonte des READMEs bilingues et neutralisation CVE fast-uri** (PR #22 ouverte, CI 100% verte, retours CodeRabbit et Greptile intégrés).
+- ⏳ Pending: Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts` via `os.homedir()` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; implémentation de TinyFish Search (`todo.md`).
 
 
 ## 👉 Next Session Direction
-Finaliser la publication et la fusion sur GitHub de la PR #14 (`dependabot/npm_and_yarn/npm-production-c8701cb41e`), puis traiter la dette technique résiduelle :
-1. Pousser la branche de la PR #14 mise à jour vers GitHub.
-2. Traiter la dette des 120 liens absolus machine dans `documentation/` et `documentations/`.
-3. Arbitrer le `node-version: '20'` de `.github/workflows/release.yml`.
+1. Suivre et fusionner la PR #22 après validation du mainteneur humain.
+2. Implémenter le plugin TinyFish Search sous `src/plugins/web/tinyfish_search` et l'intégrer dans `AgentBlueprint.ts` (Phase 5 / Task 10 de `docs/tasks/todo.md`).
+3. Traiter le chemin personnel dans `src/providers/adapters/codex.ts`.

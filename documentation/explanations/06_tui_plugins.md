@@ -21,7 +21,7 @@ Ces deux problèmes sont résolus respectivement par la classe `HiveCoreConnecti
 
 ### 1. Communication TUI ↔ Core : `HiveCoreConnection`
 
-Le pont de communication est défini dans `src/tui/core/connection.ts`. La TUI est cliente d'un serveur WebSocket exposé par le Core via `TuiServerTransport`.
+Le pont de communication est défini dans `src/core/connection.ts` du client autonome `HIVE-MIND-TUI`. La TUI est cliente d'un serveur WebSocket exposé par le Core via `src/core/transport/TuiServerTransport.ts`.
 
 ```mermaid
 sequenceDiagram
@@ -93,7 +93,7 @@ flowchart LR
 
 #### Capture des saisies (TAB)
 
-Dans `src/tui/ui/components/InputPrompt.tsx`, la touche `TAB` (définie dans `src/tui/ui/key/keyBindings.ts`) déclenche `handleQueueMessageKey()`. Si :
+Dans `HIVE-MIND-TUI/src/ui/components/InputPrompt.tsx`, la touche `TAB` déclenche `handleQueueMessageKey()`. Si :
 
 - L'agent est en génération (`isGenerating` est vrai).
 - La saisie n'est pas vide.
@@ -103,13 +103,13 @@ Le texte du buffer est envoyé à `onQueueMessage()` et le buffer est immédiate
 
 #### Stockage et visualisation
 
-Le hook `src/tui/ui/hooks/useMessageQueue.ts` gère le tableau d'état `messageQueue: string[]`. Il expose :
+Le hook `HIVE-MIND-TUI/src/ui/hooks/useMessageQueue.ts` gère le tableau d'état `messageQueue: string[]`. Il expose :
 
 - `addMessage(text)` : ajoute un message.
 - `clearQueue()` : vide la queue.
 - `popAllMessages()` : dépile tous les messages.
 
-Le composant `src/tui/ui/components/QueuedMessageDisplay.tsx` affiche la liste sous le champ de saisie avec la mention `Queued (press ↑ to edit)`. Si l'utilisateur appuie sur `↑` avec un buffer vide, `tryLoadQueuedMessages()` réinjecte tous les messages accumulés dans le buffer pour modification.
+Le composant `HIVE-MIND-TUI/src/ui/components/QueuedMessageDisplay.tsx` affiche la liste sous le champ de saisie avec la mention `Queued (press ↑ to edit)`. Si l'utilisateur appuie sur `↑` avec un buffer vide, `tryLoadQueuedMessages()` réinjecte tous les messages accumulés dans le buffer pour modification.
 
 #### Dépilage automatique
 
@@ -121,7 +121,7 @@ Un `useEffect` dans `useMessageQueue.ts` surveille l'état du Core. Dès que tou
 
 #### StatusRow
 
-`src/tui/ui/components/StatusRow.tsx` est la barre d'état au bas du terminal. Elle agrège et affiche en temps réel :
+`HIVE-MIND-TUI/src/ui/components/StatusRow.tsx` est la barre d'état au bas du terminal. Elle agrège et affiche en temps réel :
 
 - **Services actifs** : Indicateurs cliquables `ServiceIndicator` affichant le nom et la durée d'exécution des services du Core (MAPLE, VIGIL). Alimentés par les événements WebSocket `service_start`/`service_end`.
 - **Consommation de contexte** : Abonnée à l'événement `context_usage_update`, elle affiche `[Context: X/Y (Z%)]` avec une coloration dynamique (vert → orange → rouge) selon le niveau de saturation.
@@ -220,11 +220,12 @@ Les **`CORE_TOOL_NAMES`** (ex. `edit_file`, `grep_search`, `read_file`, `browser
 ---
 
 ## Further reading
-
-- `src/tui/core/connection.ts` — Pont WebSocket TUI ↔ Core
-- `src/core/transport/TuiServerTransport.ts` — Serveur WebSocket côté Core
-- `src/tui/ui/components/InputPrompt.tsx` — Capture des saisies et queue TAB
-- `src/tui/ui/hooks/useMessageQueue.ts` — Hook de gestion de la queue
-- `src/tui/ui/components/StatusRow.tsx` — Barre d'état et indicateurs
+ 
+- `HIVE-MIND-TUI/src/core/connection.ts` — Pont WebSocket client TUI
+- `src/core/transport/TuiServerTransport.ts` — Serveur WebSocket côté Core (SS-16)
+- `src/core/transport/tui/HiveTransport.ts` — Événements et adaptateur transport TUI du Core
+- `HIVE-MIND-TUI/src/ui/components/InputPrompt.tsx` — Capture des saisies et queue TAB (client TUI)
+- `HIVE-MIND-TUI/src/ui/hooks/useMessageQueue.ts` — Hook de gestion de la queue (client TUI)
+- `HIVE-MIND-TUI/src/ui/components/StatusRow.tsx` — Barre d'état et indicateurs (client TUI)
 - `src/services/runtime/ContextWindowService.ts` — Suivi de la fenêtre de contexte
 - `src/plugins/loader.ts` — PluginLoader et sélection sémantique

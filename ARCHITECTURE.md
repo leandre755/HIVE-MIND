@@ -51,7 +51,7 @@ Detailed technical reference for the **HIVE-MIND** repository. Lean operational 
 
 ## 2. Catalog of Autonomous Subsystems (SS-01 to SS-26)
 
-The HIVE-MIND codebase has been audited and decoupled into **26 autonomous, extractable subsystems**, formally analyzed in [`docs/subsystems_report.pdf`](docs/subsystems_report.pdf) and [`docs/chapters/`](docs/chapters/). Each subsystem is modular, testable in isolation, and ready for standalone re-implementation (in Rust, Go, Python, or TypeScript).
+The HIVE-MIND codebase has been audited and decoupled into **26 autonomous, extractable subsystems**, documented across the Diátaxis architecture corpus in [`documentation/00_index.md`](documentation/00_index.md). Each subsystem is modular, testable in isolation, and ready for standalone re-implementation (in Rust, Go, Python, or TypeScript).
 
 ### Domain 1: Core Orchestration & Concurrency
 
@@ -158,7 +158,7 @@ The interactive terminal UI is extracted into a standalone sibling repository (`
 
 ## 7. Known Architecture Debt & Refactoring Roadmap
 
-Refer to `docs/architecture_audit.md` (local-only) and `docs/subsystems_report.pdf` §7:
+Refer to `docs/architecture_audit.md` (local-only) and [`documentation/00_index.md`](documentation/00_index.md):
 1. **Phase 1 (Micro-Libraries, $I = 0.00$)**: Extract zero-dependency modules (`SS-23 Hash-Anchored Editor`, `SS-02 FairnessQueue`, `SS-11 MessageConverter`, `SS-26 SafeFs`).
 2. **Phase 2 (Core Reliability)**: Decouple `SS-12 SmartLLM Router` and `SS-21 AI Runtime Control Plane` into independent packages.
 3. **Phase 3 (Universal Harness)**: Package `SS-01 ServiceContainer`, `SS-06 ExplicitPlanner`, and `SS-08 PTC VM Engine` into an open-source autonomous agent harness.

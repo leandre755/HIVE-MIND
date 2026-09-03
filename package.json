@@ -129,7 +129,8 @@
     "trim": "^1.0.1",
     "form-data": "^4.0.1",
     "file-type": "^21.3.4",
-    "browserslist": "^4.28.8"
+    "browserslist": "^4.28.8",
+    "fast-uri": "^3.1.6"
   },
   "allowScripts": {
     "@ffmpeg-installer/linux-x64@4.1.0": true,
