@@ -59,9 +59,9 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f3d7_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f3d7_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
 
-HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`docs/subsystems_report.pdf`](docs/subsystems_report.pdf) avec les métriques d’instabilité de Martin.
+HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
 
 <p align="center">
   <img src="https://files.catbox.moe/zhthbm.svg" alt="Harnais HIVE-MIND cinq couches"
@@ -78,7 +78,7 @@ HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionn
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capacités
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capacités
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/). La planche ci-dessous est éditoriale — ambre sur `#0D1117`, rayon 12px, géométrie 16:9 équilibrée.
 
@@ -88,7 +88,7 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 </p>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> Carte des domaines — déplier SS-01 à SS-26</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Carte des domaines — déplier SS-01 à SS-26</b></summary>
 
 | Domaine | Sous-Systèmes | Responsabilité |
 | :--- | :--- | :--- |
@@ -102,7 +102,7 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Comment Ça Marche
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Comment Ça Marche
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel. Le diagramme ci-dessous est un paysage compact (1280×520) exporté depuis un SVG artisanal — zéro Mermaid brut dans le markdown.
 
@@ -124,7 +124,7 @@ Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fe
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f916_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Fournisseurs
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f916_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Fournisseurs
 
 Le Smart Router bicouche parle **8 familles de fournisseurs** via un pivot unifié. Layer 1 pivote les clés et les tiers avec des circuit breakers à fenêtre glissante ; Layer 0 adapte `GenerationParams` à chaque protocole wire.
 
@@ -141,7 +141,7 @@ Le Smart Router bicouche parle **8 familles de fournisseurs** via un pivot unifi
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4e1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Canaux & Transports
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4e1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Canaux & Transports
 
 | Canal | Statut | Fichier Transport | Notes |
 | :--- | :--- | :--- | :--- |
@@ -153,12 +153,12 @@ Le Smart Router bicouche parle **8 familles de fournisseurs** via un pivot unifi
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démarrage Rapide
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démarrage Rapide
 
 > **Note** — HIVE-MIND est un **harnais de recherche expérimental**, pas un produit. Les interfaces sont instables et peuvent changer sans préavis.
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Cloner & Installer (Node 22+ requis)</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Cloner & Installer (Node 22+ requis)</b></summary>
 
 ```bash
 # Cloner le harnais
@@ -172,7 +172,7 @@ npm install
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configurer l’Environnement</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configurer l’Environnement</b></summary>
 
 ```bash
 # Copier le modèle et remplir au moins une clé LLM + Supabase + Redis
@@ -183,7 +183,7 @@ nano .env
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Lancer le Harnais</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Lancer le Harnais</b></summary>
 
 ```bash
 # Menu de démarrage interactif — auth canal + sélection fournisseur
@@ -196,7 +196,7 @@ npm run dev
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Vérifier (build + lint + tests)</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Vérifier (build + lint + tests)</b></summary>
 
 ```bash
 # 73 suites — 595 tests unitaires
@@ -210,9 +210,9 @@ npm run build && npm run lint:fast && npm run test:unit
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Structure du Projet
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Structure du Projet
 
-```
+```text
 hive-mind/
 ├── src/
 │   ├── bin/              # entrée daemon — hive-mind.ts
@@ -237,7 +237,7 @@ hive-mind/
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
 
 | Commande | Objet | Porte |
 | :--- | :--- | :--- |
@@ -250,7 +250,7 @@ hive-mind/
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e0_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démonstration Live
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e0_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démonstration Live
 
 Les médias animés sont réservés à la preuve d’exécution concrète. Ci-dessous le teaser éditorial (GIF, 1280×480, 24 frames) — le hero reste statique par design.
 
@@ -263,7 +263,7 @@ Les médias animés sont réservés à la preuve d’exécution concrète. Ci-de
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f91d_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Contribuer
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f91d_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Contribuer
 
 Tout travail non trivial passe par des **Pull Requests uniquement**. Un agent n’approuve jamais son propre code.
 
@@ -281,7 +281,7 @@ git checkout -b fix/description-probleme
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f6e1_3d.webp" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Sécurité
+## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f6e1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Sécurité
 
 Divulgation privée uniquement — jamais via les issues publiques. Voir [`SECURITY.md`](SECURITY.md).
 

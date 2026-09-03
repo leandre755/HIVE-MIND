@@ -199,11 +199,11 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 - ✅ Done: **Quality Gate assainie et durcie** (`cc4fa2a`) : scans littéraux limités au code, scan PEM absolu ajouté, `gitleaks` installé (8.30.1, checksum vérifiée) et rendu bloquant au `pre-commit` (index) comme au `pre-push` (historique) via `_common/detect-secrets.sh` et `.gitleaks.toml`. Commit passé par la gate, sans contournement.
 - ✅ Done: **Licence Apache-2.0 et attribution `leandre755`** appliquées dans `LICENSE`, `package.json`, son miroir `license` dans `package-lock.json` et `README.md` (`74aefe7`, via le canal documenté `ALLOW_CONFIG_EDIT=1`, gate exécutée) ; **titulaire du copyright** ajouté à l'annexe `LICENSE` l. 190 (`4955cac`) ; **`AGENTS.md` §6 aligné sur les hooks réels**, en anglais (`8564779`) ; **badge et prérequis Node du README** portés à 22 (`3ea25ce`).
 - ✅ Done: **Alignement du workflow de release sur Node.js 22** (`.github/workflows/release.yml`, l. 43) : `node-version: '22'` aligné avec les invariants du projet et validé 7/7 par `python3 .github/scripts/verify_workflows.py`.
-- ✅ Done: **Découplage de la documentation TUI et refonte complète des READMEs bilingues** (isomorphisme exact 300 lignes, palette #F59E0B/#F97316 sur #0D1117, suppression de `documentations/tui` dans HIVE-MIND et transfert dans `HIVE-MIND-TUI/documentation/`).
-- ⏳ Pending: Traiter la dette des chemins absolus machine restants dans `documentation/` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; implémentation de TinyFish Search (`todo.md`).
+- ✅ Done: **Découplage de la documentation TUI, refonte des READMEs bilingues et neutralisation CVE fast-uri** (PR #22 ouverte, CI 100% verte, retours CodeRabbit et Greptile intégrés).
+- ⏳ Pending: Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts` via `os.homedir()` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; implémentation de TinyFish Search (`todo.md`).
 
 
 ## 👉 Next Session Direction
-1. Créer la branche `docs/tui-decoupling-and-readme-rework`, committer et ouvrir la Pull Request selon `.gouvernance/review-policy.md`.
+1. Suivre et fusionner la PR #22 après validation du mainteneur humain.
 2. Implémenter le plugin TinyFish Search sous `src/plugins/web/tinyfish_search` et l'intégrer dans `AgentBlueprint.ts` (Phase 5 / Task 10 de `docs/tasks/todo.md`).
-3. Traiter la dette résiduelle des chemins absolus machine dans `documentation/`.
+3. Traiter le chemin personnel dans `src/providers/adapters/codex.ts`.

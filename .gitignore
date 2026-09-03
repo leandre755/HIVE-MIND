@@ -86,5 +86,5 @@ LITTERATURE/
 # ============================================================
 .DS_Store
 Thumbs.db
-assets/
+/assets/
 *.excalidraw

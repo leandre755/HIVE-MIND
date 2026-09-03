@@ -47,14 +47,11 @@ Validation succeeded: 7 workflow(s) compliant.
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun blocage fonctionnel. Les modifications sont prêtes à être committées sur une branche dédiée (`docs/tui-decoupling-and-readme-rework`) sous Conventional Commits, puis soumises par PR conformément à `.gouvernance/review-policy.md`.
+- **Blocker / Failure Explanation**: Aucun blocage. La PR #22 (`docs/tui-decoupling-and-readme-rework`) est ouverte sur GitHub. L'ensemble des 6 vérifications CI sont au vert (Dependency review, PR governance, Workflow hygiene, Workspace validation, Greptile, CodeRabbit). Les retours de revue de Greptile et CodeRabbit ont été traités et intégrés.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `README.md` et `.GCC/main.md`.
+1. **Target File**: Pull Request #22 (`https://github.com/leandre755/HIVE-MIND/pull/22`).
 2. **Immediate Action**:
-   - Créer la branche dédiée : `git checkout -b docs/tui-decoupling-and-readme-rework`.
-   - Committer avec message Conventional Commits :
-     `git add README.md README.fr.md .github/workflows/release.yml documentation/explanations/06_tui_plugins.md todo.md docs/tasks/todo.md .GCC/main.md .GCC/resume.md .gitignore`
-     `git commit -m "docs(readme): rework landing-page readme and decouple tui documentation"`
-   - Pousser la branche et ouvrir la PR (`gh pr create`).
+   - Attendre la validation finale et le merge de la PR #22 par le mainteneur humain (conformément à l'Invariant d'accompagnement : l'agent ne fusionne jamais sa propre PR).
+   - Passer à la Phase 5 (Task 10 de `docs/tasks/todo.md`) : implémentation de TinyFish Search sous `src/plugins/web/tinyfish_search`.
 3. **Verification Command**: `npm run build && npm run lint:fast && python3 .github/scripts/verify_workflows.py`
