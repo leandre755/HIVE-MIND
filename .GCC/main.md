@@ -38,6 +38,11 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 
 ## 🧠 Decisions Made
 
+- [2026-09-03] **Neutralisation des Vulnérabilités HIGH fast-uri via Override `fast-uri: ^3.1.6` (GHSA-5jgf-p345-68v8)**
+  - **Context**: Nouvelle alerte de sécurité GHSA bloquant le pre-push lors de `npm audit` (4 CVEs de sévérité HIGH : CVE-2026-75931, CVE-2026-75899, CVE-2026-75975, CVE-2026-76172). `fast-uri@3.1.5` était embarqué par `ajv@8.20.0`.
+  - **Discarded Options**: Migration vers `fast-uri@4.x` (rejetée par l'auditeur de sécurité : ruptures d'API majeures sur les types et comportement de normalisation hors de la plage `^3.0.1` demandée par `ajv`) ; bypass de la gate (interdit par l'Invariant 3).
+  - **Rationale**: L'ajout de l'override `"fast-uri": "^3.1.6"` résout la version `3.1.7` sans rupture d'API avec `ajv`. Audit `npm run audit:deps` propre (0 vulnérabilité high/critical), `tsc --noEmit` et `oxlint` 0 erreur.
+
 - [2026-09-03] **Remplacement planifié du plugin de recherche par TinyFish Search (https://www.tinyfish.ai/)**
   - **Context**: Choix d'architecture pour le composant de recherche web de l'agent. TinyFish Search est 100% gratuit et classé premier sur les benchmarks actuels pour agents LLM.
   - **Discarded Options**: Conserver les plugins de recherche actuels fragmentés (`duckduck_search`, `crawlfire_web`).
