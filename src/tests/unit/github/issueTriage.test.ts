@@ -3,6 +3,8 @@ import { createRequire } from 'node:module';
 
 const cjsRequire = createRequire(import.meta.url);
 const {
+  getLeadingIndent,
+  checkFenceTransition,
   extractSections,
   parseOpeningFence,
   isClosingFence,
@@ -162,6 +164,39 @@ describe('Issue Triage - extractSections', () => {
     expect(sections.get('steps to reproduce')).toBe('Real step 1');
   });
 
+  it('should not interpret four-space indented backticks as code fences (CommonMark compliance)', () => {
+    const body = [
+      '    ```',
+      '## 📋 Steps to Reproduce',
+      '1. Step one\n2. Step two',
+      '    ```',
+      '## 🐛 Describe the Bug',
+      'Real bug description with sufficient details.',
+    ].join('\n');
+
+    const sections = extractSections(body);
+    expect(sections.has('steps to reproduce')).toBe(true);
+    expect(sections.get('steps to reproduce')).toBe('1. Step one\n2. Step two\n    ```');
+    expect(sections.get('describe the bug')).toBe('Real bug description with sufficient details.');
+  });
+
+  it('should not close an active fence when encountering a four-space indented delimiter', () => {
+    const body = [
+      '## 🐛 Describe the Bug',
+      '```typescript',
+      '    ```',
+      '    // indented inside code fence',
+      '    ```',
+      '```',
+      '## 📋 Steps to Reproduce',
+      '1. Step one',
+    ].join('\n');
+
+    const sections = extractSections(body);
+    expect(sections.get('describe the bug')).toContain('// indented inside code fence');
+    expect(sections.get('steps to reproduce')).toBe('1. Step one');
+  });
+
   it('should handle empty or null body gracefully', () => {
     expect(extractSections(null).size).toBe(0);
     expect(extractSections('').size).toBe(0);
@@ -203,6 +238,39 @@ describe('Issue Triage - parseOpeningFence and isClosingFence', () => {
   });
 });
 
+describe('Issue Triage - getLeadingIndent and checkFenceTransition', () => {
+  it('should correctly calculate leading indent in spaces and tabs', () => {
+    expect(getLeadingIndent('```')).toBe(0);
+    expect(getLeadingIndent('   ```')).toBe(3);
+    expect(getLeadingIndent('    ```')).toBe(4);
+    expect(getLeadingIndent('\t```')).toBe(4);
+    expect(getLeadingIndent('  \t```')).toBe(6);
+  });
+
+  it('should ignore fences with 4 or more spaces of indentation in checkFenceTransition', () => {
+    expect(checkFenceTransition('    ```', null)).toEqual({
+      nextFence: null,
+      inFence: false,
+    });
+
+    const activeFence = { char: '`', length: 3 };
+    expect(checkFenceTransition('    ```', activeFence)).toEqual({
+      nextFence: activeFence,
+      inFence: true,
+    });
+  });
+
+  it('should recognize fences with up to 3 spaces of indentation in checkFenceTransition', () => {
+    const openRes = checkFenceTransition('   ```typescript', null);
+    expect(openRes.inFence).toBe(true);
+    expect(openRes.nextFence).toEqual({ char: '`', length: 3 });
+
+    const closeRes = checkFenceTransition('  ```', openRes.nextFence);
+    expect(closeRes.inFence).toBe(true);
+    expect(closeRes.nextFence).toBeNull();
+  });
+});
+
 describe('Issue Triage - filterNonFenceLines', () => {
   it('should strip empty code fences with whitespace preceding info string for backticks and tildes', () => {
     const backtickLines = ['``` markdown', '```'];
@@ -220,6 +288,11 @@ describe('Issue Triage - filterNonFenceLines', () => {
   it('should preserve text outside of code fences', () => {
     const lines = ['Line 1 outside', '```', 'inside code', '```', 'Line 2 outside'];
     expect(filterNonFenceLines(lines)).toEqual(['Line 1 outside', 'inside code', 'Line 2 outside']);
+  });
+
+  it('should preserve four-space indented backtick lines as content rather than stripping them', () => {
+    const lines = ['    ```', 'content', '    ```'];
+    expect(filterNonFenceLines(lines)).toEqual(['    ```', 'content', '    ```']);
   });
 });
 
@@ -818,7 +891,7 @@ describe('Issue Triage - runTriage Comments & Idempotence', () => {
     mocks.mockGithub.paginate.mockResolvedValueOnce([
       {
         id: 42,
-        user: { type: 'Bot' },
+        user: { login: 'github-actions[bot]', type: 'Bot' },
         body: '<!-- coding-stuff:issue-triage:v1 -->\nPrevious automated review',
       },
     ]);
@@ -899,6 +972,37 @@ describe('Issue Triage - runTriage Comments & Idempotence', () => {
       body: expect.stringContaining('<!-- coding-stuff:issue-triage:v1 -->'),
     });
     expect(mocks.mockGithub.rest.issues.createComment).not.toHaveBeenCalled();
+  });
+
+  it('should not update a comment bearing marker if authored by a foreign bot (e.g. dependabot[bot])', async () => {
+    mocks.mockContext.payload.issue = {
+      title: 'Freeform issue',
+      body: 'Some questions.',
+      labels: [],
+    };
+
+    mocks.mockGithub.paginate.mockResolvedValueOnce([
+      {
+        id: 4242,
+        user: { login: 'dependabot[bot]', type: 'Bot' },
+        body: '<!-- coding-stuff:issue-triage:v1 -->\nForeign bot comment',
+      },
+    ]);
+
+    await runTriage({
+      github: mocks.mockGithub,
+      context: mocks.mockContext,
+      core: mocks.mockCore,
+      issueNumber: 304,
+    });
+
+    expect(mocks.mockGithub.rest.issues.updateComment).not.toHaveBeenCalled();
+    expect(mocks.mockGithub.rest.issues.createComment).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      issue_number: 304,
+      body: expect.stringContaining('<!-- coding-stuff:issue-triage:v1 -->'),
+    });
   });
 });
 
@@ -1049,7 +1153,7 @@ describe('Issue Triage - runTriage Guard Conditions & Environment', () => {
       { id: 2, user: { type: 'Bot' }, body: undefined },
       {
         id: 3,
-        user: { type: 'Bot' },
+        user: { login: 'github-actions[bot]', type: 'Bot' },
         body: '<!-- coding-stuff:issue-triage:v1 -->\nOld bot comment',
       },
     ]);

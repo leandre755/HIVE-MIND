@@ -87,6 +87,26 @@ function parseOpeningFence(trimmedLine) {
 }
 
 /**
+ * Calcule l'indentation en début de ligne (nombre d'espaces). Un caractère tabulation compte pour 4 espaces.
+ * @param {string} line
+ * @returns {number}
+ */
+function getLeadingIndent(line) {
+  let indent = 0;
+  for (let i = 0; i < line.length; i++) {
+    const char = line.charAt(i);
+    if (char === ' ') {
+      indent += 1;
+    } else if (char === '\t') {
+      indent += 4;
+    } else {
+      break;
+    }
+  }
+  return indent;
+}
+
+/**
  * Détermine si une ligne clôture le bloc de code actif.
  * La fermeture doit utiliser le même caractère, avoir une longueur supérieure ou égale
  * à l'ouverture, et ne comporter aucun caractère non-espace après le délimiteur.
@@ -104,11 +124,20 @@ function isClosingFence(trimmedLine, activeFence) {
 
 /**
  * Détermine l'état du fence de code pour la ligne courante.
- * @param {string} trimmedLine
+ * Selon CommonMark, un délimiteur de fence (ouverture ou fermeture) ne peut comporter
+ * que 0 à 3 espaces d'indentation. Une ligne indentée de 4 espaces ou plus correspond à
+ * un bloc de code indenté ou à du contenu indenté, et ne peut ni ouvrir ni fermer un fence.
+ * @param {string} line
  * @param {{ char: string, length: number } | null} activeFence
  * @returns {{ nextFence: { char: string, length: number } | null, inFence: boolean }}
  */
-function checkFenceTransition(trimmedLine, activeFence) {
+function checkFenceTransition(line, activeFence) {
+  const indent = getLeadingIndent(line);
+  if (indent >= 4) {
+    return { nextFence: activeFence, inFence: activeFence !== null };
+  }
+
+  const trimmedLine = line.trimStart();
   if (activeFence) {
     const closed = isClosingFence(trimmedLine, activeFence);
     return { nextFence: closed ? null : activeFence, inFence: true };
@@ -146,8 +175,7 @@ function extractSections(body) {
   let activeFence = null;
 
   for (const line of body.split('\n')) {
-    const trimmed = line.trimStart();
-    const { nextFence, inFence } = checkFenceTransition(trimmed, activeFence);
+    const { nextFence, inFence } = checkFenceTransition(line, activeFence);
     activeFence = nextFence;
 
     if (inFence) {
@@ -155,7 +183,9 @@ function extractSections(body) {
       continue;
     }
 
-    if (trimmed.startsWith('## ')) {
+    const trimmed = line.trimStart();
+    const indent = getLeadingIndent(line);
+    if (indent < 4 && trimmed.startsWith('## ')) {
       commitSection(sections, currentHeader, currentContent);
       currentHeader = normalizeHeader(trimmed.slice(3));
       currentContent = [];
@@ -214,6 +244,7 @@ function stripListMarker(line) {
 /**
  * Filtre les lignes de délimiteurs de fences (``` ou ~~~) et leurs identifiants de langage,
  * en conservant uniquement les lignes de contenu réel situées à l'intérieur ou à l'extérieur.
+ * S'appuie directement sur checkFenceTransition pour garantir la cohérence CommonMark.
  * @param {string[]} lines
  * @returns {string[]}
  */
@@ -222,20 +253,13 @@ function filterNonFenceLines(lines) {
   let activeFence = null;
 
   for (const line of lines) {
-    const trimmed = line.trimStart();
-    if (activeFence) {
-      if (isClosingFence(trimmed, activeFence)) {
-        activeFence = null;
-      } else {
-        result.push(line);
-      }
-    } else {
-      const opening = parseOpeningFence(trimmed);
-      if (opening) {
-        activeFence = opening;
-      } else {
-        result.push(line);
-      }
+    const { nextFence } = checkFenceTransition(line, activeFence);
+    const isOpeningLine = activeFence === null && nextFence !== null;
+    const isClosingLine = activeFence !== null && nextFence === null;
+    activeFence = nextFence;
+
+    if (!isOpeningLine && !isClosingLine) {
+      result.push(line);
     }
   }
 
@@ -632,7 +656,7 @@ async function upsertTriageComment({ github, context, issueNumber, body }) {
     (comment) =>
       typeof comment.body === 'string' &&
       comment.body.includes(TRIAGE_MARKER) &&
-      (comment.user?.login === 'github-actions[bot]' || comment.user?.type === 'Bot'),
+      comment.user?.login === 'github-actions[bot]',
   );
 
   if (existing) {
@@ -756,6 +780,8 @@ async function runTriage({ github, context, core, issueNumber }) {
 }
 
 module.exports = {
+  getLeadingIndent,
+  checkFenceTransition,
   normalizeHeader,
   parseOpeningFence,
   isClosingFence,
