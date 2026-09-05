@@ -536,3 +536,28 @@ Status: **VERIFIED WORKING**
 - Post-condition de licence: `sha256sum LICENSE` → `d10f91a1eb210bb37509cc5f7e55568bfd92175a6bf05ae78cf810bd3269658b`, donc bien distinct du texte distribué `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`. L'écart est la conséquence voulue de l'annexe remplie ; un futur contrôle « LICENSE doit être identique à apache.org » est donc **caduc** tel quel.
 - **Re-mesure des compteurs de journal (leçon appliquée)**: la ventilation « `test.md` ×6, `main.md` ×3 » de la passe 2 ne tenait plus après les éditions de ce tour (`main.md` 2, `test.md` 7, solde inchangé, total 13 toujours juste). Les décomptes par journal sont retirés de `main.md` §Known Bugs au profit de la commande de re-mesure — un chiffre que la seule écriture du journal déplace n'est pas une preuve.
 - **Non testé (hors périmètre, à faire)**: `npm run build`, `lint:fast`, `test:unit`, et le déclenchement réel des hooks par un `git push` (aucun push demandé, et `AGENTS.md` §4 impose la voie Pull Request).
+
+## 📅 Date: 2026-09-05 (Validation Sécurité Parseur Shell-Aware Command Substitutions & P1 Greptile PR #24)
+
+- **Périmètre**: `src/core/security/PermissionManager.ts`, `src/tests/unit/core/permissionManager.test.ts`.
+- **Analyse statique et compilation**:
+  - Commande: `npm run lint:fast`
+  - Statut: **PASSED (0 warning, 0 error)** — oxlint sur 331 fichiers en 87ms.
+  - Commande: `npm run build`
+  - Statut: **PASSED (0 error)** — `tsc --noEmit`.
+- **Suite ciblée Jest**:
+  - Commande: `NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/core/permissionManager.test.ts`
+  - Statut: **PASSED (1/1 suite, 57/57 tests réussis, 100%)**
+  - Cas de test adversariaux validés:
+    - Substitution avec parenthèse fermante entre guillemets (`echo "$(printf ')'; sudo id)"`) -> bloqué (`res.result === false`).
+    - Substitution avec parenthèse fermante échappée (`echo "$(echo \); sudo id)"`) -> bloqué.
+    - Substitution avec guillemets doubles et simples imbriqués (`echo "$(printf ")"; sudo id)"`) -> bloqué.
+    - Process substitution avec parenthèse fermante entre guillemets (`cat <(printf ')'; sudo id)`) -> bloqué.
+    - Backtick substitution avec parenthèse fermante (<code>echo \`printf ")"; sudo id\`</code>) -> bloqué.
+    - Substitutions imbriquées multiples (`$($(echo sudo) id)`) -> bloqué.
+    - Substitutions syntaxiquement tronquées ou non fermées -> fail-closed (`requiresPermission: true`).
+    - Substitutions et commandes arithmétiques légitimes (`echo $(( 2 + 3 ))`, `echo "$(echo '()')"`) -> autorisées sans permission.
+- **Suite complète des tests unitaires**:
+  - Commande: `npm run test:unit`
+  - Statut: **PASSED (74/74 suites, 661/661 tests réussis, 0 régression)**.
+

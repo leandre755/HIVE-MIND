@@ -230,6 +230,92 @@ describe('PermissionManager - Bash Command Security (Escalation & Flags)', () =>
       expect(resBacktick.result).toBe(false);
     });
 
+    it('blocks command substitutions with quoted parentheses attempting to truncate validation', () => {
+      const resQuotedParen = pm.validateBashCommand('echo "$(printf \')\'; sudo id)"');
+      expect(resQuotedParen.result).toBe(false);
+      expect(resQuotedParen.reason).toContain('sudo');
+
+      const resDoubleQuotedParen = pm.validateBashCommand('echo "$(printf ")"; sudo id)"');
+      expect(resDoubleQuotedParen.result).toBe(false);
+      expect(resDoubleQuotedParen.reason).toContain('sudo');
+
+      const resEscapedParen = pm.validateBashCommand('echo "$(echo \\); sudo id)"');
+      expect(resEscapedParen.result).toBe(false);
+      expect(resEscapedParen.reason).toContain('sudo');
+
+      const resOpenParen = pm.validateBashCommand('echo "$(echo \'(\'; sudo id)"');
+      expect(resOpenParen.result).toBe(false);
+      expect(resOpenParen.reason).toContain('sudo');
+
+      const resCommentParen = pm.validateBashCommand('echo "$(echo hello # )\nsudo id)"');
+      expect(resCommentParen.result).toBe(false);
+
+      const resBacktickQuotedParen = pm.validateBashCommand('echo `printf ")"; sudo id`');
+      expect(resBacktickQuotedParen.result).toBe(false);
+      expect(resBacktickQuotedParen.reason).toContain('sudo');
+    });
+
+    it('blocks nested command substitutions and backticks inside substitutions', () => {
+      const resNested = pm.validateBashCommand('echo "$($(echo sudo) id)"');
+      expect(resNested.result).toBe(false);
+
+      const resBacktickInSub = pm.validateBashCommand('echo "$(echo `sudo id`)"');
+      expect(resBacktickInSub.result).toBe(false);
+      expect(resBacktickInSub.reason).toContain('sudo');
+    });
+
+    it('fails closed on malformed or unclosed command substitutions', () => {
+      const resUnclosedParen = pm.validateBashCommand('echo "$(unclosed');
+      expect(resUnclosedParen.result).toBe(false);
+      expect(resUnclosedParen.requiresPermission).toBe(true);
+      expect(resUnclosedParen.reason).toContain('command substitution');
+
+      const resUnclosedBacktick = pm.validateBashCommand('echo `unclosed');
+      expect(resUnclosedBacktick.result).toBe(false);
+      expect(resUnclosedBacktick.requiresPermission).toBe(true);
+      expect(resUnclosedBacktick.reason).toContain('command substitution');
+    });
+
+    it('allows legitimate substitutions with safe commands and balanced quotes', () => {
+      const resSafe = pm.validateBashCommand("echo \"$(printf '%s' 'hello')\"");
+      expect(resSafe.result).toBe(true);
+      expect(resSafe.requiresPermission).toBe(false);
+
+      const resParenSafe = pm.validateBashCommand('echo "$(echo \'()\')"');
+      expect(resParenSafe.result).toBe(true);
+      expect(resParenSafe.requiresPermission).toBe(false);
+
+      const resSingleQuoteLiteral = pm.validateBashCommand("echo '$(echo hello)'");
+      expect(resSingleQuoteLiteral.result).toBe(true);
+      expect(resSingleQuoteLiteral.requiresPermission).toBe(false);
+
+      const resAnsiCQuotedParen = pm.validateBashCommand('echo "$(printf $\')\'; sudo id)"');
+      expect(resAnsiCQuotedParen.result).toBe(false);
+      expect(resAnsiCQuotedParen.reason).toContain('sudo');
+
+      const resProcSubQuoted = pm.validateBashCommand("cat <(printf ')'; sudo id)");
+      expect(resProcSubQuoted.result).toBe(false);
+      expect(resProcSubQuoted.reason).toContain('sudo');
+
+      const resQuotedPrivEsc = pm.validateBashCommand('find . -exec "sudo" id \\;');
+      expect(resQuotedPrivEsc.result).toBe(false);
+      expect(resQuotedPrivEsc.reason).toContain('sudo');
+
+      const resNestedQuotedPrivEsc = pm.validateBashCommand('echo "$($(echo \\"sudo\\") id)"');
+      expect(resNestedQuotedPrivEsc.result).toBe(false);
+
+      const resArithmetic = pm.validateBashCommand('echo $(( 2 + 3 ))');
+      expect(resArithmetic.result).toBe(true);
+      expect(resArithmetic.requiresPermission).toBe(false);
+
+      const resArithmeticSub = pm.validateBashCommand('echo $(( 1 + $(sudo id) ))');
+      expect(resArithmeticSub.result).toBe(false);
+
+      const resCommentWithApostrophe = pm.validateBashCommand("ls -la # don't delete this");
+      expect(resCommentWithApostrophe.result).toBe(true);
+      expect(resCommentWithApostrophe.requiresPermission).toBe(false);
+    });
+
     it('blocks env var prefix before banned commands', () => {
       const res = pm.validateBashCommand('ENV_VAR=1 bash -c whoami');
       expect(res.result).toBe(false);

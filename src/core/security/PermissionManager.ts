@@ -483,11 +483,11 @@ function _checkPrivilegeEscalationArgs(
   parts: string[],
   cmdIndex: number,
 ): { result: boolean; requiresPermission: boolean; reason?: string } | null {
-  for (let i = cmdIndex + 1; i < parts.length; i++) {
+  for (let i = cmdIndex; i < parts.length; i++) {
     const token = parts.at(i);
     if (!token) continue;
     const hasSubstitution = /[`$()]/.test(token);
-    const prevToken = parts.at(i - 1)?.toLowerCase();
+    const prevToken = i > 0 ? parts.at(i - 1)?.toLowerCase() : undefined;
     const isExecutionArg =
       prevToken === '-c' ||
       prevToken === '-exec' ||
@@ -495,9 +495,12 @@ function _checkPrivilegeEscalationArgs(
       prevToken === 'xargs' ||
       prevToken === 'sh' ||
       prevToken === 'bash';
-    const cleaned = token.replace(/[`$()]/g, '');
+    const cleanedWords = token
+      .replace(/[`$()'"]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
     const matchesPrivilege = PRIVILEGE_ESCALATION_COMMANDS.some((cmd) =>
-      _matchesPatternOrBraces(cleaned, cmd),
+      cleanedWords.some((w) => _matchesPatternOrBraces(w, cmd)),
     );
     if (matchesPrivilege && (hasSubstitution || isExecutionArg)) {
       return {
@@ -631,6 +634,14 @@ function _validateSingleSubCommand(
   const privEscRes = _checkPrivilegeEscalationArgs(parts, cmdIndex);
   if (privEscRes) return privEscRes;
 
+  if (/[`$()]/.test(rawBase)) {
+    return {
+      result: false,
+      requiresPermission: true,
+      reason: `Command executable is dynamically evaluated from expression '${rawBase}'.${manager.getAuthorizedDirectoriesHint()}`,
+    };
+  }
+
   const inlineExecRes = _checkInlineExecution(baseCmd, parts, cmdIndex);
   if (inlineExecRes) return inlineExecRes;
 
@@ -664,6 +675,239 @@ function _determineInitialApproverJid(
     return senderJid;
   }
   return 'PENDING_ADMIN_CHECK';
+}
+
+interface SubshellExtraction {
+  substitutions: string[];
+  malformed: boolean;
+}
+
+function _skipSingleQuote(str: string, startIndex: number): number | null {
+  let i = startIndex + 1;
+  while (i < str.length && str.charAt(i) !== "'") {
+    i++;
+  }
+  if (i >= str.length) return null;
+  return i + 1;
+}
+
+function _skipAnsiCQuote(str: string, startIndex: number): number | null {
+  let i = startIndex + 2;
+  while (i < str.length) {
+    const ch = str.charAt(i);
+    if (ch === '\\') {
+      if (i + 1 >= str.length) return null;
+      i += 2;
+    } else if (ch === "'") {
+      return i + 1;
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+function _skipComment(str: string, startIndex: number): number {
+  let i = startIndex;
+  while (i < str.length && str.charAt(i) !== '\n') {
+    i++;
+  }
+  return i;
+}
+
+function _parseMatchingBacktick(
+  str: string,
+  startIndex: number,
+): { content: string; nextIndex: number } | null {
+  let i = startIndex;
+  while (i < str.length) {
+    const ch = str.charAt(i);
+    if (ch === '\\') {
+      if (i + 1 >= str.length) return null;
+      i += 2;
+    } else if (ch === '`') {
+      return { content: str.slice(startIndex, i), nextIndex: i + 1 };
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+function _parseDQuoteStep(str: string, i: number): { nextIndex: number; subs: string[] } | null {
+  const ch = str.charAt(i);
+  if (ch === '$' && str.charAt(i + 1) === '(') {
+    const nested = _parseMatchingParen(str, i + 2);
+    if (!nested) return null;
+    return { nextIndex: nested.nextIndex, subs: [nested.content, ...nested.nestedSubs] };
+  }
+  if (ch === '`') {
+    const nested = _parseMatchingBacktick(str, i + 1);
+    if (!nested) return null;
+    return { nextIndex: nested.nextIndex, subs: [nested.content] };
+  }
+  return { nextIndex: i + 1, subs: [] };
+}
+
+function _parseDoubleQuote(
+  str: string,
+  quoteStartIndex: number,
+): { nextIndex: number; nestedSubs: string[] } | null {
+  let i = quoteStartIndex + 1;
+  const nestedSubs: string[] = [];
+
+  while (i < str.length) {
+    const ch = str.charAt(i);
+    if (ch === '"') return { nextIndex: i + 1, nestedSubs };
+    if (ch === '\\') {
+      if (i + 1 >= str.length) return null;
+      i += 2;
+      continue;
+    }
+    const step = _parseDQuoteStep(str, i);
+    if (!step) return null;
+    if (step.subs.length > 0) nestedSubs.push(...step.subs);
+    i = step.nextIndex;
+  }
+  return null;
+}
+
+interface TokenStep {
+  nextIndex: number;
+  subs: string[];
+}
+
+type TokenStepResult = TokenStep | null | -1;
+type SkipIndexResult = number | null | -1;
+
+function _skipLiteralQuote(str: string, i: number): SkipIndexResult {
+  const ch = str.charAt(i);
+  if (ch === "'") return _skipSingleQuote(str, i);
+  if (ch === '$' && str.charAt(i + 1) === "'") return _skipAnsiCQuote(str, i);
+  return -1;
+}
+
+function _skipEscapeChar(str: string, i: number): SkipIndexResult {
+  if (str.charAt(i) !== '\\') return -1;
+  return i + 1 < str.length ? i + 2 : null;
+}
+
+function _parseQuoteOrBacktick(str: string, i: number): TokenStepResult {
+  const ch = str.charAt(i);
+  if (ch === '"') {
+    const res = _parseDoubleQuote(str, i);
+    return res ? { nextIndex: res.nextIndex, subs: res.nestedSubs } : null;
+  }
+  if (ch === '`') {
+    const res = _parseMatchingBacktick(str, i + 1);
+    return res ? { nextIndex: res.nextIndex, subs: [res.content] } : null;
+  }
+  return -1;
+}
+
+function _isSubshellOperator(ch: string, nextChar: string): boolean {
+  return nextChar === '(' && (ch === '$' || ch === '<' || ch === '>');
+}
+
+function _parseSubshellInvocation(
+  str: string,
+  i: number,
+  allowArithmetic: boolean,
+): TokenStepResult {
+  if (!_isSubshellOperator(str.charAt(i), str.charAt(i + 1))) {
+    return -1;
+  }
+  const isArithmetic = allowArithmetic && str.charAt(i) === '$' && str.charAt(i + 2) === '(';
+  const res = _parseMatchingParen(str, i + 2);
+  if (!res) return null;
+  const subs = isArithmetic ? [...res.nestedSubs] : [res.content, ...res.nestedSubs];
+  return { nextIndex: res.nextIndex, subs };
+}
+
+function _skipCommentPrefix(str: string, i: number, minStart: number): number | -1 {
+  if (str.charAt(i) === '#') {
+    const prevChar = i > minStart ? str.charAt(i - 1) : ' ';
+    if (/[\s;(&|]/.test(prevChar)) {
+      return _skipComment(str, i);
+    }
+  }
+  return -1;
+}
+
+function _parseShellStep(
+  str: string,
+  i: number,
+  minStart: number,
+  allowArithmetic: boolean,
+): TokenStepResult {
+  const esc = _skipEscapeChar(str, i);
+  if (esc !== -1) return esc === null ? null : { nextIndex: esc, subs: [] };
+
+  const lit = _skipLiteralQuote(str, i);
+  if (lit !== -1) return lit === null ? null : { nextIndex: lit, subs: [] };
+
+  const qb = _parseQuoteOrBacktick(str, i);
+  if (qb !== -1) return qb;
+
+  const sub = _parseSubshellInvocation(str, i, allowArithmetic);
+  if (sub !== -1) return sub;
+
+  const com = _skipCommentPrefix(str, i, minStart);
+  if (com !== -1) return { nextIndex: com, subs: [] };
+
+  return -1;
+}
+
+function _parseMatchingParen(
+  str: string,
+  startIndex: number,
+): { content: string; nextIndex: number; nestedSubs: string[] } | null {
+  let depth = 1;
+  let i = startIndex;
+  const nestedSubs: string[] = [];
+
+  while (i < str.length && depth > 0) {
+    const step = _parseShellStep(str, i, startIndex, false);
+    if (step === null) return null;
+    if (step !== -1) {
+      nestedSubs.push(...step.subs);
+      i = step.nextIndex;
+      continue;
+    }
+
+    const ch = str.charAt(i);
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+      if (depth === 0) {
+        return { content: str.slice(startIndex, i), nextIndex: i + 1, nestedSubs };
+      }
+    }
+    i++;
+  }
+
+  return null;
+}
+
+function _extractSubshells(command: string): SubshellExtraction {
+  let i = 0;
+  const substitutions: string[] = [];
+
+  while (i < command.length) {
+    const step = _parseShellStep(command, i, 0, true);
+    if (step === null) {
+      return { substitutions, malformed: true };
+    }
+    if (step !== -1) {
+      substitutions.push(...step.subs);
+      i = step.nextIndex;
+    } else {
+      i++;
+    }
+  }
+
+  return { substitutions, malformed: false };
 }
 
 export class PermissionManager {
@@ -815,10 +1059,16 @@ export class PermissionManager {
     command: string,
     currentCwd: string,
   ): { result: boolean; requiresPermission: boolean; reason?: string } | null {
-    const subshellRegex = /\$\(([^)]+)\)|`([^`]+)`|<(?:\(([^)]+)\))|>(?:\(([^)]+)\))/g;
-    let match: RegExpExecArray | null;
-    while ((match = subshellRegex.exec(command)) !== null) {
-      const innerCmd = match.at(1) ?? match.at(2) ?? match.at(3) ?? match.at(4);
+    const extraction = _extractSubshells(command);
+    if (extraction.malformed) {
+      return {
+        result: false,
+        requiresPermission: true,
+        reason: `Command contains malformed or unparseable command substitution.${this.getAuthorizedDirectoriesHint()}`,
+      };
+    }
+
+    for (const innerCmd of extraction.substitutions) {
       if (innerCmd && innerCmd.trim()) {
         const innerValidation = this.validateBashCommand(innerCmd, currentCwd);
         if (!innerValidation.result || innerValidation.requiresPermission) {

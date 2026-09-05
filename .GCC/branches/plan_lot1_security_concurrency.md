@@ -305,6 +305,30 @@ Snapshots:   0 total
 [Exit Code 0]
 ```
 
+### Step 11: Résolution de la Vulnérabilité Greptile P1 (Parseur Shell-Aware Command Substitutions & Imbrications)
+- [x] **Action**:
+  - `src/core/security/PermissionManager.ts` : Remplacement du parsing par regex dans `_checkSubshells` par un parseur modulaire shell-aware (`_extractSubshells`, `_skipSingleQuote`, `_skipAnsiCQuote`, `_skipComment`, `_parseDoubleQuote`, `_parseMatchingBacktick`, `_parseMatchingParen`) gérant avec précision les guillemets simples, guillemets doubles, citations ANSI-C, backticks, commentaires et parenthèses imbriquées ; politique fail-closed sur syntaxe tronquée/malformée ; validation récursive de toutes les sous-commandes via `validateBashCommand` ; nettoyage des délimiteurs et interdiction des exécutables dynamiques dans `_checkPrivilegeEscalationArgs` et `_validateSingleSubCommand`.
+  - `src/tests/unit/core/permissionManager.test.ts` : Ajout d'une batterie complète de tests adversariaux couvrant les contournements par parenthèses entre guillemets (`echo "$(printf ')'; sudo id)"`), backticks (<code>echo \`printf ")"; sudo id\`</code>), quotes ANSI-C, redirections `<(...)` avec parenthèses, échappements (`echo "$(echo \); sudo id)"`), imbrications multi-niveaux (`$($(echo sudo) id)`), expressions arithmétiques `$(( 2 + 3 ))` et validation fail-closed sur syntaxe non fermée (57 tests au vert).
+- [x] **Verify**: `npm run build && npm run lint:fast && npx jest src/tests/unit/core/permissionManager.test.ts`
+- **Verification Proof**:
+```text
+> hive-mind@1.0.0 lint:fast
+> oxlint --deny-warnings src/
+Found 0 warnings and 0 errors.
+Finished in 87ms on 331 files with 96 rules using 4 threads.
+
+> hive-mind@1.0.0 build
+> tsc --noEmit
+[Exit Code 0]
+
+PASS src/tests/unit/core/permissionManager.test.ts
+Test Suites: 1 passed, 1 total
+Tests:       57 passed, 57 total
+Snapshots:   0 total
+Time:        10.681 s
+[Exit Code 0]
+```
+
 ## ⚠️ Mitigations & Edge Cases
 - **Risk**: Faux positifs du validateur AST sur des propriétés autorisées.
 - **Mitigation**: Distinction stricte entre clés statiques et calculées, validée par 15 tests dans `SafeScriptValidator.test.ts`.
