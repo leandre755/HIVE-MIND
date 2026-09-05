@@ -1,47 +1,53 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Résoudre le finding de sécurité Greptile P1 sur la PR #24 (`PermissionManager.ts:818`), implémenter un parseur shell-aware de substitutions de commandes sans régression, passer l'intégralité des tests, pousser sur `fix/security-concurrency-lot1` et obtenir le statut 5/5 / 0 commentaire résiduel sur Greptile Review.
+- **Requested Task**: Corriger l'action de triage d'issue GitHub (`.github/workflows/issue-triage.yml`) qui appliquait systématiquement l'étiquette `needs-triage` même sur les issues correctement formatées selon les gabarits officiels (`[BUG]`, `[FEATURE]`, `[DOCS]`), retirer l'étiquette conditionnellement avec un commentaire explicatif, et appliquer la doctrine CodeRabbit CLI + agents locaux au niveau de qualité maximal.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - **Greptile Review Conclusion**: `conclusion: "success"` (check-run ID `101309635359` sur commit `1046510`).
-  - **Greptile Summary**: `"Greptile has reviewed the Pull Request. 14 files reviewed, 0 comments added."`
-  - **Review Threads GraphQL**: 1 thread total (`PRRT_kwDOT0y8pM6fic_o`), 1 résolu (`isResolved: true`), 0 commentaire ouvert.
-  - **Unit Tests (`src/tests/unit/core/permissionManager.test.ts`)**: 57 tests sur 57 réussis (100%), incluant les tests adversariaux de parenthèses entre guillemets doubles et simples, échappements, subshells imbriqués multi-niveaux, quotes ANSI-C, backticks, process substitutions et fail-closed sur syntaxe tronquée.
-  - **Global Unit Tests (`npm run test:unit`)**: 74 suites sur 74 réussies, 661 tests unitaires au vert (0 régression).
+  - **Tests Unitaires Dédiés (`src/tests/unit/github/issueTriage.test.ts`)**: 34 tests sur 34 réussis (100%), couvrant l'analyse des en-têtes Markdown (H2, normalisation Unicode/émojis, insensibilité à la casse), la protection contre les en-têtes à l'intérieur de blocs de code (fermés ou non fermés), le rejet des placeholders stricts (`1. Go to '...'`, `criterion 1`, etc.) et des prompts indicatifs du gabarit tout en préservant les descriptions réelles, stack traces et extraits de code, le retrait effectif de `needs-triage` sur format valide, le maintien sur format incomplet, la priorisation des labels de sécurité et priorité haute sur les formats libres, l'idempotence des commentaires de diagnostic via `TRIAGE_MARKER` quel que soit le compte (`user.type === 'Bot'` ou `'User'`), et la non-réapplication de `needs-triage` lors d'éditions ultérieures d'issues préalablement triées manuellement.
+  - **Tests Unitaires Globaux (`npm run test:unit`)**: 75 suites sur 75 réussies, 695 tests unitaires passés (0 régression sur l'ensemble du projet).
+  - **Conformité des Workflows (`python3 .github/scripts/verify_workflows.py .github/workflows`)**: 7/7 workflows conformes (0 violation).
+  - **Revue CodeRabbit CLI Locale (`/home/omni/.local/bin/coderabbit review --uncommitted --include-untracked`)**: Passe 7 : `Review complete - No new findings ✔` (100% des review threads et points d'attention résolus).
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/core/security/PermissionManager.ts`
-  - **Scope**: Gestionnaire de permissions système et analyseur de sécurité des commandes Bash (`_extractSubshells`, helpers modulaires).
-  - **Exact Technical Change**: Remplacement de la regex naïve `subshellRegex` par une machine à états shell-aware modulaire (`_extractSubshells`, `_skipSingleQuote`, `_skipAnsiCQuote`, `_skipComment`, `_parseMatchingBacktick`, `_parseDoubleQuote`, `_parseDQuoteStep`, `_parseMatchingParen`, `_parseShellStep`, `_parseSubshellInvocation`, `_isSubshellOperator`, `_skipEscapeChar`, `_skipLiteralQuote`). Gestion stricte des guillemets simples (qui neutralisent l'expansion), doubles, ANSI-C quotes, backticks, commentaires, parenthèses imbriquées et arithmétiques `$(( ... ))`. Règle fail-closed systématique (`malformed: true` -> `requiresPermission: true`). Validation récursive de chaque commande extraite via `validateBashCommand`. Nettoyage des délimiteurs et détection d'exécutables dynamiques dans `_checkPrivilegeEscalationArgs`. Complexité cognitive SonarJS <= 13 sur l'ensemble des helpers.
-- **File**: `src/tests/unit/core/permissionManager.test.ts`
-  - **Scope**: Suite de tests de sécurité du validateur de commandes.
-  - **Exact Technical Change**: Ajout de tests couvrant le contournement Greptile (`echo "$(printf ')'; sudo id)"`), les variantes à guillemets doubles, échappements (`echo "$(echo \); sudo id)"`), parenthèses ouvrantes (`echo "$(echo '('; sudo id)"`), commentaires avec apostrophes, backticks, quotes ANSI-C, process substitutions `<(...)`, imbrications complexes `$($(echo sudo) id)` et validation arithmétique `echo $(( 2 + 3 ))`.
+- **File**: `.github/scripts/triage_issue.cjs`
+  - **Scope**: Module CommonJS autonome de validation structurelle des templates d'issues et d'orchestration de triage GitHub REST API.
+  - **Exact Technical Change**: Implémentation des fonctions pures `extractSections`, `normalizeHeader`, `validateSectionContent`, `validateBugTemplate`, `validateFeatureTemplate`, `validateDocsTemplate`, `evaluateIssueFormat`, `buildStatusLine`, `buildTriageCommentBody`, et de l'orchestrateur `runTriage`. Gestion d'erreur fail-safe 404 lors du retrait de label, verrouillage ReDoS avec détection linéaire dans `stripListMarker`, protection contre les blocs de code non fermés, priorisation de `security` et `priority-high`, et filtrage de `needs-triage` sur les actions `edited` pour respecter le tri manuel préalable.
+- **File**: `.github/workflows/issue-triage.yml`
+  - **Scope**: Workflow GitHub Actions déclenché sur `issues: [opened, reopened, edited]` et `workflow_dispatch`.
+  - **Exact Technical Change**: Ajout du groupe `concurrency` par numéro d'issue (`issue-triage-${{ github.event.issue.number || inputs.issue_number }}`), étape `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1` (`persist-credentials: false`), et délégation de l'exécution du script à `require('./.github/scripts/triage_issue.cjs').runTriage({ github, context, core })`.
+- **File**: `src/tests/unit/github/issueTriage.test.ts`
+  - **Scope**: Suite de tests unitaires Jest pour la validation de triage.
+  - **Exact Technical Change**: Suite modulaire de 34 tests découpée en 6 describe blocks de complexité cognitive <= 15, avec mocks isolés de l'API GitHub (`rest.issues.*`, `paginate`), test des cas nominaux, limites (placeholders, stack traces, code blocks non fermés, payloads corrompus, 404/500, compte PAT/App, non-réapplication de `needs-triage` sur édition).
+- **File**: `.GCC/branches/plan_issue_triage_format_validation.md`
+  - **Scope**: Plan d'exécution tactique GCC.
+  - **Exact Technical Change**: Traçabilité séquentielle des 4 étapes avec preuves réelles d'exécution terminale.
+- **File**: `.GCC/main.md`
+  - **Scope**: Registre de contexte persistant du projet.
+  - **Exact Technical Change**: Ajout de la décision formelle sur la validation des templates d'issues (satisfaisant l'Invariant 4 suite à la directive explicite du propriétaire), consignation de la doctrine CodeRabbit CLI + agents locaux, et mise à jour de `Current Status`.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/core/security/PermissionManager.ts`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint .github/scripts/triage_issue.cjs src/tests/unit/github/issueTriage.test.ts`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
+
 Found 0 warnings and 0 errors.
-Finished in 159ms on 331 files with 96 rules using 4 threads.
+Finished in 63ms on 332 files with 96 rules using 4 threads.
+
+npx eslint .github/scripts/triage_issue.cjs src/tests/unit/github/issueTriage.test.ts
+[Exit Code 0, 0 warning, 0 error]
 
 > hive-mind@1.0.0 build
 > tsc --noEmit
 [Exit Code 0]
-
-npx eslint src/core/security/PermissionManager.ts
-[Exit Code 0, 0 warning, 0 error]
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun. La PR #24 (`fix/security-concurrency-lot1`) est propre, tous les checks CI (Workspace Validation, Dependency review, Workflow hygiene, CodeRabbit) et le check Greptile Review sont au vert (`conclusion: "success"`, 0 commentaire ajouté). Le seul check en échec est le contrôle de gouvernance de taille de PR (> 2500 lignes de code pour l'ensemble du Lot 1), dérogé et documenté pour cette refactorisation d'envergure.
+- **Blocker / Failure Explanation**: Aucun. Tous les objectifs fonctionnels et critères de succès sont 100% atteints. Les modifications sont locales sur la branche `fix/issue-triage-format-validation` et prêtes à être committées après accord du mainteneur.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: Pull Request #24 (`https://github.com/leandre755/HIVE-MIND/pull/24`).
-2. **Immediate Action**:
-   - Présenter le rapport final de résolution au mainteneur avec le score 5/5 Greptile (0 commentaire, conclusion success).
-   - Attendre la validation et le merge humain de la PR #24 selon la politique de gouvernance (`AGENTS.md` §4).
-   - Démarrer les travaux du Lot 2 (Persistance & Mock Redis).
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
+1. **Target File**: `.github/workflows/issue-triage.yml`
+2. **Immediate Action**: Solliciter l'approbation humaine (`ask`) pour le commit conventionnel `fix(ci): validate issue template format and conditionally remove needs-triage`.
+3. **Verification Command**: `npm run build && npm run lint:fast && npm test -- src/tests/unit/github/issueTriage.test.ts`
