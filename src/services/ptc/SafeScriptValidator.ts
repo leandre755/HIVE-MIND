@@ -182,6 +182,7 @@ const JS_BUILTINS = new Set([
   'Boolean',
   'RegExp',
   'setTimeout',
+  'clearTimeout',
   'undefined',
   'null',
   'true',
@@ -231,28 +232,51 @@ const UNSAFE_FUNCTIONS = new Set([
  * @param availableTools — Noms des outils injectés dans le sandbox
  * @returns Résultat de validation avec erreurs et warnings
  */
-function _handleObjectPattern(node: AcornObjectPatternNode, declaredVars: Set<string>): void {
-  for (const prop of node.properties || []) {
-    if (prop.type === 'Property') {
-      if (prop.value?.type === 'Identifier') declaredVars.add(prop.value.name);
-      else if (prop.key?.type === 'Identifier') declaredVars.add(prop.key.name);
+function _extractObjectPatternIdentifiers(properties: unknown[], targetSet: Set<string>): void {
+  for (const prop of properties) {
+    const p = prop as { type?: string; value?: unknown; key?: unknown; argument?: unknown };
+    if (p.type === 'Property') {
+      extractPatternIdentifiers(p.value ?? p.key, targetSet);
+    } else if (p.type === 'RestElement') {
+      extractPatternIdentifiers(p.argument, targetSet);
     }
   }
 }
 
-function _handleArrayPattern(node: AcornArrayPatternNode, declaredVars: Set<string>): void {
-  for (const el of node.elements || []) {
-    if (el?.type === 'Identifier') declaredVars.add(el.name);
+function _extractArrayPatternIdentifiers(elements: unknown[], targetSet: Set<string>): void {
+  for (const el of elements) {
+    if (el) extractPatternIdentifiers(el, targetSet);
   }
 }
 
-function _handleVarDeclarator(node: AcornVariableDeclaratorNode, declaredVars: Set<string>): void {
-  if (node.id?.type === 'Identifier') {
-    declaredVars.add(node.id.name);
-  } else if (node.id?.type === 'ObjectPattern') {
-    _handleObjectPattern(node.id as AcornObjectPatternNode, declaredVars);
-  } else if (node.id?.type === 'ArrayPattern') {
-    _handleArrayPattern(node.id as AcornArrayPatternNode, declaredVars);
+function extractPatternIdentifiers(node: unknown, targetSet: Set<string>): void {
+  if (!node || typeof node !== 'object') return;
+  const n = node as {
+    type?: string;
+    name?: string;
+    properties?: unknown[];
+    elements?: unknown[];
+    left?: unknown;
+    argument?: unknown;
+  };
+  if (n.type === 'Identifier' && n.name) {
+    targetSet.add(n.name);
+    return;
+  }
+  if (n.type === 'AssignmentPattern' && n.left) {
+    extractPatternIdentifiers(n.left, targetSet);
+    return;
+  }
+  if (n.type === 'RestElement' && n.argument) {
+    extractPatternIdentifiers(n.argument, targetSet);
+    return;
+  }
+  if (n.type === 'ObjectPattern' && Array.isArray(n.properties)) {
+    _extractObjectPatternIdentifiers(n.properties, targetSet);
+    return;
+  }
+  if (n.type === 'ArrayPattern' && Array.isArray(n.elements)) {
+    _extractArrayPatternIdentifiers(n.elements, targetSet);
   }
 }
 
@@ -264,33 +288,40 @@ function _collectASTNodes(ast: acorn.Node) {
 
   walk.simple(ast, {
     VariableDeclarator(node) {
-      _handleVarDeclarator(node as unknown as AcornVariableDeclaratorNode, declaredVars);
+      const decl = node as unknown as { id?: unknown };
+      extractPatternIdentifiers(decl.id, declaredVars);
     },
     FunctionDeclaration(node) {
       if (node.id?.name) declaredVars.add(node.id.name);
       for (const param of node.params || []) {
-        if (param.type === 'Identifier') functionParams.add(param.name);
+        extractPatternIdentifiers(param, functionParams);
+      }
+    },
+    FunctionExpression(node) {
+      if (node.id?.name) declaredVars.add(node.id.name);
+      for (const param of node.params || []) {
+        extractPatternIdentifiers(param, functionParams);
       }
     },
     ArrowFunctionExpression(node) {
       for (const param of node.params || []) {
-        if (param.type === 'Identifier') functionParams.add(param.name);
+        extractPatternIdentifiers(param, functionParams);
       }
     },
     CatchClause(node) {
-      if (node.param?.type === 'Identifier') declaredVars.add(node.param.name);
+      extractPatternIdentifiers(node.param, declaredVars);
     },
     ForInStatement(node) {
       if (node.left?.type === 'VariableDeclaration') {
         for (const decl of node.left.declarations || []) {
-          if (decl.id?.type === 'Identifier') declaredVars.add(decl.id.name);
+          extractPatternIdentifiers(decl.id, declaredVars);
         }
       }
     },
     ForOfStatement(node) {
       if (node.left?.type === 'VariableDeclaration') {
         for (const decl of node.left.declarations || []) {
-          if (decl.id?.type === 'Identifier') declaredVars.add(decl.id.name);
+          extractPatternIdentifiers(decl.id, declaredVars);
         }
       }
     },
@@ -378,8 +409,61 @@ function _checkUnknownTools(
   }
 }
 
+function _extractTemplateLiteralString(n: {
+  quasis?: unknown[];
+  expressions?: unknown[];
+}): string | null {
+  if (!Array.isArray(n.quasis)) return null;
+  const quasis = n.quasis as Array<{ value?: { cooked?: string; raw?: string } }>;
+  const expressions = Array.isArray(n.expressions) ? n.expressions : [];
+  let result = '';
+  for (let i = 0; i < quasis.length; i++) {
+    const q = quasis.at(i);
+    result += q?.value?.cooked ?? q?.value?.raw ?? '';
+    if (i < expressions.length) {
+      const expr = expressions.at(i);
+      const exprStr = extractStaticString(expr);
+      if (exprStr === null) return null;
+      result += exprStr;
+    }
+  }
+  return result;
+}
+
+function extractStaticString(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null;
+  const n = node as {
+    type?: string;
+    value?: unknown;
+    quasis?: unknown[];
+    expressions?: unknown[];
+    operator?: string;
+    left?: unknown;
+    right?: unknown;
+  };
+  if (n.type === 'Literal') return String(n.value);
+  if (n.type === 'TemplateLiteral') {
+    return _extractTemplateLiteralString(n);
+  }
+  if (n.type === 'BinaryExpression' && n.operator === '+' && n.left && n.right) {
+    const l = extractStaticString(n.left);
+    const r = extractStaticString(n.right);
+    if (l !== null && r !== null) return l + r;
+  }
+  return null;
+}
+
 function _checkUnsafeConstructs(ast: acorn.Node, errors: ValidationError[]): void {
+  const DANGEROUS = ['__proto__', 'constructor', 'prototype'];
+
   walk.simple(ast, {
+    ThisExpression() {
+      errors.push({
+        type: 'UNSAFE_CONSTRUCT',
+        message: 'Accès à "this" est interdit dans le sandbox.',
+        autoFixable: false,
+      });
+    },
     CallExpression(node) {
       const calleeName =
         (node.callee as AcornIdentifierNode)?.name ||
@@ -392,16 +476,51 @@ function _checkUnsafeConstructs(ast: acorn.Node, errors: ValidationError[]): voi
         });
       }
     },
-    MemberExpression(node) {
-      if (
-        node.property?.type === 'Identifier' &&
-        (node.property.name === '__proto__' || node.property.name === 'constructor')
-      ) {
+    NewExpression(node) {
+      const calleeName =
+        (node.callee as AcornIdentifierNode)?.name ||
+        (node.callee as AcornMemberExpressionNode)?.property?.name;
+      if (calleeName && UNSAFE_FUNCTIONS.has(calleeName)) {
         errors.push({
           type: 'UNSAFE_CONSTRUCT',
-          message: `Accès à "${node.property.name}" est interdit (prototype pollution).`,
+          message: `"${calleeName}()" est interdit dans le sandbox.`,
           autoFixable: false,
         });
+      }
+    },
+    MemberExpression(node) {
+      const propName = !node.computed
+        ? ((node.property as AcornIdentifierNode)?.name ?? null)
+        : extractStaticString(node.property);
+      if (propName !== null && DANGEROUS.includes(propName)) {
+        errors.push({
+          type: 'UNSAFE_CONSTRUCT',
+          message: `Accès à "${propName}" est interdit (prototype pollution / sandbox escape).`,
+          autoFixable: false,
+        });
+      }
+    },
+    ObjectPattern(node) {
+      const pattern = node as unknown as {
+        properties?: Array<{
+          type?: string;
+          key?: unknown;
+          computed?: boolean;
+        }>;
+      };
+      for (const prop of pattern.properties || []) {
+        if (prop.type === 'Property' && prop.key) {
+          const propName = !prop.computed
+            ? ((prop.key as AcornIdentifierNode)?.name ?? null)
+            : extractStaticString(prop.key);
+          if (propName !== null && DANGEROUS.includes(propName)) {
+            errors.push({
+              type: 'UNSAFE_CONSTRUCT',
+              message: `Déstructuration de "${propName}" est interdite (sandbox escape / prototype pollution).`,
+              autoFixable: false,
+            });
+          }
+        }
       }
     },
   });

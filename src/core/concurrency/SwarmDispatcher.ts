@@ -18,6 +18,7 @@ class SwarmDispatcher {
     totalProcessed: number;
     errors: number;
   };
+  private seqCounter = 0;
 
   constructor() {
     // Map<JID, Promise>
@@ -56,36 +57,45 @@ class SwarmDispatcher {
   }
 
   /**
-   * Tente de dépiler une tâche globale en attente si des ressources sont dispos
+   * Tente de dépiler les tâches globales en attente dans la limite stricte de concurrence
    */
   _processGlobalQueue(): void {
-    if (this.globalQueue.length === 0) return;
-
-    // On vérifie D'ABORD si on a de la place
     const max = this.getMaxConcurrency();
-    if (this.metrics.activeThreads < max) {
+    while (this.globalQueue.length > 0 && this.metrics.activeThreads < max) {
       const nextTask = this.globalQueue.shift();
-      this.metrics.queuedTasks--;
       if (nextTask) {
-        // On lance la tâche (résolution de la promesse d'attente)
+        this.metrics.queuedTasks--;
+        this.metrics.activeThreads++; // Réservation synchrone atomique
         nextTask();
       }
-
-      // On tente d'en lancer d'autres si possible (récursif light)
-      this._processGlobalQueue();
     }
+  }
+
+  private _extractMessageText(message: unknown): string | null {
+    if (!message || typeof message !== 'object') return null;
+    const msg = message as { text?: string; content?: string };
+    const text = msg.text || msg.content;
+    return typeof text === 'string' ? text.trim() : null;
   }
 
   /**
    * Checks if the message is a priority system command (bypasses global queue).
    */
   isPriorityCommand(message: unknown): boolean {
-    if (!message || typeof message !== 'object') return false;
-    const msg = message as { text?: string; content?: string };
-    const msgText = msg.text || msg.content;
-    if (!msgText || typeof msgText !== 'string') return false;
-    const priorityRegex = /^!(ping|menu|help|stop|info)/i;
-    return priorityRegex.test(msgText);
+    const text = this._extractMessageText(message);
+    if (!text) return false;
+    const priorityRegex = /^!(ping|menu|help|stop|info)\b/i;
+    return priorityRegex.test(text);
+  }
+
+  /**
+   * Checks if the message is an emergency stop signal (!stop).
+   * Emergency stop bypasses the local per-JID queue to interrupt or take precedence immediately.
+   */
+  isEmergencyStopCommand(message: unknown): boolean {
+    const text = this._extractMessageText(message);
+    if (!text) return false;
+    return /^!stop\b/i.test(text);
   }
 
   /**
@@ -99,15 +109,17 @@ class SwarmDispatcher {
     isPriority: boolean = false,
   ): Promise<unknown> {
     const max = this.getMaxConcurrency();
+    let waitedInQueue = false;
 
     // 1. Attendre les ressources globales (Global Queue)
     // [FastLane] Si prioritaire, on ignore la limite si on est le SEUL thread prioritaire (pour pas exploser non plus)
     // Mais ici on bypass simpliste : Priority = Immediate
-    if (!isPriority && this.metrics.activeThreads >= max) {
+    if (!isPriority && (this.metrics.activeThreads >= max || this.globalQueue.length > 0)) {
       console.log(
         `[Swarm] 🟠 Throttling Task [${jid}:${taskId}] (Active: ${this.metrics.activeThreads}, Queue: ${this.globalQueue.length + 1})`,
       );
       this.metrics.queuedTasks++;
+      waitedInQueue = true;
 
       // On crée une promesse qui ne se résout que quand _processGlobalQueue nous appelle
       await new Promise<void>((resolve) => {
@@ -120,7 +132,10 @@ class SwarmDispatcher {
     }
 
     // 2. Début exécution réelle
-    this.metrics.activeThreads++;
+    // Si la tâche a attendu dans la file, son slot a déjà été réservé atomiquement par _processGlobalQueue
+    if (!waitedInQueue) {
+      this.metrics.activeThreads++;
+    }
     const start = Date.now();
 
     try {
@@ -157,33 +172,56 @@ class SwarmDispatcher {
     taskFactory: () => Promise<unknown>,
   ): Promise<unknown> {
     const msg = message as { key?: { id?: string }; id?: string } | null;
-    const taskId = msg?.key?.id || msg?.id || `Msg_${Date.now()}`;
+    const taskId = msg?.key?.id || msg?.id || `Msg_${Date.now()}_${++this.seqCounter}`;
 
-    // Check priority command
+    // Check priority and emergency stop commands
     const isPriority = this.isPriorityCommand(message);
+    const isEmergencyStop = this.isEmergencyStopCommand(message);
 
     // 1. Récupérer la dernière promesse pour ce JID (ou Resolved immédiat)
     const previousTask = this.accessMap.get(jid) || Promise.resolve();
 
+    // Seul le signal d'urgence (!stop) bypass la file sérialisée locale du JID
+    // pour s'exécuter immédiatement sans attendre une tâche bloquée.
+    if (isEmergencyStop) {
+      const stopTask = this._executeWithThrottling(jid, taskId, taskFactory, true);
+      const cleanupPromise = stopTask
+        .finally(() => {
+          if (this.accessMap.get(jid) === cleanupPromise) {
+            this.accessMap.delete(jid);
+          }
+        })
+        .catch(() => {});
+      this.accessMap.set(jid, cleanupPromise);
+      return stopTask;
+    }
+
     // 2. Créer la nouvelle tâche chaînée
     // On "attend" que la précédente finisse LOCALE (JID)
     // PUIS on lance _executeWithThrottling qui attend les ressources GLOBALES
+    // Les commandes prioritaires (!ping, !help, etc.) conservent l'ordre conversationnel du JID
+    // mais bénéficient de la priorité globale sans attendre le défilement global
     const currentTask = previousTask
       .catch(() => {
         console.warn(`[Swarm] ⚠️ Previous task failed for ${jid}, continuing chain.`);
       })
       .then(() => {
         return this._executeWithThrottling(jid, taskId, taskFactory, isPriority);
-      })
+      });
+
+    const cleanupPromise = currentTask
       .finally(() => {
         // Nettoyage Map: Une fois fini, si on est toujours le dernier, on clean
-        if (this.accessMap.get(jid) === currentTask) {
+        if (this.accessMap.get(jid) === cleanupPromise) {
           this.accessMap.delete(jid);
         }
+      })
+      .catch(() => {
+        // Absorbe l'erreur pour neutraliser tout UnhandledPromiseRejection sur la promesse interne stockée dans accessMap
       });
 
     // 3. Mettre à jour la Map pour que le PROCHAIN appel attende CETTE tâche
-    this.accessMap.set(jid, currentTask);
+    this.accessMap.set(jid, cleanupPromise);
 
     return currentTask;
   }

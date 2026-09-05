@@ -1,57 +1,47 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Déplacer `documentations/tui/` vers `HIVE-MIND-TUI/documentation/`, refondre les READMEs bilingues (`README.md` et `README.fr.md`) selon le skill `build-readme`, aligner les workflows GitHub Actions (`release.yml` sur Node 22), consigner le remplacement du plugin de recherche par TinyFish Search dans `todo.md` et `.GCC/main.md`, et soumettre l'ensemble à l'évaluation adversariale multi-critiques indépendants.
+- **Requested Task**: Résoudre le finding de sécurité Greptile P1 sur la PR #24 (`PermissionManager.ts:818`), implémenter un parseur shell-aware de substitutions de commandes sans régression, passer l'intégralité des tests, pousser sur `fix/security-concurrency-lot1` et obtenir le statut 5/5 / 0 commentaire résiduel sur Greptile Review.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `python3 .github/scripts/verify_workflows.py` : Validation succeeded: 7 workflow(s) compliant (code 0).
-  - `npm run build` (`tsc --noEmit`) : 0 erreur de compilation sur les 330 fichiers de `src/`.
-  - `npm run lint:fast` (`oxlint --deny-warnings src/`) : 0 warning, 0 error sur 330 fichiers (204ms).
-  - `wc -l README.md README.fr.md` : Exactement 300 lignes de contenu structuré chacun (isomorphisme strict, palette ambre `#F59E0B`/orange `#F97316` sur `#0D1117`, zéro émoji brut dans les titres, zéro diagramme Mermaid brut).
-  - Validation dual-critic indépendante (`Fix-Verifier` & `Global System Critic`) : 100% des anomalies corrigées (ancres sans tiret initial `#architecture`, `#capacités`, etc., réalignement des 4 chemins résiduels de `documentation/explanations/06_tui_plugins.md` vers `HIVE-MIND-TUI/src/ui/`, 0 lien `file:///` résiduel).
+  - **Greptile Review Conclusion**: `conclusion: "success"` (check-run ID `101309635359` sur commit `1046510`).
+  - **Greptile Summary**: `"Greptile has reviewed the Pull Request. 14 files reviewed, 0 comments added."`
+  - **Review Threads GraphQL**: 1 thread total (`PRRT_kwDOT0y8pM6fic_o`), 1 résolu (`isResolved: true`), 0 commentaire ouvert.
+  - **Unit Tests (`src/tests/unit/core/permissionManager.test.ts`)**: 57 tests sur 57 réussis (100%), incluant les tests adversariaux de parenthèses entre guillemets doubles et simples, échappements, subshells imbriqués multi-niveaux, quotes ANSI-C, backticks, process substitutions et fail-closed sur syntaxe tronquée.
+  - **Global Unit Tests (`npm run test:unit`)**: 74 suites sur 74 réussies, 661 tests unitaires au vert (0 régression).
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `README.md` & `README.fr.md`
-  - **Scope**: Landing page bilingue du projet HIVE-MIND.
-  - **Exact Technical Change**: Refonte complète selon le skill `build-readme` (hero 16:9, badges de navigation ancrés sans tiret, cartographie des 26 sous-systèmes SVG, boucle ReAct vectorielle, absence totale d'émojis bruts dans les titres, 300 lignes chacun).
-- **File**: `.github/workflows/release.yml`
-  - **Scope**: Workflow de release sémantique GitHub Actions.
-  - **Exact Technical Change**: Mise à niveau du setup Node.js à `node-version: '22'` (l. 43) pour alignement sur `package.json` (`engines.node >= 22.0.0`) et `AGENTS.md` §2.
-- **File**: `documentation/explanations/06_tui_plugins.md`
-  - **Scope**: Architecture de communication IPC TUI ↔ Core et système de plugins.
-  - **Exact Technical Change**: Alignement des références vers le client autonome `HIVE-MIND-TUI` et vers `src/core/transport/TuiServerTransport.ts` / `src/core/transport/tui/HiveTransport.ts`.
-- **File**: `todo.md`
-  - **Scope**: Backlog d'architecture et plugins.
-  - **Exact Technical Change**: Fiche technique dédiée pour l'intégration de TinyFish Search (gratuit, SOTA benchmarks).
-- **File**: `docs/tasks/todo.md`
-  - **Scope**: Suivi d'avancement des tâches de découplage TUI et TinyFish.
-  - **Exact Technical Change**: Validation des tâches 1 à 9 (Phases 1 à 4) cochées à `[x]`, Phase 5 (Task 10 TinyFish) en attente.
-- **File**: `.GCC/main.md`
-  - **Scope**: Journal de persistance macro du projet.
-  - **Exact Technical Change**: Décision d'architecture TinyFish Search consignée, mise à jour des entrées de dette technique résolues (Node 22 workflow, liens absolus doc, bug Anthropic `role: 'tool'`), et alignement de la section `Objective`.
+- **File**: `src/core/security/PermissionManager.ts`
+  - **Scope**: Gestionnaire de permissions système et analyseur de sécurité des commandes Bash (`_extractSubshells`, helpers modulaires).
+  - **Exact Technical Change**: Remplacement de la regex naïve `subshellRegex` par une machine à états shell-aware modulaire (`_extractSubshells`, `_skipSingleQuote`, `_skipAnsiCQuote`, `_skipComment`, `_parseMatchingBacktick`, `_parseDoubleQuote`, `_parseDQuoteStep`, `_parseMatchingParen`, `_parseShellStep`, `_parseSubshellInvocation`, `_isSubshellOperator`, `_skipEscapeChar`, `_skipLiteralQuote`). Gestion stricte des guillemets simples (qui neutralisent l'expansion), doubles, ANSI-C quotes, backticks, commentaires, parenthèses imbriquées et arithmétiques `$(( ... ))`. Règle fail-closed systématique (`malformed: true` -> `requiresPermission: true`). Validation récursive de chaque commande extraite via `validateBashCommand`. Nettoyage des délimiteurs et détection d'exécutables dynamiques dans `_checkPrivilegeEscalationArgs`. Complexité cognitive SonarJS <= 13 sur l'ensemble des helpers.
+- **File**: `src/tests/unit/core/permissionManager.test.ts`
+  - **Scope**: Suite de tests de sécurité du validateur de commandes.
+  - **Exact Technical Change**: Ajout de tests couvrant le contournement Greptile (`echo "$(printf ')'; sudo id)"`), les variantes à guillemets doubles, échappements (`echo "$(echo \); sudo id)"`), parenthèses ouvrantes (`echo "$(echo '('; sudo id)"`), commentaires avec apostrophes, backticks, quotes ANSI-C, process substitutions `<(...)`, imbrications complexes `$($(echo sudo) id)` et validation arithmétique `echo $(( 2 + 3 ))`.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && python3 .github/scripts/verify_workflows.py`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/core/security/PermissionManager.ts`
 - **Linter/Compiler Status**:
 ```text
-> hive-mind@1.0.0 build
-> tsc --noEmit
-
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
-
 Found 0 warnings and 0 errors.
-Finished in 204ms on 330 files with 96 rules using 4 threads.
+Finished in 159ms on 331 files with 96 rules using 4 threads.
 
-Validation succeeded: 7 workflow(s) compliant.
+> hive-mind@1.0.0 build
+> tsc --noEmit
+[Exit Code 0]
+
+npx eslint src/core/security/PermissionManager.ts
+[Exit Code 0, 0 warning, 0 error]
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun blocage. La PR #22 (`docs/tui-decoupling-and-readme-rework`) est ouverte sur GitHub. L'ensemble des 6 vérifications CI sont au vert (Dependency review, PR governance, Workflow hygiene, Workspace validation, Greptile, CodeRabbit). Les retours de revue de Greptile et CodeRabbit ont été traités et intégrés.
+- **Blocker / Failure Explanation**: Aucun. La PR #24 (`fix/security-concurrency-lot1`) est propre, tous les checks CI (Workspace Validation, Dependency review, Workflow hygiene, CodeRabbit) et le check Greptile Review sont au vert (`conclusion: "success"`, 0 commentaire ajouté). Le seul check en échec est le contrôle de gouvernance de taille de PR (> 2500 lignes de code pour l'ensemble du Lot 1), dérogé et documenté pour cette refactorisation d'envergure.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: Pull Request #22 (`https://github.com/leandre755/HIVE-MIND/pull/22`).
+1. **Target File**: Pull Request #24 (`https://github.com/leandre755/HIVE-MIND/pull/24`).
 2. **Immediate Action**:
-   - Attendre la validation finale et le merge de la PR #22 par le mainteneur humain (conformément à l'Invariant d'accompagnement : l'agent ne fusionne jamais sa propre PR).
-   - Passer à la Phase 5 (Task 10 de `docs/tasks/todo.md`) : implémentation de TinyFish Search sous `src/plugins/web/tinyfish_search`.
-3. **Verification Command**: `npm run build && npm run lint:fast && python3 .github/scripts/verify_workflows.py`
+   - Présenter le rapport final de résolution au mainteneur avec le score 5/5 Greptile (0 commentaire, conclusion success).
+   - Attendre la validation et le merge humain de la PR #24 selon la politique de gouvernance (`AGENTS.md` §4).
+   - Démarrer les travaux du Lot 2 (Persistance & Mock Redis).
+3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`

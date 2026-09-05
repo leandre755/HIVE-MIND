@@ -657,7 +657,7 @@ export class BotCore {
       type: 'message',
       chatId: message.chatId,
       data: message,
-      priority: 1,
+      priority: 3,
     } as unknown as Parameters<typeof orchestrator.enqueue>[0]);
   }
 
@@ -882,15 +882,16 @@ export class BotCore {
     chatId: string,
     sender: string,
   ): Promise<boolean> {
+    const trimmedLower = text.trim().toLowerCase();
     if (
-      (text.startsWith('.approve') || text.startsWith('.reject')) &&
-      permissionManager.handleAdminCommand(text)
+      (trimmedLower.startsWith('.approve') || trimmedLower.startsWith('.reject')) &&
+      (await permissionManager.handleAdminCommand(text, chatId, sender))
     ) {
       console.log('[Core] 🏢 Commande Admin Hub consommée par le PermissionManager');
       return true;
     }
 
-    if (permissionManager.handleUserResponse(text)) {
+    if (permissionManager.handleUserResponse(text, chatId, sender)) {
       console.log('[Core] 🛡️ Message consommé par le PermissionManager (In-Band)');
       return true;
     }
