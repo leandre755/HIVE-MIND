@@ -68,6 +68,10 @@ Finaliser la livraison du Lot 1 (Sécurité & Concurrence sur `fix/security-conc
   - **Discarded Options**: Utilisation directe de l'identité du mainteneur pour les commits autonomes (rejeté : confusion dans l'attribution des modifications) ; recours exclusif à des outils de relecture en ligne (rejeté : dépendance réseau et lenteur face à l'itération locale).
   - **Rationale**: Préférer systématiquement `coderabbit` CLI (`/home/omni/.local/bin/coderabbit`) pour les relectures locales de pré-livraison. En cas d'indisponibilité ou d'échec de quota, basculer vers les sous-agents d'évaluation locaux (`code-reviewer`, `security-auditor`, `antibug`). Utiliser le compte agent personnel **`hivemindagent-boop`** pour les commits Git (`git config user.name hivemindagent-boop`) et les opérations de Pull Request (`gh auth switch --user hivemindagent-boop`), afin de séparer rigoureusement les contributions automatiques de l'agent de celles du mainteneur humain (`leandre755`).
 
+Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR de découplage de la documentation TUI et refonte des READMEs bilingues), puis planifier l'intégration du plugin TinyFish Search (Phase 5).
+
+## 🧠 Decisions Made
+
 - [2026-09-03] **Neutralisation des Vulnérabilités HIGH fast-uri via Override `fast-uri: ^3.1.6` (GHSA-5jgf-p345-68v8)**
   - **Context**: Nouvelle alerte de sécurité GHSA bloquant le pre-push lors de `npm audit` (4 CVEs de sévérité HIGH : CVE-2026-75931, CVE-2026-75899, CVE-2026-75975, CVE-2026-76172). `fast-uri@3.1.5` était embarqué par `ajv@8.20.0`.
   - **Discarded Options**: Migration vers `fast-uri@4.x` (rejetée par l'auditeur de sécurité : ruptures d'API majeures sur les types et comportement de normalisation hors de la plage `^3.0.1` demandée par `ajv`) ; bypass de la gate (interdit par l'Invariant 3).
@@ -237,3 +241,11 @@ Finaliser la livraison du Lot 1 (Sécurité & Concurrence sur `fix/security-conc
 1. Valider le commit du Lot 1 sous l'identité agent `hivemindagent-boop` sur autorisation du mainteneur.
 2. Initialiser le plan et l'implémentation du **Lot 2 : Persistance & Mock Redis** (`src/services/redisClient.ts`, `graphMemory.ts`, `EmbeddingsService.ts`).
 3. Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts`.
+- ✅ Done: **Découplage de la documentation TUI, refonte des READMEs bilingues et neutralisation CVE fast-uri** (PR #22 ouverte, CI 100% verte, retours CodeRabbit et Greptile intégrés).
+- ⏳ Pending: Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts` via `os.homedir()` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; implémentation de TinyFish Search (`todo.md`).
+
+
+## 👉 Next Session Direction
+1. Suivre et fusionner la PR #22 après validation du mainteneur humain.
+2. Implémenter le plugin TinyFish Search sous `src/plugins/web/tinyfish_search` et l'intégrer dans `AgentBlueprint.ts` (Phase 5 / Task 10 de `docs/tasks/todo.md`).
+3. Traiter le chemin personnel dans `src/providers/adapters/codex.ts`.
