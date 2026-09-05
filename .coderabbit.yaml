@@ -38,5 +38,7 @@ reviews:
           fail even if the code quality score is 5/5.
 
           If the available review information is insufficient to
-          conclusively determine both the score and the number of
-          findings, return INCONCLUSIVE rather than PASS.
+          conclusively determine either the score or the number of
+          findings, return FAIL rather than PASS. The quality gate
+          must fail closed whenever either required condition cannot
+          be verified.
