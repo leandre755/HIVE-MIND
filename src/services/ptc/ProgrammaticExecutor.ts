@@ -30,6 +30,22 @@ const DEFAULT_CONFIG: PTCConfig = {
   baseContextTokens: 7_000,
 };
 
+const FORBIDDEN_TOOL_PROPS = new Set([
+  'constructor',
+  '__proto__',
+  'prototype',
+  'caller',
+  'callee',
+  'arguments',
+  'bind',
+  'call',
+  'apply',
+  'toString',
+  'valueOf',
+]);
+
+const contextCleanupMap = new WeakMap<object, () => void>();
+
 export class ProgrammaticExecutor {
   private readonly config: PTCConfig;
 
@@ -203,9 +219,18 @@ ${SANDBOX_HELPERS_SOURCE}
         const __result = await (async () => {
             ${validatedCode}
         })();
-        __resolve(__result);
+        const __payload = __result !== undefined ? __result : null;
+        try {
+            __resolve(JSON.stringify(__payload));
+        } catch (serErr) {
+            __resolve(JSON.stringify({
+                __unserializable: true,
+                reason: serErr && serErr.message ? serErr.message : String(serErr),
+                preview: String(__payload).slice(0, 500),
+            }));
+        }
     } catch (err) {
-        __reject(err);
+        __reject(err && err.message ? err.message : String(err));
     }
 })();
 `;
@@ -259,147 +284,283 @@ ${SANDBOX_HELPERS_SOURCE}
    * Chaque outil HIVE-MIND devient une fonction globale `async toolName(args)`.
    * L'objet global `HIVE` est injecté avec le bridge WakeSystem.
    */
+  private _guardFunction<T extends (...args: never[]) => unknown>(fn: T): T {
+    try {
+      Object.setPrototypeOf(fn, null);
+    } catch {
+      /* ignore */
+    }
+
+    return new Proxy(fn, {
+      get(target, prop, receiver) {
+        if (typeof prop === 'symbol') {
+          return prop === Symbol.species || prop === Symbol.hasInstance
+            ? undefined
+            : Reflect.get(target, prop, receiver);
+        }
+        if (FORBIDDEN_TOOL_PROPS.has(String(prop))) {
+          throw new Error(
+            `Accès interdit à "${String(prop)}" sur les fonctions injectées (sandbox escape)`,
+          );
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+      getPrototypeOf() {
+        return null;
+      },
+      apply(target, _thisArg, argArray) {
+        return Reflect.apply(target, null, argArray);
+      },
+    }) as unknown as T;
+  }
+
+  /**
+   * Assainit récursivement les retours d'outils pour détacher intégralement les prototypes hôtes.
+   * Lorsqu'une fonction de désérialisation interne au realm VM est fournie (vmParse),
+   * les objets et tableaux sont matérialisés directement dans le realm VM, héritant
+   * de ses prototypes verrouillés et éliminant tout objet du runtime hôte Node.js.
+   */
+  private _sanitizeToolResult(value: unknown, vmParse?: (s: string) => unknown): unknown {
+    if (value === null || value === undefined) return value;
+    if (typeof value === 'function') {
+      throw new Error('[PTC] Les outils ne peuvent pas retourner de fonctions exécutables.');
+    }
+    if (typeof value !== 'object') return value;
+
+    let jsonStr: string;
+    try {
+      jsonStr = JSON.stringify(value);
+    } catch (err) {
+      throw new Error(
+        `[PTC] Résultat d'outil non sérialisable: ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
+      );
+    }
+
+    if (vmParse) {
+      try {
+        return vmParse(jsonStr);
+      } catch {
+        // En cas d'erreur de parsing dans la VM, repli sur nettoyage local
+      }
+    }
+
+    let cloned: unknown;
+    try {
+      cloned = JSON.parse(jsonStr);
+    } catch {
+      return String(value);
+    }
+
+    const seen = new WeakSet<object>();
+    const stripPrototypes = (current: unknown): unknown => {
+      if (current === null || current === undefined || typeof current !== 'object') {
+        if (typeof current === 'function') return undefined;
+        return current;
+      }
+      if (seen.has(current)) return current;
+      seen.add(current);
+
+      if (Array.isArray(current)) {
+        try {
+          Object.setPrototypeOf(current, null);
+        } catch {
+          /* ignore */
+        }
+        for (let i = 0; i < current.length; i++) {
+          const item = Reflect.get(current, i);
+          Reflect.set(current, i, stripPrototypes(item));
+        }
+      } else {
+        try {
+          Object.setPrototypeOf(current, null);
+        } catch {
+          /* ignore */
+        }
+        for (const key of Object.keys(current)) {
+          const val = Reflect.get(current, key);
+          Reflect.set(current, key, stripPrototypes(val));
+        }
+      }
+      return current;
+    };
+
+    return stripPrototypes(cloned);
+  }
+
   private buildSandboxContext(
     toolFunctions: ReadonlyMap<string, ToolFunction>,
     toolCalls: ToolCallRecord[],
     hiveBridge?: HiveWakeBridge,
   ): Record<string, unknown> {
-    const globals: Record<string, unknown> = {
-      // Standard JS globals nécessaires dans le VM
-      console: {
-        log: (...args: unknown[]) => console.log('[PTC:sandbox]', ...args),
-        warn: (...args: unknown[]) => console.warn('[PTC:sandbox]', ...args),
-        error: (...args: unknown[]) => console.error('[PTC:sandbox]', ...args),
-      },
-      setTimeout,
-      Promise,
-      JSON,
-      Array,
-      Object,
-      Math,
-      Date,
-      Error,
-      Map,
-      Set,
-      parseInt,
-      parseFloat,
-      isNaN,
-      isFinite,
-      String,
-      Number,
-      Boolean,
-      RegExp,
-      encodeURIComponent,
-      decodeURIComponent,
-      encodeURI,
-      decodeURI,
-    };
+    const globals: Record<string, unknown> = Object.create(null);
 
-    // Injecter chaque outil comme fonction globale
+    const consoleObj: Record<string, unknown> = Object.create(null);
+    consoleObj.log = this._guardFunction((...args: unknown[]) =>
+      console.log('[PTC:sandbox]', ...args),
+    );
+    consoleObj.warn = this._guardFunction((...args: unknown[]) =>
+      console.warn('[PTC:sandbox]', ...args),
+    );
+    consoleObj.error = this._guardFunction((...args: unknown[]) =>
+      console.error('[PTC:sandbox]', ...args),
+    );
+    for (const p of ['constructor', '__proto__', 'prototype']) {
+      Object.defineProperty(consoleObj, p, {
+        get: () => {
+          throw new Error(`[PTC] Accès interdit à ${p} sur console`);
+        },
+        set: () => {
+          throw new Error(`[PTC] Accès interdit à ${p} sur console`);
+        },
+        configurable: false,
+      });
+    }
+    globals['console'] = consoleObj;
+
+    const timers = new Map<number, NodeJS.Timeout>();
+    let timerSeq = 0;
+
+    globals['setTimeout'] = this._guardFunction(
+      (fn: (...args: unknown[]) => unknown, ms: number) => {
+        const handleId = ++timerSeq;
+        const t = setTimeout(
+          () => {
+            timers.delete(handleId);
+            try {
+              if (typeof fn === 'function') {
+                const res = fn();
+                if (res && typeof (res as Promise<unknown>).catch === 'function') {
+                  (res as Promise<unknown>).catch((asyncErr) => {
+                    console.warn(
+                      '[PTC Sandbox] Rejet asynchrone ignoré dans setTimeout callback:',
+                      asyncErr,
+                    );
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn('[PTC Sandbox] Erreur ignorée dans setTimeout callback:', err);
+            }
+          },
+          Math.max(0, Number(ms) || 0),
+        );
+        timers.set(handleId, t);
+        return handleId;
+      },
+    );
+    globals['clearTimeout'] = this._guardFunction((id: unknown) => {
+      if (typeof id !== 'number') return;
+      const t = timers.get(id);
+      if (t) {
+        clearTimeout(t);
+        timers.delete(id);
+      }
+    });
+
+    const cleanupTimers = () => {
+      for (const t of timers.values()) {
+        try {
+          clearTimeout(t);
+        } catch {
+          /* ignore */
+        }
+      }
+      timers.clear();
+    };
+    contextCleanupMap.set(globals, cleanupTimers);
+
+    // Injecter chaque outil comme fonction globale protégée
     for (const [name, fn] of toolFunctions) {
-      Reflect.set(globals, name, async (args: Record<string, unknown>) => {
+      const toolWrapper = async (args: Record<string, unknown>) => {
         const callStart = Date.now();
         const record: ToolCallRecord = { toolName: name, args };
         toolCalls.push(record);
 
         try {
           const result = await fn(args);
-          record.result = result;
+          const vmParse = globals['__vmJsonParse'] as ((s: string) => unknown) | undefined;
+          const safeResult = this._sanitizeToolResult(result, vmParse);
+          record.result = safeResult;
           record.executionTimeMs = Date.now() - callStart;
-          return result;
+          return safeResult;
         } catch (err: unknown) {
           const errorMsg = err instanceof Error ? err.message : String(err);
           record.error = errorMsg;
           record.executionTimeMs = Date.now() - callStart;
           return { success: false, error: errorMsg, gracefulDegradation: true };
         }
-      });
+      };
+
+      Reflect.set(globals, name, this._guardFunction(toolWrapper));
     }
 
     // Injecter le bridge HIVE dans le sandbox
-    // `HIVE.sleepAndWake(delayMs, prompt)` permet au script de planifier son propre réveil.
-    // La variable __hiveSleepResult capture le résultat pour le retourner dans les métadonnées.
+    const hiveObj: Record<string, unknown> = Object.create(null);
     if (hiveBridge) {
-      globals['HIVE'] = {
-        sleepAndWake: async (delayMs: number, wakePrompt: string) => {
-          const result = await hiveBridge.sleepAndWake(delayMs, wakePrompt);
-          // Capturer pour le caller (ProgrammaticExecutor.execute)
-          globals['__hiveSleepResult'] = result;
-          return result;
-        },
-        waitForBackground: async (commandId: string, checkEveryMs: number, wakePrompt: string) => {
+      hiveObj.sleepAndWake = this._guardFunction(async (delayMs: number, wakePrompt: string) => {
+        const result = await hiveBridge.sleepAndWake(delayMs, wakePrompt);
+        globals['__hiveSleepResult'] = result;
+        return result;
+      });
+      hiveObj.waitForBackground = this._guardFunction(
+        async (commandId: string, checkEveryMs: number, wakePrompt: string) => {
           const result = await hiveBridge.waitForBackground(commandId, checkEveryMs, wakePrompt);
           globals['__hiveSleepResult'] = result;
           return result;
         },
-      };
+      );
     } else {
-      // Fallback: injecter un objet HIVE factice qui ne plante pas
-      globals['HIVE'] = {
-        sleepAndWake: async (_delayMs: number, _wakePrompt: string) => ({
+      hiveObj.sleepAndWake = this._guardFunction(async (_delayMs: number, _wakePrompt: string) => ({
+        type: 'SLEEP_ERROR',
+        wakeEventId: '',
+        wakeAtMs: 0,
+        message: '[HIVE] WakeSystem non disponible dans ce contexte.',
+      }));
+      hiveObj.waitForBackground = this._guardFunction(
+        async (_commandId: string, _checkEveryMs: number, _wakePrompt: string) => ({
           type: 'SLEEP_ERROR',
           wakeEventId: '',
           wakeAtMs: 0,
           message: '[HIVE] WakeSystem non disponible dans ce contexte.',
         }),
-        waitForBackground: async (
-          _commandId: string,
-          _checkEveryMs: number,
-          _wakePrompt: string,
-        ) => ({
-          type: 'SLEEP_ERROR',
-          wakeEventId: '',
-          wakeAtMs: 0,
-          message: '[HIVE] WakeSystem non disponible dans ce contexte.',
-        }),
-      };
+      );
     }
+    for (const p of ['constructor', '__proto__', 'prototype']) {
+      Object.defineProperty(hiveObj, p, {
+        get: () => {
+          throw new Error(`[PTC] Accès interdit à ${p} sur HIVE`);
+        },
+        set: () => {
+          throw new Error(`[PTC] Accès interdit à ${p} sur HIVE`);
+        },
+        configurable: false,
+      });
+    }
+    globals['HIVE'] = hiveObj;
 
-    // ── Layer 2 : Scope Guard (Proxy) ──
-    // Empêche l'accès silencieux à des variables non définies.
-    // Sans ça, `undefinedVar` retourne `undefined` au lieu de lancer une erreur.
+    // ── Layer 2 : Scope Guard actif ──
     return this.createGuardedContext(globals);
   }
 
   /**
-   * Enveloppe les globals dans un Proxy qui lance des ReferenceError explicites
-   * pour toute variable non injectée. Empêche les bugs silencieux.
+   * Applique le verrouillage strict sur les propriétés prototypes sensibles (constructor, __proto__, prototype).
+   * Verrouille l'objet globals directement pour garantir un contexte VM propre et conforme.
    */
   private createGuardedContext(globals: Record<string, unknown>): Record<string, unknown> {
-    return new Proxy(globals, {
-      get(target, prop: string | symbol) {
-        if (typeof prop === 'symbol') return Reflect.get(target, prop);
-        if (prop in target) return target[prop as string];
-
-        // Variables internes du VM à ignorer
-        const vmInternals = [
-          'global',
-          'globalThis',
-          'GLOBAL',
-          'root',
-          'window',
-          'self',
-          '__hiveSleepResult',
-        ];
-        if (vmInternals.includes(prop as string)) return undefined;
-
-        // Variable non définie → erreur explicite
-        throw new ReferenceError(
-          `[SafeScript] "${String(prop)}" n'est pas défini. ` +
-            "Vérifiez le nom de la variable ou de l'outil.",
-        );
-      },
-      set(target, prop: string | symbol, value) {
-        // Permettre la création de variables dans le scope
-        target[prop as string] = value;
-        return true;
-      },
-      has() {
-        // Retourner true pour forcer le VM à passer par get()
-        // au lieu de ReferenceError silencieux
-        return true;
-      },
-    });
+    const forbidden = () => {
+      throw new ReferenceError(
+        "[SafeScript] L'accès à cette propriété est interdit (protection prototype).",
+      );
+    };
+    for (const prop of ['constructor', '__proto__', 'prototype']) {
+      Object.defineProperty(globals, prop, {
+        get: forbidden,
+        set: forbidden,
+        configurable: false,
+      });
+    }
+    return globals;
   }
 
   /**
@@ -408,36 +569,174 @@ ${SANDBOX_HELPERS_SOURCE}
    */
   private runInVM(code: string, sandboxGlobals: Record<string, unknown>): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      // Injecter les callbacks de résolution dans le sandbox
-      sandboxGlobals.__resolve = resolve;
-      sandboxGlobals.__reject = (err: unknown) => {
+      const context = vm.createContext(sandboxGlobals);
+
+      // Injecter le parser JSON interne au realm VM pour instancier les retours d'outils
+      // directement dans le contexte isolé sans aucune fuite d'objet ou de prototype hôte
+      try {
+        const vmJsonParse = Reflect.apply(vm.runInContext, vm, [
+          `((jsonStr) => {
+            const parsed = JSON.parse(jsonStr);
+            const strip = (val) => {
+              if (val && typeof val === 'object') {
+                if (!Array.isArray(val)) {
+                  try { Object.setPrototypeOf(val, null); } catch {}
+                }
+                for (const k of Object.keys(val)) {
+                  val[k] = strip(val[k]);
+                }
+              }
+              return val;
+            };
+            return strip(parsed);
+          })`,
+          context,
+        ]);
+        Object.defineProperty(sandboxGlobals, '__vmJsonParse', {
+          value: vmJsonParse,
+          writable: false,
+          configurable: false,
+          enumerable: false,
+        });
+      } catch (parserErr) {
+        reject(parserErr);
+        return;
+      }
+
+      // Sanitisation préventive immédiate du realm VM pour neutraliser l'évasion par prototype ou constructeur
+      try {
+        Reflect.apply(vm.runInContext, vm, [
+          `(() => {
+            const forbidden = () => {
+              throw new Error('[PTC Sandbox] Accès prototype ou constructeur interdit');
+            };
+            const fnProto = Object.getPrototypeOf(() => {});
+            const asyncFnProto = Object.getPrototypeOf(async () => {});
+            const genFnProto = Object.getPrototypeOf(function* () {});
+            const asyncGenFnProto = Object.getPrototypeOf(async function* () {});
+            const allFnProtos = [fnProto, asyncFnProto, genFnProto, asyncGenFnProto].filter(Boolean);
+            for (const p of [Object.prototype, Error.prototype, ...allFnProtos]) {
+              if (!p) continue;
+              try {
+                Object.defineProperty(p, 'constructor', {
+                  get: forbidden,
+                  set: forbidden,
+                  configurable: false,
+                });
+                Object.defineProperty(p, '__proto__', {
+                  get: forbidden,
+                  set: forbidden,
+                  configurable: false,
+                });
+              } catch (e) {
+                throw new Error('[PTC Sandbox] Échec du verrouillage de prototype: ' + (e && e.message ? e.message : String(e)));
+              }
+            }
+            // Verrouiller constructor sur Array lui-même et __proto__ sur Array.prototype
+            // afin de préserver ArraySpeciesCreate pour .map/.filter/.slice tout en bloquant [].constructor.constructor
+            try {
+              Object.defineProperty(Array, 'constructor', {
+                get: forbidden,
+                set: forbidden,
+                configurable: false,
+              });
+              Object.defineProperty(Array.prototype, '__proto__', {
+                get: forbidden,
+                set: forbidden,
+                configurable: false,
+              });
+            } catch (e) {
+              throw new Error('[PTC Sandbox] Échec du verrouillage de prototype Array: ' + (e && e.message ? e.message : String(e)));
+            }
+
+            // Verrouiller les constructeurs intrinsèques restants
+            const intrinsics = [
+              typeof Function !== 'undefined' ? Function : null,
+              typeof String !== 'undefined' ? String : null,
+              typeof Number !== 'undefined' ? Number : null,
+              typeof Boolean !== 'undefined' ? Boolean : null,
+              typeof RegExp !== 'undefined' ? RegExp : null,
+              typeof Promise !== 'undefined' ? Promise : null,
+              typeof Map !== 'undefined' ? Map : null,
+              typeof Set !== 'undefined' ? Set : null,
+              typeof Symbol !== 'undefined' ? Symbol : null,
+              typeof Date !== 'undefined' ? Date : null,
+              typeof JSON !== 'undefined' ? JSON : null,
+            ].filter(Boolean);
+            for (const ctor of intrinsics) {
+              try {
+                Object.defineProperty(ctor, 'constructor', {
+                  get: forbidden,
+                  set: forbidden,
+                  configurable: false,
+                });
+                if (ctor.prototype) {
+                  Object.defineProperty(ctor.prototype, '__proto__', {
+                    get: forbidden,
+                    set: forbidden,
+                    configurable: false,
+                  });
+                }
+              } catch (e) {
+                throw new Error("[PTC Sandbox] Échec du verrouillage de l'intrinsèque: " + (e && e.message ? e.message : String(e)));
+              }
+            }
+          })();`,
+          context,
+        ]);
+      } catch (sanitizationErr) {
+        reject(sanitizationErr);
+        return;
+      }
+
+      // Timeout de sécurité global
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error(`[PTC] Timeout: exécution dépassant ${this.config.timeoutMs}ms`));
+      }, this.config.timeoutMs);
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        const cleanupFn = contextCleanupMap.get(sandboxGlobals);
+        if (typeof cleanupFn === 'function') {
+          try {
+            cleanupFn();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+
+      const guardedResolve = this._guardFunction((jsonStr: unknown) => {
+        cleanup();
+        try {
+          const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          resolve(parsed);
+        } catch {
+          resolve(jsonStr);
+        }
+      });
+      const guardedReject = this._guardFunction((err: unknown) => {
+        cleanup();
         if (err instanceof Error) {
           reject(err);
         } else {
           reject(new Error(String(err)));
         }
-      };
+      });
 
-      const context = vm.createContext(sandboxGlobals);
-
-      // Timeout de sécurité global
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`[PTC] Timeout: exécution dépassant ${this.config.timeoutMs}ms`));
-      }, this.config.timeoutMs);
-
-      const cleanup = () => clearTimeout(timeoutId);
-
-      // Patch: attacher cleanup sur la résolution AVANT l'exécution de runInContext
-      const originalResolve = sandboxGlobals.__resolve as (v: unknown) => void;
-      const originalReject = sandboxGlobals.__reject as (e: unknown) => void;
-      sandboxGlobals.__resolve = (v: unknown) => {
-        cleanup();
-        originalResolve(v);
-      };
-      sandboxGlobals.__reject = (e: unknown) => {
-        cleanup();
-        originalReject(e);
-      };
+      Object.defineProperty(sandboxGlobals, '__resolve', {
+        value: guardedResolve,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
+      Object.defineProperty(sandboxGlobals, '__reject', {
+        value: guardedReject,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
 
       try {
         Reflect.apply(vm.runInContext, vm, [

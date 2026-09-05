@@ -65,7 +65,7 @@ jest.unstable_mockModule('../../core/security/PermissionManager.js', () => ({
     validateFileWrite: jest.fn(() => ({ result: true, requiresPermission: false })),
     isInSandbox: jest.fn(() => true),
     askPermission: jest.fn(async () => ({ granted: true })),
-    handleAdminCommand: jest.fn(() => false),
+    handleAdminCommand: jest.fn(async () => false),
     handleUserResponse: jest.fn(() => false),
     pendingCount: 0,
   },
