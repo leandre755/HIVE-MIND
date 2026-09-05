@@ -62,44 +62,109 @@ function normalizeHeader(rawHeader) {
 }
 
 /**
+ * Analyse si une ligne débute un bloc de code clôturé par ``` ou ~~~ (CommonMark/GFM).
+ * Une ouverture doit comporter au moins 3 caractères de même type (` ou ~).
+ * Pour les backticks, la chaîne d'information ne doit pas comporter de backtick.
+ * @param {string} trimmedLine
+ * @returns {{ char: string, length: number } | null}
+ */
+function parseOpeningFence(trimmedLine) {
+  const firstChar = trimmedLine.charAt(0);
+  if (firstChar !== '`' && firstChar !== '~') {
+    return null;
+  }
+  let len = 0;
+  while (len < trimmedLine.length && trimmedLine.charAt(len) === firstChar) {
+    len++;
+  }
+  if (len < 3) {
+    return null;
+  }
+  if (firstChar === '`' && trimmedLine.slice(len).includes('`')) {
+    return null;
+  }
+  return { char: firstChar, length: len };
+}
+
+/**
+ * Détermine si une ligne clôture le bloc de code actif.
+ * La fermeture doit utiliser le même caractère, avoir une longueur supérieure ou égale
+ * à l'ouverture, et ne comporter aucun caractère non-espace après le délimiteur.
+ * @param {string} trimmedLine
+ * @param {{ char: string, length: number }} activeFence
+ * @returns {boolean}
+ */
+function isClosingFence(trimmedLine, activeFence) {
+  let len = 0;
+  while (len < trimmedLine.length && trimmedLine.charAt(len) === activeFence.char) {
+    len++;
+  }
+  return len >= activeFence.length && trimmedLine.slice(len).trim().length === 0;
+}
+
+/**
+ * Détermine l'état du fence de code pour la ligne courante.
+ * @param {string} trimmedLine
+ * @param {{ char: string, length: number } | null} activeFence
+ * @returns {{ nextFence: { char: string, length: number } | null, inFence: boolean }}
+ */
+function checkFenceTransition(trimmedLine, activeFence) {
+  if (activeFence) {
+    const closed = isClosingFence(trimmedLine, activeFence);
+    return { nextFence: closed ? null : activeFence, inFence: true };
+  }
+  const openingFence = parseOpeningFence(trimmedLine);
+  if (openingFence) {
+    return { nextFence: openingFence, inFence: true };
+  }
+  return { nextFence: null, inFence: false };
+}
+
+/**
+ * Enregistre la section courante dans la Map si un en-tête est actif.
+ * @param {Map<string, string>} sections
+ * @param {string | null} header
+ * @param {string[]} contentLines
+ */
+function commitSection(sections, header, contentLines) {
+  if (header) {
+    sections.set(header, contentLines.join('\n').trim());
+  }
+}
+
+/**
  * Extrait les sections markdown de niveau 2 (## ...) sous forme d'une Map normalisée,
- * en ignorant les en-têtes situés à l'intérieur de blocs de code (```).
+ * en ignorant les en-têtes situés à l'intérieur de blocs de code (fences ``` ou ~~~).
  * @param {string} body
  * @returns {Map<string, string>}
  */
 function extractSections(body) {
   if (!body || typeof body !== 'string') return new Map();
   const sections = new Map();
-  const lines = body.split('\n');
   let currentHeader = null;
   let currentContent = [];
-  let inCodeBlock = false;
+  let activeFence = null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('```')) {
-      inCodeBlock = !inCodeBlock;
-      if (currentHeader) {
-        currentContent.push(line);
-      }
+  for (const line of body.split('\n')) {
+    const trimmed = line.trimStart();
+    const { nextFence, inFence } = checkFenceTransition(trimmed, activeFence);
+    activeFence = nextFence;
+
+    if (inFence) {
+      if (currentHeader) currentContent.push(line);
       continue;
     }
 
-    if (!inCodeBlock && line.startsWith('## ')) {
-      if (currentHeader) {
-        sections.set(currentHeader, currentContent.join('\n').trim());
-      }
-      currentHeader = normalizeHeader(line.slice(3));
+    if (trimmed.startsWith('## ')) {
+      commitSection(sections, currentHeader, currentContent);
+      currentHeader = normalizeHeader(trimmed.slice(3));
       currentContent = [];
     } else if (currentHeader) {
       currentContent.push(line);
     }
   }
 
-  if (currentHeader) {
-    sections.set(currentHeader, currentContent.join('\n').trim());
-  }
-
+  commitSection(sections, currentHeader, currentContent);
   return sections;
 }
 
@@ -147,6 +212,37 @@ function stripListMarker(line) {
 }
 
 /**
+ * Filtre les lignes de délimiteurs de fences (``` ou ~~~) et leurs identifiants de langage,
+ * en conservant uniquement les lignes de contenu réel situées à l'intérieur ou à l'extérieur.
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
+function filterNonFenceLines(lines) {
+  const result = [];
+  let activeFence = null;
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (activeFence) {
+      if (isClosingFence(trimmed, activeFence)) {
+        activeFence = null;
+      } else {
+        result.push(line);
+      }
+    } else {
+      const opening = parseOpeningFence(trimmed);
+      if (opening) {
+        activeFence = opening;
+      } else {
+        result.push(line);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Vérifie si une section contient un contenu substantiel en dehors des invites du template.
  * @param {string|undefined} content
  * @param {string[]} strictPlaceholders
@@ -154,9 +250,10 @@ function stripListMarker(line) {
  * @returns {{ valid: boolean, reason?: string }}
  */
 function validateSectionContent(content, strictPlaceholders = [], guidePrompts = []) {
-  if (!content || typeof content !== 'string' || content.trim().length < 5) {
-    return { valid: false, reason: 'section vide ou insuffisante' };
+  if (!content || typeof content !== 'string') {
+    return { valid: false, reason: 'section vide ou absente' };
   }
+
   const lowerContent = content.toLowerCase();
   const rawLines = lowerContent.split('\n');
 
@@ -173,10 +270,11 @@ function validateSectionContent(content, strictPlaceholders = [], guidePrompts =
     .map((line) => stripGuidePromptsFromLine(line, guidePrompts))
     .filter((line) => line.length > 0);
 
-  const substantiveText = filteredLines
+  const nonFenceLines = filterNonFenceLines(filteredLines);
+
+  const substantiveText = nonFenceLines
     .join('\n')
-    .replace(/```[a-z]*\s*```/gi, '')
-    .replace(/[`#\-*[\]()]/g, '')
+    .replace(/[`~#\-*[\]()]/g, '')
     .trim();
 
   if (substantiveText.length < 5) {
@@ -350,13 +448,13 @@ function evaluateFeatureIssue(title, sections, extraLabels) {
 }
 
 /**
- * Évalue une issue préfixée par [DOCS] ou [DOC].
+ * Évalue une issue préfixée par [DOCS].
  * @param {string} title
  * @param {Map<string, string>} sections
  * @param {string[]} extraLabels
  */
 function evaluateDocsIssue(title, sections, extraLabels) {
-  const titlePayload = title.replace(/^\[(?:DOCS|DOC)\]\s*/i, '').trim();
+  const titlePayload = title.replace(/^\[DOCS\]\s*/i, '').trim();
   if (titlePayload.length < 3) {
     return {
       isValid: false,
@@ -437,7 +535,7 @@ function evaluateIssueFormat(issue) {
   if (/^\[FEATURE\]/i.test(title)) {
     return evaluateFeatureIssue(title, sections, extraLabels);
   }
-  if (/^\[(?:DOCS|DOC)\]/i.test(title)) {
+  if (/^\[DOCS\]/i.test(title)) {
     return evaluateDocsIssue(title, sections, extraLabels);
   }
 
@@ -446,6 +544,8 @@ function evaluateIssueFormat(issue) {
 
 /**
  * Retire les étiquettes obsolètes d'une issue (insensible à la casse).
+ * Propage l'échec si une erreur non-404 survient.
+ * @returns {Promise<{ success: boolean, error?: unknown, label?: string }>}
  */
 async function removeObsoleteLabels({
   github,
@@ -459,23 +559,26 @@ async function removeObsoleteLabels({
     const matchingLabel = existingLabelNames.find(
       (l) => l.toLowerCase() === labelName.toLowerCase(),
     );
-    if (matchingLabel) {
-      try {
-        await github.rest.issues.removeLabel({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: issueNumber,
-          name: matchingLabel,
-        });
-      } catch (err) {
-        if (err && err.status === 404) {
-          continue;
-        }
-        const message = err instanceof Error ? err.message : String(err);
-        core.warning(`Impossible de retirer l'étiquette ${matchingLabel}: ${message}`);
+    if (!matchingLabel) {
+      continue;
+    }
+    try {
+      await github.rest.issues.removeLabel({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+        name: matchingLabel,
+      });
+    } catch (err) {
+      if (err && err.status === 404) {
+        continue;
       }
+      const message = err instanceof Error ? err.message : String(err);
+      core.warning(`Impossible de retirer l'étiquette ${matchingLabel}: ${message}`);
+      return { success: false, error: err, label: matchingLabel };
     }
   }
+  return { success: true };
 }
 
 /**
@@ -526,7 +629,10 @@ async function upsertTriageComment({ github, context, issueNumber, body }) {
   });
 
   const existing = comments.find(
-    (comment) => typeof comment.body === 'string' && comment.body.includes(TRIAGE_MARKER),
+    (comment) =>
+      typeof comment.body === 'string' &&
+      comment.body.includes(TRIAGE_MARKER) &&
+      (comment.user?.login === 'github-actions[bot]' || comment.user?.type === 'Bot'),
   );
 
   if (existing) {
@@ -604,7 +710,7 @@ async function runTriage({ github, context, core, issueNumber }) {
     .filter((name) => typeof name === 'string' && name.length > 0);
 
   if (evaluation.isValid && evaluation.labelsToRemove.length > 0) {
-    await removeObsoleteLabels({
+    const removalResult = await removeObsoleteLabels({
       github,
       context,
       issueNumber: targetNumber,
@@ -612,6 +718,12 @@ async function runTriage({ github, context, core, issueNumber }) {
       existingLabelNames,
       core,
     });
+    if (!removalResult.success) {
+      core.setFailed(
+        `Échec critique lors du retrait de l'étiquette ${removalResult.label} sur l'issue #${targetNumber}.`,
+      );
+      return;
+    }
   }
 
   const isEditAction = context.eventName === 'issues' && context.payload?.action === 'edited';
@@ -645,6 +757,9 @@ async function runTriage({ github, context, core, issueNumber }) {
 
 module.exports = {
   normalizeHeader,
+  parseOpeningFence,
+  isClosingFence,
+  filterNonFenceLines,
   extractSections,
   validateSectionContent,
   validateBugTemplate,

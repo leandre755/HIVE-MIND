@@ -109,8 +109,26 @@ Time:        66.685 s
 Ran all test suites matching src/tests/unit.
 ```
 
+### Step 5: Intégration des Retours de Review PR #39 (CodeRabbit & Greptile)
+- [x] **Action**:
+  1. **Greptile P1 (fences tildes)** : conformité CommonMark dans `extractSections` (`parseOpeningFence`, `isClosingFence`), matching strict de délimiteur (tildes `~~~` et backticks ```` ``` ````).
+  2. **CodeRabbit Finding (fences vides)** : implémentation de `filterNonFenceLines` sans regex fragile pour supprimer les blocs vides y compris avec espaces avant l'info string (ex. ```` ``` markdown ````), évitant de retenir les mots-clés de langage comme texte substantiel.
+  3. **Greptile P1 (authentification bot)** : vérification stricte de l'auteur dans `upsertTriageComment` (`comment.user?.login === 'github-actions[bot]' || comment.user?.type === 'Bot'`) pour empêcher l'usurpation du commentaire de diagnostic par un tiers.
+  4. **CodeRabbit Finding ([DOC] non officiel)** : restriction stricte au préfixe officiel `[DOCS]`. Les issues titrées `[DOC]` sont traitées en freeform et conservent `needs-triage`.
+  5. **CodeRabbit Finding (propagation d'échec de suppression de label)** : arrêt propre et appel `core.setFailed` dans `runTriage` lorsqu'une erreur non-404 survient sur `removeLabel`, garantissant la cohérence d'état de l'issue.
+  6. **Script PR Reviews** : création de `scripts/fetch_pr_reviews.js` pour automatiser la récupération de 100% des revues, commentaires inline et suggestions sur toute PR via GitHub CLI.
+- [x] **Verify**: `npm test -- src/tests/unit/github/issueTriage.test.ts && npm run build && npm run lint:fast`
+- **Verification Proof**:
+```text
+PASS src/tests/unit/github/issueTriage.test.ts
+Test Suites: 1 passed, 1 total
+Tests:       49 passed, 49 total
+```
+
 ## ⚠️ Mitigations & Edge Cases
 - **Risk**: Erreur de l'API GitHub lors de la tentative de suppression de `needs-triage` si le label n'était pas présent sur l'issue (HTTP 404).
-- **Mitigation**: Protection `try/catch` fail-safe avec contrôle de `err.status === 404` pour ignorer silencieusement l'absence du label.
+- **Mitigation**: Protection `try/catch` fail-safe avec contrôle de `err.status === 404` pour ignorer silencieusement l'absence du label, tout en propageant les erreurs non-404 à `core.setFailed`.
+- **Risk**: Usurpation du commentaire automatique de triage par un utilisateur insérant `TRIAGE_MARKER`.
+- **Mitigation**: Filtrage explicite sur l'identité de l'automatisation (`github-actions[bot]` ou `user.type === 'Bot'`) dans `upsertTriageComment`.
 - **Risk**: Faux négatif de conformité sur un template ayant de légères variations d'espaces ou d'émojis dans les titres de section.
-- **Mitigation**: Découpage ligne par ligne avec détection `line.startsWith('## ')` dans `extractSections` et normalisation sémantique des en-têtes via `normalizeHeader` (suppression des pictogrammes et émojis Unicode `\p{Extended_Pictographic}`, de la ponctuation, espaces multiples et mise en minuscules).
+- **Mitigation**: Découpage ligne par ligne avec détection `line.startsWith('## ')` dans `extractSections` et normalisation sémantique des en-têtes via `normalizeHeader`.

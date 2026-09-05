@@ -38,6 +38,11 @@ Finaliser la livraison du Lot 1 (Sécurité & Concurrence sur `fix/security-conc
 
 ## 🧠 Decisions Made
 
+- [2026-09-05] **Procédure de Traitement Direct des Revues PR ("Zéro re-dit") & Script d'Extraction Exhaustive (`scripts/fetch_pr_reviews.js`)**
+  - **Context**: Directive explicite du mainteneur (@leandre755) : dès lors qu'une PR présente une note < 5/5 ou des remarques de relecture (CodeRabbit, Greptile, reviewers humains), cesser toute tergiversation ou multiplication d'actions divergentes. Récupérer l'intégralité de la page de la PR et de ses commentaires/suggestions pour appliquer directement et chirurgicalement les ajouts ou retraits de lignes recommandés.
+  - **Discarded Options**: Analyser partiellement les commentaires via l'interface web ou attendre des instructions manuelles au cas par cas (rejeté : source d'itérations superflues et de malentendus) ; tenter d'argumenter ou d'ignorer les findings formels des bots de revue lorsqu'ils pointent des cas limites réels (rejeté : viole la Delivery Policy Strict Review).
+  - **Rationale**: (1) Création de l'outil CLI autonome `scripts/fetch_pr_reviews.js` exploitant `gh api` pour extraire automatiquement les métadonnées de PR, les revues soumises (`reviews`), les commentaires généraux d'issues (`issues/comments`), ainsi que tous les commentaires inline avec diff hunks et blocs ```suggestion (`pulls/comments`). (2) Règle d'exécution : quand une revue n'est pas 100% approuvée, lancer immédiatement `node scripts/fetch_pr_reviews.js [pr_number]` et appliquer de façon stricte, directe et sans redite les modifications demandées par les relecteurs sur le code source avant revalidation.
+
 - [2026-09-05] **Doctrine de Revue & Exigence Maximale par Défaut (CodeRabbit CLI + Agents Locaux)**
   - **Context**: Directive explicite du mainteneur concernant la méthode d'audit de pré-livraison et le niveau de complétude attendu.
   - **Discarded Options**: Recourir uniquement aux agents d'évaluation locaux ou uniquement aux bots distants (rejeté : vision partielle des défauts) ; adopter un niveau de complétude minimaliste ou intermédiaire lorsque la qualité attendue n'est pas spécifiée (rejeté : entraîne des boucles itératives infinies lors des phases de relecture).
@@ -225,7 +230,7 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 
 ## 🌿 Active Branches / Plans
 
-- `plan_issue_triage_format_validation` : [Validation du Format des Issues et Gestion de needs-triage dans issue-triage.yml](branches/plan_issue_triage_format_validation.md)
+- ~~`plan_issue_triage_format_validation`~~ : [COMPLÉTÉ - PR #39] [Validation du Format des Issues et Gestion de needs-triage dans issue-triage.yml](branches/plan_issue_triage_format_validation.md)
 - `plan_lot1_security_concurrency` : [Sécurité du Code & Concurrence Lot 1 (RCE PTC, SwarmDispatcher 8.0x, PermissionManager)](branches/plan_lot1_security_concurrency.md)
 - ~~`plan_pr14_production_dependencies`~~ : [COMPLÉTÉ] [Migration des Dépendances de Production PR #14](branches/plan_pr14_production_dependencies.md)
 - ~~`plan_tui_extraction`~~ : [COMPLÉTÉ] Extraction et Découplage de la TUI dans un Dépôt Autonome (plan de travail conservé hors dépôt, dans le répertoire de session de l'agent qui l'a produit)

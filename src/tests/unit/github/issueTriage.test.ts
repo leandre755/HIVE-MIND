@@ -2,9 +2,15 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { createRequire } from 'node:module';
 
 const cjsRequire = createRequire(import.meta.url);
-const { extractSections, evaluateIssueFormat, buildTriageCommentBody, runTriage } = cjsRequire(
-  '../../../../.github/scripts/triage_issue.cjs',
-);
+const {
+  extractSections,
+  parseOpeningFence,
+  isClosingFence,
+  filterNonFenceLines,
+  evaluateIssueFormat,
+  buildTriageCommentBody,
+  runTriage,
+} = cjsRequire('../../../../.github/scripts/triage_issue.cjs');
 
 function createTriageMocks() {
   const mockGithub = {
@@ -104,9 +110,116 @@ describe('Issue Triage - extractSections', () => {
     expect(sections.has('expected behavior')).toBe(false);
   });
 
+  it('should ignore markdown h2 headers inside tilde code fences', () => {
+    const body = [
+      '## 🐛 Describe the Bug',
+      'Beginning of description with tilde fence:',
+      '~~~markdown',
+      '## 📋 Steps to Reproduce',
+      'Step inside tildes',
+      '~~~',
+      'After tilde fence.',
+      '## 📋 Steps to Reproduce',
+      'Real step 1',
+    ].join('\n');
+
+    const sections = extractSections(body);
+    expect(sections.get('describe the bug')).toContain('## 📋 Steps to Reproduce');
+    expect(sections.get('steps to reproduce')).toBe('Real step 1');
+  });
+
+  it('should enforce strict delimiter matching between backticks and tildes', () => {
+    const body = [
+      '## 🐛 Describe the Bug',
+      '~~~',
+      '```',
+      '## 📋 Steps to Reproduce',
+      '```',
+      '~~~',
+      '## 📋 Steps to Reproduce',
+      'Real step 1',
+    ].join('\n');
+
+    const sections = extractSections(body);
+    expect(sections.get('describe the bug')).toContain('## 📋 Steps to Reproduce');
+    expect(sections.get('steps to reproduce')).toBe('Real step 1');
+  });
+
+  it('should not close a code fence if closing line has fewer characters than opening fence', () => {
+    const body = [
+      '## 🐛 Describe the Bug',
+      '````',
+      '## 📋 Steps to Reproduce',
+      '```',
+      'Still in code block',
+      '````',
+      '## 📋 Steps to Reproduce',
+      'Real step 1',
+    ].join('\n');
+
+    const sections = extractSections(body);
+    expect(sections.get('describe the bug')).toContain('## 📋 Steps to Reproduce');
+    expect(sections.get('steps to reproduce')).toBe('Real step 1');
+  });
+
   it('should handle empty or null body gracefully', () => {
     expect(extractSections(null).size).toBe(0);
     expect(extractSections('').size).toBe(0);
+  });
+});
+
+describe('Issue Triage - parseOpeningFence and isClosingFence', () => {
+  it('should parse valid opening fences with backticks and tildes', () => {
+    expect(parseOpeningFence('```')).toEqual({ char: '`', length: 3 });
+    expect(parseOpeningFence('````json')).toEqual({ char: '`', length: 4 });
+    expect(parseOpeningFence('``` markdown')).toEqual({ char: '`', length: 3 });
+    expect(parseOpeningFence('~~~')).toEqual({ char: '~', length: 3 });
+    expect(parseOpeningFence('~~~~markdown info')).toEqual({ char: '~', length: 4 });
+    expect(parseOpeningFence('~~~ markdown')).toEqual({ char: '~', length: 3 });
+  });
+
+  it('should reject invalid opening fences', () => {
+    expect(parseOpeningFence('``')).toBeNull();
+    expect(parseOpeningFence('~~')).toBeNull();
+    expect(parseOpeningFence('```info`with`backtick')).toBeNull();
+    expect(parseOpeningFence('normal text')).toBeNull();
+    expect(parseOpeningFence('# Heading')).toBeNull();
+  });
+
+  it('should correctly evaluate closing fences', () => {
+    const backtickFence = { char: '`', length: 3 };
+    const tildeFence = { char: '~', length: 4 };
+
+    expect(isClosingFence('```', backtickFence)).toBe(true);
+    expect(isClosingFence('````', backtickFence)).toBe(true);
+    expect(isClosingFence('``', backtickFence)).toBe(false);
+    expect(isClosingFence('~~~', backtickFence)).toBe(false);
+    expect(isClosingFence('``` text', backtickFence)).toBe(false);
+
+    expect(isClosingFence('~~~~', tildeFence)).toBe(true);
+    expect(isClosingFence('~~~~~  ', tildeFence)).toBe(true);
+    expect(isClosingFence('~~~', tildeFence)).toBe(false);
+    expect(isClosingFence('````', tildeFence)).toBe(false);
+  });
+});
+
+describe('Issue Triage - filterNonFenceLines', () => {
+  it('should strip empty code fences with whitespace preceding info string for backticks and tildes', () => {
+    const backtickLines = ['``` markdown', '```'];
+    expect(filterNonFenceLines(backtickLines)).toEqual([]);
+
+    const tildeLines = ['~~~ markdown', '~~~'];
+    expect(filterNonFenceLines(tildeLines)).toEqual([]);
+  });
+
+  it('should preserve substantive content inside code fences while discarding delimiters', () => {
+    const lines = ['``` typescript', 'const port = 3000;', '```'];
+    expect(filterNonFenceLines(lines)).toEqual(['const port = 3000;']);
+  });
+
+  it('should preserve text outside of code fences', () => {
+    const lines = ['Line 1 outside', '```', 'inside code', '```', 'Line 2 outside'];
+    expect(filterNonFenceLines(lines)).toEqual(['Line 1 outside', 'inside code', 'Line 2 outside']);
   });
 });
 
@@ -258,6 +371,100 @@ describe('Issue Triage - evaluateIssueFormat Bug & Features', () => {
   });
 });
 
+describe('Issue Triage - evaluateIssueFormat Fences and Regressions', () => {
+  it('should reject bug report when a required section is only present inside a tilde fence', () => {
+    const issue = {
+      title: '[BUG] Missing expected behavior outside code block',
+      body: [
+        '## 🐛 Describe the Bug',
+        'Here is the issue description with an embedded template snippet:',
+        '~~~markdown',
+        '## ✅ Expected Behavior',
+        'This is fake expected behavior inside a tilde block.',
+        '~~~',
+        '## 📋 Steps to Reproduce',
+        '1. Step one\n2. Step two',
+        '## ❌ Actual Behavior',
+        'Crash occurs on line 12.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+
+    const result = evaluateIssueFormat(issue);
+    expect(result.isValid).toBe(false);
+    expect(result.labelsToAdd).toContain('needs-triage');
+    expect(result.labelsToRemove).not.toContain('needs-triage');
+    expect(result.reason).toContain('Expected Behavior');
+  });
+
+  it('should validate bug report when required sections exist and tilde block contains code', () => {
+    const issue = {
+      title: '[BUG] Failure parsing logs with tildes',
+      body: [
+        '## 🐛 Describe the Bug',
+        'Detailed description of the bug.',
+        '~~~log',
+        'Error: failure at line 42',
+        '~~~',
+        '## 📋 Steps to Reproduce',
+        '1. Run command\n2. Check log',
+        '## ✅ Expected Behavior',
+        'Log should be parsed properly.',
+        '## ❌ Actual Behavior',
+        'Parsing fails.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+
+    const result = evaluateIssueFormat(issue);
+    expect(result.isValid).toBe(true);
+    expect(result.labelsToRemove).toContain('needs-triage');
+    expect(result.labelsToAdd).toContain('bug');
+  });
+
+  it('should reject issue when a section contains only an empty code fence with whitespace before info string', () => {
+    const issueBackticks = {
+      title: '[BUG] Empty backtick code block with space',
+      body: [
+        '## 🐛 Describe the Bug',
+        'Valid description of the bug here.',
+        '## 📋 Steps to Reproduce',
+        '``` markdown',
+        '```',
+        '## ✅ Expected Behavior',
+        'Should work fine.',
+        '## ❌ Actual Behavior',
+        'Crashes with error.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+    const resBackticks = evaluateIssueFormat(issueBackticks);
+    expect(resBackticks.isValid).toBe(false);
+    expect(resBackticks.labelsToAdd).toContain('needs-triage');
+    expect(resBackticks.reason).toContain('Steps to Reproduce');
+
+    const issueTildes = {
+      title: '[BUG] Empty tilde code block with space',
+      body: [
+        '## 🐛 Describe the Bug',
+        'Valid description of the bug here.',
+        '## 📋 Steps to Reproduce',
+        '1. Step one\n2. Step two',
+        '## ✅ Expected Behavior',
+        '~~~ markdown',
+        '~~~',
+        '## ❌ Actual Behavior',
+        'Crashes with error.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+    const resTildes = evaluateIssueFormat(issueTildes);
+    expect(resTildes.isValid).toBe(false);
+    expect(resTildes.labelsToAdd).toContain('needs-triage');
+    expect(resTildes.reason).toContain('Expected Behavior');
+  });
+});
+
 describe('Issue Triage - evaluateIssueFormat Docs & Freeform', () => {
   it('should accept issue retaining guide prompts when substantive answer is written below', () => {
     const issue = {
@@ -320,6 +527,29 @@ describe('Issue Triage - evaluateIssueFormat Docs & Freeform', () => {
     const result = evaluateIssueFormat(issue);
     expect(result.isValid).toBe(true);
     expect(result.labelsToRemove).toContain('needs-triage');
+  });
+
+  it('should refuse unofficial [DOC] prefix and retain needs-triage as freeform issue', () => {
+    const issue = {
+      title: '[DOC] Fix configuration documentation',
+      body: [
+        '## 📖 Documentation Issue',
+        'Detailed documentation issue description.',
+        '## 📍 Affected Section',
+        'Section 2 of README.md.',
+        "## 🤔 What's Missing or Unclear?",
+        'The port description is missing.',
+        '## ✏️ Suggested Changes',
+        'Add port description.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+
+    const result = evaluateIssueFormat(issue);
+    expect(result.isValid).toBe(false);
+    expect(result.templateType).toBe('freeform');
+    expect(result.labelsToAdd).toContain('needs-triage');
+    expect(result.labelsToRemove).not.toContain('needs-triage');
   });
 
   it('should assign needs-triage to freeform issue without recognized template prefix', () => {
@@ -423,7 +653,7 @@ describe('Issue Triage - runTriage Labels & Operations', () => {
     expect(mocks.mockGithub.rest.issues.createComment).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle 404 on removeLabel gracefully and log warning on 500 error', async () => {
+  it('should handle 404 on removeLabel gracefully and continue triage', async () => {
     const validIssue = {
       title: '[BUG] Valid issue',
       body: [
@@ -447,6 +677,27 @@ describe('Issue Triage - runTriage Labels & Operations', () => {
       issueNumber: 101,
     });
     expect(mocks.mockCore.warning).not.toHaveBeenCalled();
+    expect(mocks.mockCore.setFailed).not.toHaveBeenCalled();
+    expect(mocks.mockGithub.rest.issues.addLabels).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      issue_number: 101,
+      labels: ['bug'],
+    });
+  });
+
+  it('should fail and halt triage when removeLabel encounters a non-404 error', async () => {
+    const validIssue = {
+      title: '[BUG] Valid issue',
+      body: [
+        '## 🐛 Describe the Bug\nReal bug details here.',
+        '## 📋 Steps to Reproduce\nReal steps to reproduce the issue.',
+        '## ✅ Expected Behavior\nShould work completely fine.',
+        '## ❌ Actual Behavior\nThrows an unhandled exception.',
+      ].join('\n'),
+      labels: [{ name: 'needs-triage' }],
+    };
+    mocks.mockContext.payload.issue = validIssue;
 
     const error500 = new Error('Internal Server Error') as Error & { status: number };
     error500.status = 500;
@@ -461,6 +712,11 @@ describe('Issue Triage - runTriage Labels & Operations', () => {
     expect(mocks.mockCore.warning).toHaveBeenCalledWith(
       expect.stringContaining('Internal Server Error'),
     );
+    expect(mocks.mockCore.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining("Échec critique lors du retrait de l'étiquette"),
+    );
+    expect(mocks.mockGithub.rest.issues.addLabels).not.toHaveBeenCalled();
+    expect(mocks.mockGithub.rest.issues.createComment).not.toHaveBeenCalled();
   });
 
   it('should fetch issue via REST API when context.payload.issue is undefined (workflow_dispatch)', async () => {
@@ -583,7 +839,7 @@ describe('Issue Triage - runTriage Comments & Idempotence', () => {
     expect(mocks.mockGithub.rest.issues.createComment).not.toHaveBeenCalled();
   });
 
-  it('should update existing comment regardless of user.type when marker is present', async () => {
+  it('should ignore comment with marker if authored by a human user and create a new comment instead', async () => {
     mocks.mockContext.payload.issue = {
       title: 'Freeform issue',
       body: 'Some questions.',
@@ -593,8 +849,8 @@ describe('Issue Triage - runTriage Comments & Idempotence', () => {
     mocks.mockGithub.paginate.mockResolvedValueOnce([
       {
         id: 77,
-        user: { type: 'User' },
-        body: '<!-- coding-stuff:issue-triage:v1 -->\nReview from PAT/App',
+        user: { login: 'some-user', type: 'User' },
+        body: '<!-- coding-stuff:issue-triage:v1 -->\nSpoofed marker by user',
       },
     ]);
 
@@ -605,10 +861,41 @@ describe('Issue Triage - runTriage Comments & Idempotence', () => {
       issueNumber: 302,
     });
 
+    expect(mocks.mockGithub.rest.issues.updateComment).not.toHaveBeenCalled();
+    expect(mocks.mockGithub.rest.issues.createComment).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      issue_number: 302,
+      body: expect.stringContaining('<!-- coding-stuff:issue-triage:v1 -->'),
+    });
+  });
+
+  it('should update existing comment when authored by github-actions[bot]', async () => {
+    mocks.mockContext.payload.issue = {
+      title: 'Freeform issue',
+      body: 'Some questions.',
+      labels: [],
+    };
+
+    mocks.mockGithub.paginate.mockResolvedValueOnce([
+      {
+        id: 99,
+        user: { login: 'github-actions[bot]', type: 'Bot' },
+        body: '<!-- coding-stuff:issue-triage:v1 -->\nOld bot comment',
+      },
+    ]);
+
+    await runTriage({
+      github: mocks.mockGithub,
+      context: mocks.mockContext,
+      core: mocks.mockCore,
+      issueNumber: 303,
+    });
+
     expect(mocks.mockGithub.rest.issues.updateComment).toHaveBeenCalledWith({
       owner: 'test-owner',
       repo: 'test-repo',
-      comment_id: 77,
+      comment_id: 99,
       body: expect.stringContaining('<!-- coding-stuff:issue-triage:v1 -->'),
     });
     expect(mocks.mockGithub.rest.issues.createComment).not.toHaveBeenCalled();
