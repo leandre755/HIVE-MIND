@@ -156,7 +156,7 @@ export const userService = {
 
       const crypto = await import('crypto');
       const hash = crypto
-        .createHash('md5')
+        .createHash('sha256')
         .update(resolvedJid)
         .digest('hex')
         .substring(0, 3)
@@ -176,7 +176,7 @@ export const userService = {
       console.error('[UserService] getSpeakerHash error:', extractErrorMessage(e));
       const crypto = await import('crypto');
       return crypto
-        .createHash('md5')
+        .createHash('sha256')
         .update(resolvedJid)
         .digest('hex')
         .substring(0, 3)

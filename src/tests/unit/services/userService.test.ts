@@ -138,6 +138,22 @@ describe('userService unit tests', () => {
 
       const hash = await userService.getSpeakerHash('123');
       expect(hash).toHaveLength(3);
+      expect(hash).toBe('1B5');
+    });
+
+    it('should compute hash via error fallback path if an exception occurs during cache lookup', async () => {
+      jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+      jest.spyOn(redis, 'hGet').mockImplementation(async () => {
+        throw new Error('Redis connection failed');
+      });
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const hash = await userService.getSpeakerHash('123');
+      expect(hash).toBe('1B5');
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[UserService] getSpeakerHash error:',
+        'Redis connection failed',
+      );
     });
   });
 });
