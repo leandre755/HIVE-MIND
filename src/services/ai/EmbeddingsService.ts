@@ -114,6 +114,6 @@ export class EmbeddingsService implements IEmbeddingsService {
     }
 
     const data = await response.json();
-    return data.data[0]?.embedding || null;
+    return data?.data?.[0]?.embedding || null;
   }
 }

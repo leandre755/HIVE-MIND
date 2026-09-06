@@ -69,14 +69,14 @@ describe('EmbeddingsService unit tests', () => {
       .fn<typeof fetch>()
       .mockImplementation(async (input: RequestInfo | URL) => {
         callCount++;
-        const url = String(input);
-        if (url.includes('generativelanguage.googleapis.com')) {
+        const parsed = new URL(String(input));
+        if (parsed.hostname === 'generativelanguage.googleapis.com') {
           return {
             ok: false,
             json: async () => ({ error: { message: 'Gemini rate limited' } }),
           } as unknown as Response;
         }
-        if (url.includes('api.openai.com')) {
+        if (parsed.hostname === 'api.openai.com') {
           return {
             ok: true,
             json: async () => ({
@@ -84,7 +84,7 @@ describe('EmbeddingsService unit tests', () => {
             }),
           } as unknown as Response;
         }
-        throw new Error(`Unexpected url: ${url}`);
+        throw new Error(`Unexpected hostname: ${parsed.hostname}`);
       });
     global.fetch = mockFetch;
 
@@ -131,14 +131,14 @@ describe('EmbeddingsService unit tests', () => {
     const mockFetch = jest
       .fn<typeof fetch>()
       .mockImplementation(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('generativelanguage.googleapis.com')) {
+        const parsed = new URL(String(input));
+        if (parsed.hostname === 'generativelanguage.googleapis.com') {
           throw new Error('Gemini offline');
         }
-        if (url.includes('api.openai.com')) {
+        if (parsed.hostname === 'api.openai.com') {
           throw new Error('OpenAI socket hang up');
         }
-        throw new Error(`Unexpected url: ${url}`);
+        throw new Error(`Unexpected hostname: ${parsed.hostname}`);
       });
     global.fetch = mockFetch;
 
@@ -158,5 +158,35 @@ describe('EmbeddingsService unit tests', () => {
       'Gemini offline',
     );
     expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error:', 'OpenAI socket hang up');
+  });
+
+  it('should handle malformed or empty OpenAI response during fallback and return null', async () => {
+    const mockFetch = jest
+      .fn<typeof fetch>()
+      .mockImplementation(async (input: RequestInfo | URL) => {
+        const parsed = new URL(String(input));
+        if (parsed.hostname === 'generativelanguage.googleapis.com') {
+          return {
+            ok: false,
+            json: async () => ({ error: { message: 'Gemini rate limited' } }),
+          } as unknown as Response;
+        }
+        if (parsed.hostname === 'api.openai.com') {
+          return {
+            ok: true,
+            json: async () => ({ data: [] }),
+          } as unknown as Response;
+        }
+        throw new Error(`Unexpected hostname: ${parsed.hostname}`);
+      });
+    global.fetch = mockFetch;
+
+    const service = new EmbeddingsService({
+      geminiKey: 'gemini-key',
+      openaiKey: 'openai-key',
+    });
+
+    const result = await service.embed('empty payload test');
+    expect(result).toBeNull();
   });
 });
