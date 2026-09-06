@@ -49,21 +49,63 @@ describe('db.resolveContextFromLegacyId (SS-18: Multi-Tier Memory / Supabase)', 
     expect(context).toEqual({ context_id: 'uuid-user-tg', type: 'user' });
   });
 
-  it('ne classe pas une URL malveillante comme WhatsApp même si elle contient @whatsapp.net dans le chemin', async () => {
+  it.each([
+    {
+      description: 'une URL malveillante avec @whatsapp.net dans le chemin',
+      input: 'https://evil.example/path/@whatsapp.net',
+    },
+    {
+      description: 'un domaine malveillant se terminant par .evil.com',
+      input: 'https://whatsapp.net.evil.com',
+    },
+    {
+      description: 'un chemin relatif de type hôte (whatsapp.net/path)',
+      input: 'whatsapp.net/path',
+    },
+    {
+      description: 'un identifiant avec plusieurs @ (bad@actor@s.whatsapp.net)',
+      input: 'bad@actor@s.whatsapp.net',
+    },
+    {
+      description: 'une URL avec identifiants utilisateur (https://evil@whatsapp.net/path)',
+      input: 'https://evil@whatsapp.net/path',
+    },
+    {
+      description: 'un courriel standard ou domaine tiers (evil@example.com)',
+      input: 'evil@example.com',
+    },
+  ])('ne classe pas $description comme WhatsApp et résout en CLI', async ({ input }) => {
     const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
 
-    const maliciousUrl = 'https://evil.example/path/@whatsapp.net';
-    const context = await db.resolveContextFromLegacyId(maliciousUrl);
-    expect(spy).toHaveBeenCalledWith('cli', maliciousUrl);
+    const context = await db.resolveContextFromLegacyId(input);
+    expect(spy).toHaveBeenCalledWith('cli', input);
     expect(context).toEqual({ context_id: 'uuid-cli-user', type: 'user' });
   });
 
-  it('ne classe pas un domaine malveillant se terminant par .evil.com comme WhatsApp', async () => {
-    const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
+  it('résout un JID WhatsApp multi-device valide (33612345678:12@s.whatsapp.net) en appelant resolveUser', async () => {
+    const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-user-wa');
 
-    const maliciousDomain = 'https://whatsapp.net.evil.com';
-    const context = await db.resolveContextFromLegacyId(maliciousDomain);
-    expect(spy).toHaveBeenCalledWith('cli', maliciousDomain);
-    expect(context).toEqual({ context_id: 'uuid-cli-user', type: 'user' });
+    const input = '33612345678:12@s.whatsapp.net';
+    const context = await db.resolveContextFromLegacyId(input);
+    expect(spy).toHaveBeenCalledWith('whatsapp', input);
+    expect(context).toEqual({ context_id: 'uuid-user-wa', type: 'user' });
+  });
+
+  it('résout un JID de groupe WhatsApp avec tiret (123456789-987654@g.us) en appelant resolveGroup', async () => {
+    const spy = jest.spyOn(db, 'resolveGroup').mockResolvedValueOnce('uuid-group-wa');
+
+    const input = '123456789-987654@g.us';
+    const context = await db.resolveContextFromLegacyId(input);
+    expect(spy).toHaveBeenCalledWith('whatsapp', input);
+    expect(context).toEqual({ context_id: 'uuid-group-wa', type: 'group' });
+  });
+
+  it('résout un JID de groupe WhatsApp avec domaine en majuscules (120363123456789@G.US) en appelant resolveGroup', async () => {
+    const spy = jest.spyOn(db, 'resolveGroup').mockResolvedValueOnce('uuid-group-wa');
+
+    const input = '120363123456789@G.US';
+    const context = await db.resolveContextFromLegacyId(input);
+    expect(spy).toHaveBeenCalledWith('whatsapp', input);
+    expect(context).toEqual({ context_id: 'uuid-group-wa', type: 'group' });
   });
 });
