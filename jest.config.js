@@ -3,6 +3,7 @@ const jestConfig = {
   // Use the ESM preset for ts-jest
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+  maxWorkers: 2,
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
