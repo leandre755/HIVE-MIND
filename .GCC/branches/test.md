@@ -4,7 +4,7 @@
 
 ## 🧪 Unit Test Results (InMemoryRedisMock - Issue #25)
 - Run command: `npm test -- src/tests/unit/services/redisClient.test.ts`
-- Status: **PASSED (42/42 tests green)**
+- Status: **PASSED (43/43 tests green)**
 - Output:
 ```text
 PASS src/tests/unit/services/redisClient.test.ts
@@ -14,13 +14,13 @@ PASS src/tests/unit/services/redisClient.test.ts
   InMemoryRedisMock - Sorted Sets (zAdd, zRangeByScore, zRemRangeByScore, zCard) (5 tests)
   InMemoryRedisMock - Eval (LockManager atomic script) (3 tests)
   InMemoryRedisMock - Multi Pipeline (3 tests)
-  InMemoryRedisMock - Edge cases and advanced semantics (9 tests)
+  InMemoryRedisMock - Edge cases and advanced semantics (10 tests, including UTF-8 binary tie-breaking)
   switchToMock and WorkingMemory Integration (1 test)
 
 Test Suites: 1 passed, 1 total
-Tests:       42 passed, 42 total
+Tests:       43 passed, 43 total
 Snapshots:   0 total
-Time:        12.595 s
+Time:        15.725 s
 ```
 
 ## 🧪 Global Unit Test Verification
