@@ -1,0 +1,29 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+    - uses: actions/first-interaction@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-message: "Thank you for opening your first issue in this project! 👋
+
+To help us investigate or discuss your request efficiently, please make sure you have provided:
+- A clear description of the bug or feature request.
+- Reproduction steps, environment details, or error logs (if applicable).
+
+Our maintainers will review this as soon as possible. Thank you for taking the time to help improve the project!"
+        pr-message: "Thanks for opening your first Pull Request in this repository! 🎉
+
+We appreciate your contribution. Before a maintainer reviews your code, please ensure you have:
+- [ ] Followed the contribution guidelines (`CONTRIBUTING.md`).
+- [ ] Tested your changes locally and ensured all tests pass.
+- [ ] Updated any relevant documentation.
+
+A team member will take a look shortly. Feel free to leave a comment if you have any questions or need guidance during the review process!"
