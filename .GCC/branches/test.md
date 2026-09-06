@@ -1,6 +1,46 @@
 # Test Execution Log
 
-## 📅 Date: 2026-07-20
+## 📅 Date: 2026-09-06
+
+## 🧪 Unit Test Results (InMemoryRedisMock - Issue #25)
+- Run command: `npm test -- src/tests/unit/services/redisClient.test.ts`
+- Status: **PASSED (42/42 tests green)**
+- Output:
+```text
+PASS src/tests/unit/services/redisClient.test.ts
+  InMemoryRedisMock - Strings & Keys (10 tests)
+  InMemoryRedisMock - Lists (rPush, lPush, lTrim, lRange, lRem) (7 tests)
+  InMemoryRedisMock - Sets & Hashes (hDel, hLen, sCard) (4 tests)
+  InMemoryRedisMock - Sorted Sets (zAdd, zRangeByScore, zRemRangeByScore, zCard) (5 tests)
+  InMemoryRedisMock - Eval (LockManager atomic script) (3 tests)
+  InMemoryRedisMock - Multi Pipeline (3 tests)
+  InMemoryRedisMock - Edge cases and advanced semantics (9 tests)
+  switchToMock and WorkingMemory Integration (1 test)
+
+Test Suites: 1 passed, 1 total
+Tests:       42 passed, 42 total
+Snapshots:   0 total
+Time:        12.595 s
+```
+
+## 🧪 Global Unit Test Verification
+- Run command: `npm run test:unit`
+- Status: **PASSED (759/759 tests green)**
+- Output:
+```text
+Test Suites: 76 passed, 76 total
+Tests:       759 passed, 759 total
+Snapshots:   0 total
+```
+
+## 🧪 Static Codebase Quality Gates
+- `npm run lint:fast` (oxlint): **PASSED** (0 warnings, 0 errors across 333 files)
+- `npm run build` (tsc --noEmit): **PASSED** (0 errors)
+- `npx eslint src/services/redisClient.ts src/tests/unit/services/redisClient.test.ts`: **PASSED** (0 errors, 0 warnings)
+- `Prettier`: **PASSED** (100% compliant)
+- `Semgrep OSS`: **PASSED** (210 rules, 0 findings)
+- `gitleaks`: **PASSED** (0 leaks)
+
 
 ## 🧪 Unit Test Results (Auth Provider Model Registry)
 - Run command: `npm test -- --runTestsByPath src/tests/unit/config/models_config_policy.test.ts`
