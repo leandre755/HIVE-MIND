@@ -162,6 +162,344 @@ interface StorageEntry {
 
 interface MockSetOptions {
   EX?: number;
+  PX?: number;
+  EXAT?: number;
+  PXAT?: number;
+  NX?: boolean;
+  XX?: boolean;
+  KEEPTTL?: boolean;
+}
+
+interface ZMember {
+  score: number;
+  value: string;
+}
+
+interface ZAddOptions {
+  NX?: boolean;
+  XX?: boolean;
+  GT?: boolean;
+  LT?: boolean;
+  CH?: boolean;
+  INCR?: boolean;
+}
+
+type HashFieldOrObject = string | Record<string, unknown> | Array<unknown>;
+
+interface EvalOptions {
+  keys?: string[];
+  arguments?: string[];
+}
+
+interface MockMulti {
+  incr(key: string): MockMulti;
+  incrBy(key: string, value: number): MockMulti;
+  expire(key: string, seconds: number): MockMulti;
+  del(...keys: string[]): MockMulti;
+  set(key: string, value: string, options?: MockSetOptions): MockMulti;
+  setEx(key: string, seconds: number, value: string): MockMulti;
+  hSet(key: string, fieldOrObj: HashFieldOrObject, value?: unknown): MockMulti;
+  hGet(key: string, field: string): MockMulti;
+  hGetAll(key: string): MockMulti;
+  hIncrBy(key: string, field: string, increment: number): MockMulti;
+  hDel(key: string, ...fields: (string | string[])[]): MockMulti;
+  hLen(key: string): MockMulti;
+  sAdd(key: string, members: unknown | unknown[]): MockMulti;
+  sRem(key: string, members: unknown | unknown[]): MockMulti;
+  sMembers(key: string): MockMulti;
+  sCard(key: string): MockMulti;
+  sPop(key: string): MockMulti;
+  sPopCount(key: string, count: number): MockMulti;
+  rPush(key: string, ...values: unknown[]): MockMulti;
+  lPush(key: string, ...values: unknown[]): MockMulti;
+  lTrim(key: string, start: number, stop: number): MockMulti;
+  lRange(key: string, start: number, stop: number): MockMulti;
+  lLen(key: string): MockMulti;
+  zAdd(
+    key: string,
+    memberOrScore: unknown,
+    memberOrOptions?: unknown,
+    options?: unknown,
+  ): MockMulti;
+  zCard(key: string): MockMulti;
+  zIncrBy(key: string, increment: number, member: string): MockMulti;
+  zRange(key: string, start: number, stop: number, options?: { REV?: boolean }): MockMulti;
+  zRangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): MockMulti;
+  zRangeByScore(
+    key: string,
+    min: number | string,
+    max: number | string,
+    options?: unknown,
+  ): MockMulti;
+  zRemRangeByScore(key: string, min: number | string, max: number | string): MockMulti;
+  discard(): 'OK';
+  exec(): Promise<unknown[]>;
+}
+
+function parseScoreBound(bound: number | string): { val: number; inclusive: boolean } {
+  if (typeof bound === 'number') {
+    return { val: bound, inclusive: true };
+  }
+  const str = String(bound).trim();
+  if (str === '-inf' || str === '-Infinity') {
+    return { val: -Infinity, inclusive: true };
+  }
+  if (str === '+inf' || str === '+Infinity' || str === 'inf' || str === 'Infinity') {
+    return { val: Infinity, inclusive: true };
+  }
+  if (str.startsWith('(')) {
+    return { val: parseFloat(str.slice(1)), inclusive: false };
+  }
+  if (str.startsWith('[')) {
+    return { val: parseFloat(str.slice(1)), inclusive: true };
+  }
+  return { val: parseFloat(str), inclusive: true };
+}
+
+function extractEvalArgs(
+  optionsOrNumKeys?: EvalOptions | number,
+  restArgs: unknown[] = [],
+): { keys: string[]; args: string[] } {
+  if (optionsOrNumKeys && typeof optionsOrNumKeys === 'object') {
+    return {
+      keys: optionsOrNumKeys.keys ? optionsOrNumKeys.keys.map(String) : [],
+      args: optionsOrNumKeys.arguments ? optionsOrNumKeys.arguments.map(String) : [],
+    };
+  }
+  if (typeof optionsOrNumKeys === 'number') {
+    const allArgs = restArgs.map(String);
+    return {
+      keys: allArgs.slice(0, optionsOrNumKeys),
+      args: allArgs.slice(optionsOrNumKeys),
+    };
+  }
+  return { keys: [], args: [] };
+}
+
+function isLockReleaseScript(normalizedScript: string): boolean {
+  const hasGet = /redis\.call\s*\(\s*['"]get['"]/i.test(normalizedScript);
+  const hasDel = /redis\.call\s*\(\s*['"]del['"]/i.test(normalizedScript);
+  return hasGet && hasDel;
+}
+
+function splitLuaArgs(argsStr: string): string[] {
+  const args: string[] = [];
+  let current = '';
+  let inQuote: '"' | "'" | null = null;
+  let escape = false;
+
+  for (let i = 0; i < argsStr.length; i++) {
+    const char = argsStr.charAt(i);
+    if (escape) {
+      current += char;
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      current += char;
+      escape = true;
+      continue;
+    }
+    if (inQuote) {
+      current += char;
+      if (char === inQuote) {
+        inQuote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      inQuote = char;
+      current += char;
+      continue;
+    }
+    if (char === ',') {
+      args.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) {
+    args.push(current.trim());
+  }
+  return args;
+}
+
+function parseSimpleRedisCall(script: string): { command: string; rawArgs: string[] } | null {
+  const normalized = script.trim();
+  const match = /^return\s+redis\.call\s*\(/i.exec(normalized);
+  if (!match) return null;
+  const matchStr = match.at(0) || '';
+  const openParen = matchStr.length - 1;
+  const closeParen = normalized.lastIndexOf(')');
+  if (closeParen <= openParen) return null;
+
+  const inside = normalized.slice(openParen + 1, closeParen).trim();
+  if (!inside) return null;
+
+  const commaIdx = inside.indexOf(',');
+  if (commaIdx === -1) {
+    const command = inside
+      .replace(/^['"]|['"]$/g, '')
+      .trim()
+      .toLowerCase();
+    return { command, rawArgs: [] };
+  }
+
+  const command = inside
+    .slice(0, commaIdx)
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+    .toLowerCase();
+  const rawArgs = splitLuaArgs(inside.slice(commaIdx + 1));
+  return { command, rawArgs };
+}
+
+function resolveScriptArg(arg: string, keys: string[], args: string[]): string {
+  const trimmed = arg.trim();
+  const keyMatch = /^keys\[(\d+)\]$/i.exec(trimmed);
+  if (keyMatch) {
+    const idx = parseInt(keyMatch.at(1) || '1', 10) - 1;
+    return keys.at(idx) ?? '';
+  }
+  const argvMatch = /^argv\[(\d+)\]$/i.exec(trimmed);
+  if (argvMatch) {
+    const idx = parseInt(argvMatch.at(1) || '1', 10) - 1;
+    return args.at(idx) ?? '';
+  }
+  return trimmed.replace(/^['"]|['"]$/g, '');
+}
+
+function resolveMockMethod(
+  instance: InMemoryRedisMock,
+  commandName: string,
+): ((...args: unknown[]) => Promise<unknown>) | null {
+  const direct = Reflect.get(instance, commandName);
+  if (typeof direct === 'function' && !commandName.startsWith('_')) {
+    return (direct as (...fnArgs: unknown[]) => Promise<unknown>).bind(instance);
+  }
+  const lower = commandName.toLowerCase();
+  const proto = Object.getPrototypeOf(instance) as object;
+  for (const name of Object.getOwnPropertyNames(proto)) {
+    if (name.startsWith('_') || name === 'constructor') continue;
+    if (name.toLowerCase() === lower) {
+      const fn = Reflect.get(instance, name);
+      if (typeof fn === 'function') {
+        return (fn as (...fnArgs: unknown[]) => Promise<unknown>).bind(instance);
+      }
+    }
+  }
+  return null;
+}
+
+function parseSetOptions(
+  options?: MockSetOptions | string,
+  moreArgs: unknown[] = [],
+): MockSetOptions {
+  if (typeof options === 'object' && options !== null) return options;
+  if (typeof options === 'string') {
+    const mode = options.toUpperCase();
+    if (mode === 'EX' && moreArgs.length > 0) return { EX: Number(moreArgs.at(0)) };
+    if (mode === 'PX' && moreArgs.length > 0) return { PX: Number(moreArgs.at(0)) };
+    if (mode === 'NX') return { NX: true };
+    if (mode === 'XX') return { XX: true };
+  }
+  return {};
+}
+
+function computeSetExpiresAt(
+  opts: MockSetOptions,
+  existing: StorageEntry | undefined,
+): number | null {
+  if (typeof opts.PX === 'number') return Date.now() + opts.PX;
+  if (typeof opts.EX === 'number') return Date.now() + opts.EX * 1000;
+  if (typeof opts.PXAT === 'number') return opts.PXAT;
+  if (typeof opts.EXAT === 'number') return opts.EXAT * 1000;
+  if (opts.KEEPTTL && existing) return existing.expiresAt;
+  return null;
+}
+
+function extractHashEntries(
+  fieldOrObj: HashFieldOrObject,
+  value?: unknown,
+): Array<[string, string]> {
+  if (Array.isArray(fieldOrObj)) {
+    const entries: Array<[string, string]> = [];
+    if (fieldOrObj.length > 0 && Array.isArray(fieldOrObj.at(0))) {
+      for (const pair of fieldOrObj as [unknown, unknown][]) {
+        entries.push([String(pair.at(0)), String(pair.at(1))]);
+      }
+    } else {
+      for (let i = 0; i < fieldOrObj.length; i += 2) {
+        entries.push([String(fieldOrObj.at(i)), String(fieldOrObj.at(i + 1) ?? '')]);
+      }
+    }
+    return entries;
+  }
+  if (typeof fieldOrObj === 'object' && fieldOrObj !== null) {
+    return Object.entries(fieldOrObj).map(([k, v]) => [k, String(v)]);
+  }
+  if (typeof fieldOrObj === 'string' && value !== undefined) {
+    return [[fieldOrObj, String(value)]];
+  }
+  return [];
+}
+
+function extractZMembersAndOptions(
+  memberOrScore: number | ZMember | ZMember[],
+  memberOrOptions?: string | ZAddOptions,
+  options?: ZAddOptions,
+): { members: ZMember[]; opts: ZAddOptions } {
+  if (typeof memberOrScore === 'number') {
+    return {
+      members: [{ score: memberOrScore, value: String(memberOrOptions) }],
+      opts: options && typeof options === 'object' ? options : {},
+    };
+  }
+  const opts = memberOrOptions && typeof memberOrOptions === 'object' ? memberOrOptions : {};
+  if (Array.isArray(memberOrScore)) {
+    const members: ZMember[] = [];
+    for (const m of memberOrScore) {
+      if (m && typeof m === 'object' && 'score' in m && 'value' in m) {
+        members.push({ score: Number(m.score), value: String(m.value) });
+      }
+    }
+    return { members, opts };
+  }
+  if (
+    memberOrScore &&
+    typeof memberOrScore === 'object' &&
+    'score' in memberOrScore &&
+    'value' in memberOrScore
+  ) {
+    return {
+      members: [{ score: Number(memberOrScore.score), value: String(memberOrScore.value) }],
+      opts,
+    };
+  }
+  return { members: [], opts };
+}
+
+function shouldApplyZMember(
+  exists: boolean,
+  currentScore: number | null,
+  newScore: number,
+  opts: ZAddOptions,
+): boolean {
+  if (opts.NX && exists) return false;
+  if (opts.XX && !exists) return false;
+  if (opts.GT && exists && currentScore !== null && newScore <= currentScore) return false;
+  if (opts.LT && exists && currentScore !== null && newScore >= currentScore) return false;
+  return true;
+}
+
+function compareBinaryUtf8(a: string, b: string): number {
+  return Buffer.compare(Buffer.from(a), Buffer.from(b));
 }
 
 class InMemoryRedisMock {
@@ -169,39 +507,164 @@ class InMemoryRedisMock {
   hashes = new Map<string, Map<string, string>>();
   sets = new Map<string, Set<string>>();
   sortedSets = new Map<string, Map<string, number>>();
+  hashExpiries = new Map<string, number | null>();
+  setExpiries = new Map<string, number | null>();
+  sortedSetExpiries = new Map<string, number | null>();
   isOpen = true;
   isReady = true;
 
-  private _isExpired(entry: StorageEntry | undefined): boolean {
-    if (!entry || entry.expiresAt === null) return false;
-    return Date.now() > entry.expiresAt;
+  private _isExpired(expiresAt: number | null | undefined): boolean {
+    if (expiresAt === null || expiresAt === undefined) return false;
+    return Date.now() > expiresAt;
+  }
+
+  private _checkCollectionExists<T>(
+    map: Map<string, T>,
+    expiries: Map<string, number | null>,
+    key: string,
+  ): boolean {
+    if (!map.has(key)) return false;
+    if (this._isExpired(expiries.get(key))) {
+      map.delete(key);
+      expiries.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  private _checkExists(key: string): boolean {
+    const entry = this.storage.get(key);
+    if (entry) {
+      if (this._isExpired(entry.expiresAt)) {
+        this.storage.delete(key);
+      } else {
+        return true;
+      }
+    }
+    return (
+      this._checkCollectionExists(this.hashes, this.hashExpiries, key) ||
+      this._checkCollectionExists(this.sets, this.setExpiries, key) ||
+      this._checkCollectionExists(this.sortedSets, this.sortedSetExpiries, key)
+    );
+  }
+
+  private _getList(key: string): { list: string[]; expiresAt: number | null } | null {
+    const entry = this.storage.get(key);
+    if (!entry) return null;
+    if (this._isExpired(entry.expiresAt)) {
+      this.storage.delete(key);
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(entry.value);
+      if (Array.isArray(parsed)) {
+        return { list: parsed as string[], expiresAt: entry.expiresAt };
+      }
+    } catch {
+      // Non-array content
+    }
+    return null;
+  }
+
+  private _getHash(key: string): Map<string, string> | null {
+    if (this._isExpired(this.hashExpiries.get(key))) {
+      this.hashes.delete(key);
+      this.hashExpiries.delete(key);
+      return null;
+    }
+    return this.hashes.get(key) ?? null;
+  }
+
+  private _getSet(key: string): Set<string> | null {
+    if (this._isExpired(this.setExpiries.get(key))) {
+      this.sets.delete(key);
+      this.setExpiries.delete(key);
+      return null;
+    }
+    return this.sets.get(key) ?? null;
+  }
+
+  private _getSortedSet(key: string): Map<string, number> | null {
+    if (this._isExpired(this.sortedSetExpiries.get(key))) {
+      this.sortedSets.delete(key);
+      this.sortedSetExpiries.delete(key);
+      return null;
+    }
+    return this.sortedSets.get(key) ?? null;
   }
 
   async get(key: string): Promise<string | null> {
     const entry = this.storage.get(key);
-    if (this._isExpired(entry)) {
+    if (!entry) return null;
+    if (this._isExpired(entry.expiresAt)) {
       this.storage.delete(key);
       return null;
     }
-    return entry ? String(entry.value) : null;
+    return String(entry.value);
   }
 
-  async set(key: string, value: string, options: MockSetOptions = {}): Promise<string> {
-    let expiresAt: number | null = null;
-    if (options.EX) {
-      expiresAt = Date.now() + options.EX * 1000;
+  private _delCollection<T>(
+    map: Map<string, T>,
+    expiries: Map<string, number | null>,
+    key: string,
+  ): boolean {
+    if (!map.has(key)) return false;
+    const notExpired = !this._isExpired(expiries.get(key));
+    map.delete(key);
+    expiries.delete(key);
+    return notExpired;
+  }
+
+  private _delKeyFromMaps(key: string): boolean {
+    let deleted = false;
+    const entry = this.storage.get(key);
+    if (entry) {
+      if (!this._isExpired(entry.expiresAt)) {
+        deleted = true;
+      }
+      this.storage.delete(key);
     }
-    this.storage.set(key, { value, expiresAt });
+    if (this._delCollection(this.hashes, this.hashExpiries, key)) deleted = true;
+    if (this._delCollection(this.sets, this.setExpiries, key)) deleted = true;
+    if (this._delCollection(this.sortedSets, this.sortedSetExpiries, key)) deleted = true;
+    return deleted;
+  }
+
+  async set(
+    key: string,
+    value: unknown,
+    options?: MockSetOptions | string,
+    ...moreArgs: unknown[]
+  ): Promise<string | null> {
+    const opts = parseSetOptions(options, moreArgs);
+    const existing = this.storage.get(key);
+    const exists = existing ? !this._isExpired(existing.expiresAt) : false;
+    if (existing && !exists) {
+      this.storage.delete(key);
+    }
+    if (opts.NX && exists) {
+      return null;
+    }
+    if (opts.XX && !exists) {
+      return null;
+    }
+    const expiresAt = computeSetExpiresAt(opts, existing);
+    this.storage.set(key, { value: String(value), expiresAt });
     return 'OK';
   }
 
-  async setEx(key: string, seconds: number, value: string): Promise<string> {
-    this.storage.set(key, { value, expiresAt: Date.now() + seconds * 1000 });
+  async setEx(key: string, seconds: number, value: unknown): Promise<string> {
+    this.storage.set(key, { value: String(value), expiresAt: Date.now() + seconds * 1000 });
     return 'OK';
   }
 
-  async del(key: string): Promise<number> {
-    return this.storage.delete(key) ? 1 : 0;
+  async del(...keysOrArray: (string | string[])[]): Promise<number> {
+    const keys = keysOrArray.flat(Infinity) as string[];
+    let count = 0;
+    for (const key of keys) {
+      if (this._delKeyFromMaps(key)) count++;
+    }
+    return count;
   }
 
   async keys(pattern: string): Promise<string[]> {
@@ -212,14 +675,18 @@ class InMemoryRedisMock {
         return key.startsWith(pattern.slice(0, -1));
       }
       const parts = pattern.split('*');
-      return key.startsWith(parts[0]) && key.endsWith(parts[parts.length - 1]);
+      return key.startsWith(parts.at(0) || '') && key.endsWith(parts.at(-1) || '');
     };
 
-    for (const [key, entry] of this.storage.entries()) {
-      if (this._isExpired(entry)) {
-        this.storage.delete(key);
-        continue;
-      }
+    const allKeys = new Set([
+      ...this.storage.keys(),
+      ...this.hashes.keys(),
+      ...this.sets.keys(),
+      ...this.sortedSets.keys(),
+    ]);
+
+    for (const key of allKeys) {
+      if (!this._checkExists(key)) continue;
       if (isMatch(key)) {
         results.push(key);
       }
@@ -229,7 +696,7 @@ class InMemoryRedisMock {
 
   async incr(key: string): Promise<number> {
     const val = await this.get(key);
-    const next = parseInt(val || '0') + 1;
+    const next = parseInt(val || '0', 10) + 1;
     this.storage.set(key, {
       value: String(next),
       expiresAt: this.storage.get(key)?.expiresAt || null,
@@ -239,7 +706,7 @@ class InMemoryRedisMock {
 
   async incrBy(key: string, value: number): Promise<number> {
     const val = await this.get(key);
-    const next = parseInt(val || '0') + value;
+    const next = parseInt(val || '0', 10) + value;
     this.storage.set(key, {
       value: String(next),
       expiresAt: this.storage.get(key)?.expiresAt || null,
@@ -247,13 +714,40 @@ class InMemoryRedisMock {
     return next;
   }
 
+  private _updateCollectionExpiry<T>(
+    map: Map<string, T>,
+    expiries: Map<string, number | null>,
+    key: string,
+    expiresAt: number,
+  ): boolean {
+    if (!map.has(key)) return false;
+    if (this._isExpired(expiries.get(key))) {
+      map.delete(key);
+      expiries.delete(key);
+      return false;
+    }
+    expiries.set(key, expiresAt);
+    return true;
+  }
+
   async expire(key: string, seconds: number): Promise<number> {
+    const expiresAt = Date.now() + seconds * 1000;
+    let found = false;
     const entry = this.storage.get(key);
     if (entry) {
-      entry.expiresAt = Date.now() + seconds * 1000;
-      return 1;
+      if (this._isExpired(entry.expiresAt)) {
+        this.storage.delete(key);
+      } else {
+        entry.expiresAt = expiresAt;
+        found = true;
+      }
     }
-    return 0;
+    if (this._updateCollectionExpiry(this.hashes, this.hashExpiries, key, expiresAt)) found = true;
+    if (this._updateCollectionExpiry(this.sets, this.setExpiries, key, expiresAt)) found = true;
+    if (this._updateCollectionExpiry(this.sortedSets, this.sortedSetExpiries, key, expiresAt)) {
+      found = true;
+    }
+    return found ? 1 : 0;
   }
 
   async ping(): Promise<string> {
@@ -269,92 +763,154 @@ class InMemoryRedisMock {
     this.isReady = false;
   }
 
-  async lPush(key: string, value: string): Promise<number> {
-    const entry = this.storage.get(key);
-    const list: string[] = entry ? JSON.parse(entry.value) : [];
-    list.unshift(value);
-    this.storage.set(key, { value: JSON.stringify(list), expiresAt: entry?.expiresAt || null });
+  async lPush(key: string, ...values: unknown[]): Promise<number> {
+    const existing = this._getList(key);
+    const list = existing ? existing.list : [];
+    const expiresAt = existing ? existing.expiresAt : null;
+    const items = values.flat().map(String);
+    for (const item of items) {
+      list.unshift(item);
+    }
+    this.storage.set(key, { value: JSON.stringify(list), expiresAt });
+    return list.length;
+  }
+
+  async rPush(key: string, ...values: unknown[]): Promise<number> {
+    const existing = this._getList(key);
+    const list = existing ? existing.list : [];
+    const expiresAt = existing ? existing.expiresAt : null;
+    const items = values.flat().map(String);
+    for (const item of items) {
+      list.push(item);
+    }
+    this.storage.set(key, { value: JSON.stringify(list), expiresAt });
     return list.length;
   }
 
   async rPop(key: string): Promise<string | null> {
-    const entry = this.storage.get(key);
-    if (!entry) return null;
-    const list: string[] = JSON.parse(entry.value);
-    const item = list.pop();
-    this.storage.set(key, { value: JSON.stringify(list), expiresAt: entry.expiresAt });
-    return item || null;
+    const existing = this._getList(key);
+    if (!existing || existing.list.length === 0) return null;
+    const item = existing.list.pop() ?? null;
+    if (existing.list.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, {
+        value: JSON.stringify(existing.list),
+        expiresAt: existing.expiresAt,
+      });
+    }
+    return item;
   }
 
-  async lRem(_key: string, _count: number, _value: string): Promise<number> {
-    const entry = this.storage.get(_key);
-    if (!entry) return 0;
-    const list = JSON.parse(entry.value) as string[];
+  async lPop(key: string): Promise<string | null> {
+    const existing = this._getList(key);
+    if (!existing || existing.list.length === 0) return null;
+    const item = existing.list.shift() ?? null;
+    if (existing.list.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, {
+        value: JSON.stringify(existing.list),
+        expiresAt: existing.expiresAt,
+      });
+    }
+    return item;
+  }
+
+  async lTrim(key: string, start: number, stop: number): Promise<string> {
+    const existing = this._getList(key);
+    if (!existing) return 'OK';
+    const list = existing.list;
+    const len = list.length;
+    const s = start < 0 ? Math.max(0, len + start) : start;
+    let e = stop < 0 ? len + stop : stop;
+    if (s > e || s >= len) {
+      this.storage.delete(key);
+      return 'OK';
+    }
+    if (e >= len) e = len - 1;
+    const trimmed = list.slice(s, e + 1);
+    if (trimmed.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, { value: JSON.stringify(trimmed), expiresAt: existing.expiresAt });
+    }
+    return 'OK';
+  }
+
+  async lRem(key: string, count: number, value: string): Promise<number> {
+    const existing = this._getList(key);
+    if (!existing) return 0;
+    const targetCount = count === 0 ? Infinity : Math.abs(count);
+    const sourceList = count < 0 ? [...existing.list].reverse() : existing.list;
     let removed = 0;
-    const filtered = list.filter((item) => {
-      if (item === _value) {
+    const filtered: string[] = [];
+    for (const item of sourceList) {
+      if (item === String(value) && removed < targetCount) {
         removed++;
-        return false;
+      } else {
+        filtered.push(item);
       }
-      return true;
-    });
-    this.storage.set(_key, { value: JSON.stringify(filtered), expiresAt: entry.expiresAt });
+    }
+    const finalList = count < 0 ? filtered.reverse() : filtered;
+    if (finalList.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, { value: JSON.stringify(finalList), expiresAt: existing.expiresAt });
+    }
     return removed;
   }
 
   async lRange(key: string, start: number, stop: number): Promise<string[]> {
-    const entry = this.storage.get(key);
-    if (!entry) return [];
-    const list = JSON.parse(entry.value) as string[];
-    const actualStop = stop === -1 ? list.length : stop + 1;
-    return list.slice(start, actualStop);
+    const existing = this._getList(key);
+    if (!existing || existing.list.length === 0) return [];
+    const list = existing.list;
+    const len = list.length;
+    const s = start < 0 ? Math.max(0, len + start) : start;
+    let e = stop < 0 ? len + stop : stop;
+    if (s > e || s >= len) return [];
+    if (e >= len) e = len - 1;
+    return list.slice(s, e + 1);
   }
 
   async lLen(key: string): Promise<number> {
-    const entry = this.storage.get(key);
-    if (!entry) return 0;
-    const list = JSON.parse(entry.value) as string[];
-    return list.length;
+    const existing = this._getList(key);
+    return existing ? existing.list.length : 0;
   }
 
-  async exists(key: string): Promise<number> {
-    if (this.storage.has(key)) return 1;
-    if (this.hashes.has(key)) return 1;
-    if (this.sets.has(key)) return 1;
-    if (this.sortedSets.has(key)) return 1;
-    return 0;
+  async exists(...keysOrArray: (string | string[])[]): Promise<number> {
+    const keys = keysOrArray.flat(Infinity) as string[];
+    let count = 0;
+    for (const key of keys) {
+      if (this._checkExists(key)) {
+        count++;
+      }
+    }
+    return count;
   }
 
   async hGet(key: string, field: string): Promise<string | null> {
-    const hash = this.hashes.get(key);
+    const hash = this._getHash(key);
     return hash?.get(field) ?? null;
   }
 
-  async hSet(
-    key: string,
-    fieldOrObj: string | Record<string, unknown>,
-    value?: unknown,
-  ): Promise<number> {
-    let hash = this.hashes.get(key);
+  async hSet(key: string, fieldOrObj: HashFieldOrObject, value?: unknown): Promise<number> {
+    let hash = this._getHash(key);
     if (!hash) {
       hash = new Map<string, string>();
       this.hashes.set(key, hash);
     }
     let count = 0;
-    if (typeof fieldOrObj === 'object' && fieldOrObj !== null) {
-      for (const [k, v] of Object.entries(fieldOrObj)) {
-        if (!hash.has(k)) count++;
-        hash.set(k, String(v));
-      }
-    } else if (typeof fieldOrObj === 'string' && value !== undefined) {
-      if (!hash.has(fieldOrObj)) count++;
-      hash.set(fieldOrObj, String(value));
+    const entries = extractHashEntries(fieldOrObj, value);
+    for (const [k, v] of entries) {
+      if (!hash.has(k)) count++;
+      hash.set(k, v);
     }
     return count;
   }
 
   async hGetAll(key: string): Promise<Record<string, string>> {
-    const hash = this.hashes.get(key);
+    const hash = this._getHash(key);
     if (!hash) return {};
     const res: Record<string, string> = {};
     for (const [k, v] of hash.entries()) {
@@ -364,7 +920,7 @@ class InMemoryRedisMock {
   }
 
   async hIncrBy(key: string, field: string, increment: number): Promise<number> {
-    let hash = this.hashes.get(key);
+    let hash = this._getHash(key);
     if (!hash) {
       hash = new Map<string, string>();
       this.hashes.set(key, hash);
@@ -375,17 +931,45 @@ class InMemoryRedisMock {
     return next;
   }
 
-  async sAdd(key: string, members: string | string[]): Promise<number> {
-    let set = this.sets.get(key);
+  async hDel(key: string, ...fieldsOrArray: (string | string[])[]): Promise<number> {
+    const hash = this._getHash(key);
+    if (!hash) return 0;
+    const fields = fieldsOrArray.flat();
+    let deleted = 0;
+    for (const field of fields) {
+      if (hash.delete(String(field))) {
+        deleted++;
+      }
+    }
+    if (hash.size === 0) {
+      this.hashes.delete(key);
+      this.hashExpiries.delete(key);
+    }
+    return deleted;
+  }
+
+  async hLen(key: string): Promise<number> {
+    const hash = this._getHash(key);
+    return hash?.size ?? 0;
+  }
+
+  async hExists(key: string, field: string): Promise<number> {
+    const hash = this._getHash(key);
+    return hash && hash.has(field) ? 1 : 0;
+  }
+
+  async sAdd(key: string, members: unknown | unknown[]): Promise<number> {
+    let set = this._getSet(key);
     if (!set) {
       set = new Set<string>();
       this.sets.set(key, set);
     }
     const items = Array.isArray(members) ? members : [members];
     let added = 0;
-    for (const item of items) {
-      if (!set.has(item)) {
-        set.add(item);
+    for (const item of items.flat()) {
+      const str = String(item);
+      if (!set.has(str)) {
+        set.add(str);
         added++;
       }
     }
@@ -393,18 +977,22 @@ class InMemoryRedisMock {
   }
 
   async sPop(key: string): Promise<string | null> {
-    const set = this.sets.get(key);
+    const set = this._getSet(key);
     if (!set || set.size === 0) return null;
     const first = set.values().next().value;
     if (first !== undefined) {
       set.delete(first);
+      if (set.size === 0) {
+        this.sets.delete(key);
+        this.setExpiries.delete(key);
+      }
       return first;
     }
     return null;
   }
 
   async sPopCount(key: string, count: number): Promise<string[]> {
-    const set = this.sets.get(key);
+    const set = this._getSet(key);
     if (!set || set.size === 0) return [];
     const popped: string[] = [];
     for (const val of Array.from(set)) {
@@ -412,32 +1000,77 @@ class InMemoryRedisMock {
       set.delete(val);
       popped.push(val);
     }
+    if (set.size === 0) {
+      this.sets.delete(key);
+      this.setExpiries.delete(key);
+    }
     return popped;
   }
 
   async sMembers(key: string): Promise<string[]> {
-    const set = this.sets.get(key);
+    const set = this._getSet(key);
     return set ? Array.from(set) : [];
   }
 
-  async sRem(key: string, members: string | string[]): Promise<number> {
-    const set = this.sets.get(key);
+  async sRem(key: string, members: unknown | unknown[]): Promise<number> {
+    const set = this._getSet(key);
     if (!set) return 0;
     const items = Array.isArray(members) ? members : [members];
     let removed = 0;
-    for (const item of items) {
-      if (set.delete(item)) removed++;
+    for (const item of items.flat()) {
+      if (set.delete(String(item))) removed++;
+    }
+    if (set.size === 0) {
+      this.sets.delete(key);
+      this.setExpiries.delete(key);
     }
     return removed;
   }
 
   async sIsMember(key: string, member: string): Promise<boolean> {
-    const set = this.sets.get(key);
+    const set = this._getSet(key);
     return set ? set.has(member) : false;
   }
 
+  async sCard(key: string): Promise<number> {
+    const set = this._getSet(key);
+    return set?.size ?? 0;
+  }
+
+  async zAdd(
+    key: string,
+    memberOrScore: number | ZMember | ZMember[],
+    memberOrOptions?: string | ZAddOptions,
+    options?: ZAddOptions,
+  ): Promise<number> {
+    let zset = this._getSortedSet(key);
+    if (!zset) {
+      zset = new Map<string, number>();
+      this.sortedSets.set(key, zset);
+    }
+
+    const { members, opts } = extractZMembersAndOptions(memberOrScore, memberOrOptions, options);
+    let addedCount = 0;
+    let changed = 0;
+
+    for (const { score, value } of members) {
+      const exists = zset.has(value);
+      const currentScore = exists ? (zset.get(value) as number) : null;
+      if (!shouldApplyZMember(exists, currentScore, score, opts)) continue;
+
+      if (!exists) {
+        addedCount++;
+        changed++;
+      } else if (currentScore !== score) {
+        changed++;
+      }
+      zset.set(value, score);
+    }
+    return opts.CH ? changed : addedCount;
+  }
+
   async zIncrBy(key: string, increment: number, member: string): Promise<number> {
-    let zset = this.sortedSets.get(key);
+    let zset = this._getSortedSet(key);
     if (!zset) {
       zset = new Map<string, number>();
       this.sortedSets.set(key, zset);
@@ -448,113 +1081,232 @@ class InMemoryRedisMock {
     return next;
   }
 
+  async zRange(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): Promise<string[]> {
+    const withScores = await this.zRangeWithScores(key, start, stop, options);
+    return withScores.map((e) => e.value);
+  }
+
   async zRangeWithScores(
     key: string,
     start: number,
     stop: number,
     options?: { REV?: boolean },
   ): Promise<Array<{ value: string; score: number }>> {
-    const zset = this.sortedSets.get(key);
+    const zset = this._getSortedSet(key);
     if (!zset) return [];
     const entries = Array.from(zset.entries()).map(([value, score]) => ({ value, score }));
-    entries.sort((a, b) => (options?.REV ? b.score - a.score : a.score - b.score));
+    entries.sort((a, b) => {
+      if (options?.REV) {
+        if (b.score !== a.score) return b.score - a.score;
+        return compareBinaryUtf8(b.value, a.value);
+      }
+      if (a.score !== b.score) return a.score - b.score;
+      return compareBinaryUtf8(a.value, b.value);
+    });
     const actualStop = stop === -1 ? entries.length : stop + 1;
     return entries.slice(start, actualStop);
   }
 
   async zScore(key: string, member: string): Promise<number | null> {
-    const zset = this.sortedSets.get(key);
+    const zset = this._getSortedSet(key);
     return zset?.has(member) ? (zset.get(member) ?? null) : null;
   }
 
-  multi() {
+  async zCard(key: string): Promise<number> {
+    const zset = this._getSortedSet(key);
+    return zset?.size ?? 0;
+  }
+
+  async zRem(key: string, ...membersOrArray: (string | string[])[]): Promise<number> {
+    const zset = this._getSortedSet(key);
+    if (!zset) return 0;
+    const members = membersOrArray.flat();
+    let removed = 0;
+    for (const m of members) {
+      if (zset.delete(String(m))) {
+        removed++;
+      }
+    }
+    if (zset.size === 0) {
+      this.sortedSets.delete(key);
+      this.sortedSetExpiries.delete(key);
+    }
+    return removed;
+  }
+
+  async zRangeByScore(
+    key: string,
+    min: number | string,
+    max: number | string,
+    options?: { WITHSCORES?: boolean; LIMIT?: { offset: number; count: number }; REV?: boolean },
+  ): Promise<string[] | Array<{ value: string; score: number }>> {
+    const zset = this._getSortedSet(key);
+    if (!zset) return [];
+
+    const minBound = parseScoreBound(min);
+    const maxBound = parseScoreBound(max);
+
+    const matched: Array<{ value: string; score: number }> = [];
+    for (const [value, score] of zset.entries()) {
+      const minOk = minBound.inclusive ? score >= minBound.val : score > minBound.val;
+      const maxOk = maxBound.inclusive ? score <= maxBound.val : score < maxBound.val;
+      if (minOk && maxOk) {
+        matched.push({ value, score });
+      }
+    }
+
+    matched.sort((a, b) => {
+      if (options?.REV) {
+        if (b.score !== a.score) return b.score - a.score;
+        return compareBinaryUtf8(b.value, a.value);
+      }
+      if (a.score !== b.score) return a.score - b.score;
+      return compareBinaryUtf8(a.value, b.value);
+    });
+
+    let results = matched;
+    if (options?.LIMIT) {
+      const { offset, count } = options.LIMIT;
+      results = count < 0 ? results.slice(offset) : results.slice(offset, offset + count);
+    }
+
+    if (options?.WITHSCORES) {
+      return results;
+    }
+    return results.map((e) => e.value);
+  }
+
+  async zRemRangeByScore(key: string, min: number | string, max: number | string): Promise<number> {
+    const zset = this._getSortedSet(key);
+    if (!zset) return 0;
+
+    const minBound = parseScoreBound(min);
+    const maxBound = parseScoreBound(max);
+
+    const toRemove: string[] = [];
+    for (const [value, score] of zset.entries()) {
+      const minOk = minBound.inclusive ? score >= minBound.val : score > minBound.val;
+      const maxOk = maxBound.inclusive ? score <= maxBound.val : score < maxBound.val;
+      if (minOk && maxOk) {
+        toRemove.push(value);
+      }
+    }
+
+    for (const value of toRemove) {
+      zset.delete(value);
+    }
+
+    if (zset.size === 0) {
+      this.sortedSets.delete(key);
+      this.sortedSetExpiries.delete(key);
+    }
+
+    return toRemove.length;
+  }
+
+  async eval(
+    script: string,
+    optionsOrNumKeys?: EvalOptions | number,
+    ...restArgs: unknown[]
+  ): Promise<unknown> {
+    const { keys, args } = extractEvalArgs(optionsOrNumKeys, restArgs);
+    const cleanedScript = script.replace(/\s+/g, ' ').trim();
+    const normalizedScript = cleanedScript.toLowerCase();
+
+    if (isLockReleaseScript(normalizedScript)) {
+      const lockKey = keys.at(0);
+      const expectedVal = args.at(0);
+      if (lockKey && expectedVal !== undefined) {
+        const currentVal = await this.get(lockKey);
+        return currentVal === expectedVal ? await this.del(lockKey) : 0;
+      }
+      return 0;
+    }
+
+    const parsed = parseSimpleRedisCall(cleanedScript);
+    if (parsed) {
+      const resolvedArgs = parsed.rawArgs.map((arg) => resolveScriptArg(arg, keys, args));
+      const targetMethod = resolveMockMethod(this, parsed.command);
+      if (typeof targetMethod === 'function') {
+        return await targetMethod(...resolvedArgs);
+      }
+    }
+
+    return null;
+  }
+
+  multi(): MockMulti {
     const queue: Array<() => Promise<unknown>> = [];
-    const incrBound = this.incr.bind(this);
-    const expireBound = this.expire.bind(this);
-    const incrByBound = this.incrBy.bind(this);
-    const hIncrByBound = this.hIncrBy.bind(this);
-    const hSetBound = this.hSet.bind(this);
-    const sAddBound = this.sAdd.bind(this);
-    const hGetAllBound = this.hGetAll.bind(this);
-    return {
-      incr(key: string) {
-        queue.push(() => incrBound(key));
-        return this;
-      },
-      expire(key: string, seconds: number) {
-        queue.push(() => expireBound(key, seconds));
-        return this;
-      },
-      incrBy(key: string, value: number) {
-        queue.push(() => incrByBound(key, value));
-        return this;
-      },
-      hIncrBy(key: string, field: string, increment: number) {
-        queue.push(() => hIncrByBound(key, field, increment));
-        return this;
-      },
-      hSet(key: string, fieldOrObj: string | Record<string, unknown>, value?: unknown) {
-        queue.push(() => hSetBound(key, fieldOrObj, value));
-        return this;
-      },
-      sAdd(key: string, members: string | string[]) {
-        queue.push(() => sAddBound(key, members));
-        return this;
-      },
-      hGetAll(key: string) {
-        queue.push(() => hGetAllBound(key));
-        return this;
-      },
-      async exec(): Promise<unknown[]> {
-        const results: unknown[] = [];
-        for (const op of queue) {
-          results.push(await op());
+    const proxy = new Proxy({} as unknown as Record<string, unknown>, {
+      get: (_target, prop: string) => {
+        if (prop === 'exec') {
+          return async (): Promise<unknown[]> => {
+            const results: unknown[] = [];
+            for (const op of queue) {
+              results.push(await op());
+            }
+            return results;
+          };
         }
-        return results;
+        if (prop === 'discard') {
+          return () => {
+            queue.length = 0;
+            return 'OK';
+          };
+        }
+        const method = Reflect.get(this, prop);
+        if (typeof method === 'function') {
+          return (...args: unknown[]) => {
+            queue.push(() =>
+              (method as (...fnArgs: unknown[]) => Promise<unknown>).apply(this, args),
+            );
+            return proxy;
+          };
+        }
+        return undefined;
       },
-    };
+    });
+    return proxy as unknown as MockMulti;
   }
 }
 
 function switchToMock(redisInstance: typeof redis): void {
   const mock = new InMemoryRedisMock();
 
-  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen, configurable: true });
-  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady, configurable: true });
+  Object.defineProperty(redisInstance, 'isOpen', {
+    get: () => mock.isOpen,
+    set: (val: boolean) => {
+      mock.isOpen = val;
+    },
+    configurable: true,
+  });
+  Object.defineProperty(redisInstance, 'isReady', {
+    get: () => mock.isReady,
+    set: (val: boolean) => {
+      mock.isReady = val;
+    },
+    configurable: true,
+  });
 
   const target = redisInstance as unknown as Record<string, unknown>;
-  target.get = mock.get.bind(mock);
-  target.set = mock.set.bind(mock);
-  target.setEx = mock.setEx.bind(mock);
-  target.del = mock.del.bind(mock);
-  target.keys = mock.keys.bind(mock);
-  target.incr = mock.incr.bind(mock);
-  target.incrBy = mock.incrBy.bind(mock);
-  target.expire = mock.expire.bind(mock);
-  target.ping = mock.ping.bind(mock);
-  target.info = mock.info.bind(mock);
-  target.quit = mock.quit.bind(mock);
-  target.lPush = mock.lPush.bind(mock);
-  target.rPop = mock.rPop.bind(mock);
-  target.lRem = mock.lRem.bind(mock);
-  target.lRange = mock.lRange.bind(mock);
-  target.lLen = mock.lLen.bind(mock);
-  target.exists = mock.exists.bind(mock);
-  target.hGet = mock.hGet.bind(mock);
-  target.hSet = mock.hSet.bind(mock);
-  target.hGetAll = mock.hGetAll.bind(mock);
-  target.hIncrBy = mock.hIncrBy.bind(mock);
-  target.sAdd = mock.sAdd.bind(mock);
-  target.sPop = mock.sPop.bind(mock);
-  target.sPopCount = mock.sPopCount.bind(mock);
-  target.sMembers = mock.sMembers.bind(mock);
-  target.sRem = mock.sRem.bind(mock);
-  target.sIsMember = mock.sIsMember.bind(mock);
-  target.zIncrBy = mock.zIncrBy.bind(mock);
-  target.zRangeWithScores = mock.zRangeWithScores.bind(mock);
-  target.zScore = mock.zScore.bind(mock);
-  target.multi = mock.multi.bind(mock);
+
+  const proto = Object.getPrototypeOf(mock) as object;
+  for (const key of Object.getOwnPropertyNames(proto)) {
+    if (key === 'constructor' || key.startsWith('_')) continue;
+    const prop = Reflect.get(mock, key);
+    if (typeof prop === 'function') {
+      Reflect.set(target, key, (prop as (...args: unknown[]) => unknown).bind(mock));
+    }
+  }
+
+  Reflect.set(target, 'multi', mock.multi.bind(mock));
 }
 
-export { redis, ensureConnected, checkHealth, disconnect };
+export { redis, ensureConnected, checkHealth, disconnect, InMemoryRedisMock, switchToMock };
+export type { MockSetOptions, ZMember, ZAddOptions, EvalOptions, MockMulti, HashFieldOrObject };
 export default redis;

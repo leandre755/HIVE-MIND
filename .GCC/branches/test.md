@@ -1,6 +1,46 @@
 # Test Execution Log
 
-## 📅 Date: 2026-07-20
+## 📅 Date: 2026-09-06
+
+## 🧪 Unit Test Results (InMemoryRedisMock - Issue #25)
+- Run command: `npm test -- src/tests/unit/services/redisClient.test.ts`
+- Status: **PASSED (44/44 tests green)**
+- Output:
+```text
+PASS src/tests/unit/services/redisClient.test.ts
+  InMemoryRedisMock - Strings & Keys (10 tests)
+  InMemoryRedisMock - Lists (rPush, lPush, lTrim, lRange, lRem) (7 tests)
+  InMemoryRedisMock - Sets & Hashes (hDel, hLen, sCard) (4 tests)
+  InMemoryRedisMock - Sorted Sets (zAdd, zRangeByScore, zRemRangeByScore, zCard) (5 tests)
+  InMemoryRedisMock - Eval (LockManager atomic script) (3 tests)
+  InMemoryRedisMock - Multi Pipeline (3 tests)
+  InMemoryRedisMock - Edge cases and advanced semantics (11 tests, including UTF-8 binary tie-breaking and Lua literal case preservation)
+  switchToMock and WorkingMemory Integration (1 test)
+
+Test Suites: 1 passed, 1 total
+Tests:       44 passed, 44 total
+Snapshots:   0 total
+Time:        34.693 s
+```
+
+## 🧪 Global Unit Test Verification
+- Run command: `npm run test:unit`
+- Status: **PASSED (759/759 tests green)**
+- Output:
+```text
+Test Suites: 76 passed, 76 total
+Tests:       759 passed, 759 total
+Snapshots:   0 total
+```
+
+## 🧪 Static Codebase Quality Gates
+- `npm run lint:fast` (oxlint): **PASSED** (0 warnings, 0 errors across 333 files)
+- `npm run build` (tsc --noEmit): **PASSED** (0 errors)
+- `npx eslint src/services/redisClient.ts src/tests/unit/services/redisClient.test.ts`: **PASSED** (0 errors, 0 warnings)
+- `Prettier`: **PASSED** (100% compliant)
+- `Semgrep OSS`: **PASSED** (210 rules, 0 findings)
+- `gitleaks`: **PASSED** (0 leaks)
+
 
 ## 🧪 Unit Test Results (Auth Provider Model Registry)
 - Run command: `npm test -- --runTestsByPath src/tests/unit/config/models_config_policy.test.ts`
@@ -560,4 +600,29 @@ Status: **VERIFIED WORKING**
 - **Suite complète des tests unitaires**:
   - Commande: `npm run test:unit`
   - Statut: **PASSED (74/74 suites, 661/661 tests réussis, 0 régression)**.
+
+## 📅 Date: 2026-09-06 (Validation InMemoryRedisMock & Résolution Issue #25)
+
+- **Périmètre**: `src/services/redisClient.ts`, `src/tests/unit/services/redisClient.test.ts`.
+- **Analyse statique et compilation**:
+  - Commande: `npm run lint:fast`
+  - Statut: **PASSED (0 warning, 0 error)** — oxlint sur 333 fichiers.
+  - Commande: `npx eslint src/services/redisClient.ts src/tests/unit/services/redisClient.test.ts`
+  - Statut: **PASSED (0 error, 0 warning)**.
+  - Commande: `npx prettier --check src/services/redisClient.ts src/tests/unit/services/redisClient.test.ts`
+  - Statut: **PASSED (100% compliant)**.
+  - Commande: `npm run build`
+  - Statut: **PASSED (0 error)** — `tsc --noEmit`.
+- **Suite ciblée Jest (ESM native)**:
+  - Commande: `NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/services/redisClient.test.ts`
+  - Statut: **PASSED (1/1 suite, 32/32 tests réussis, 100%)**
+  - Cas de test validés:
+    - Strings & Keys: `set`, `get`, non-existent keys (null), `NX`, `XX`, `PX` (millisecond TTL expiration), `setEx`, `del` (multi-key), `keys` pattern matching, `incr`, `incrBy`, `ping`, `info`, `quit`.
+    - Lists: `rPush`, `lPush` (scalars and arrays), `lTrim` (positive and negative indices, start > stop empty), `rPop`, `lPop`, `lRem` (count > 0, count < 0, count = 0), `lRange` (including negative start).
+    - Sets & Hashes: `sAdd`, `sMembers`, `sIsMember`, `sCard`, `sRem`, `sPop`, `sPopCount`, `hSet`, `hGet`, `hGetAll`, `hIncrBy`, `hDel`, `hLen`, `hExists`.
+    - Sorted Sets: `zAdd` polymorphism (single object `{ score, value }`, array of objects, and positional arguments), `zRangeWithScores` with `REV`, `zRangeByScore` (`-inf`, `+inf`, numeric bounds), `zRemRangeByScore`, `zIncrBy`, `zRem`, `zCard`.
+    - Eval: LockManager unlock script with matching/mismatched lockId, simple `return redis.call` commands.
+    - Multi Pipeline: Chained proxy operations executed sequentially with `exec()`, list operations within pipeline.
+    - Integration WorkingMemory: `switchToMock(redis)` dynamic binding prevents `TypeError: redis.rPush is not a function`, full `workingMemory.addMessage()` and `workingMemory.getContext()` flow executes cleanly on mock fallback.
+
 
