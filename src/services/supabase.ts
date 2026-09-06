@@ -226,12 +226,34 @@ export const db = {
   async resolveContextFromLegacyId(legacyId: string): Promise<ResolvedContext | null> {
     if (!legacyId) return null;
 
+    const hasWhatsAppDomain = (value: string): boolean => {
+      const isWhatsAppHost = (hostname: string): boolean =>
+        hostname === 'whatsapp.net' || hostname.endsWith('.whatsapp.net');
+
+      try {
+        const parsed = new URL(value);
+        if (isWhatsAppHost(parsed.hostname.toLowerCase())) return true;
+      } catch {
+        // Not an absolute URL, continue with other parsing strategies.
+      }
+
+      try {
+        const parsed = new URL(`https://${value}`);
+        if (isWhatsAppHost(parsed.hostname.toLowerCase())) return true;
+      } catch {
+        // Not host-like input, continue with JID-safe fallback.
+      }
+
+      // Fallback for legacy JID values like "12345@s.whatsapp.net"
+      return /(^|[@.])whatsapp\.net$/i.test(value);
+    };
+
     // Heuristiques de détection
     const isGroup =
       legacyId.includes('@g.us') || legacyId.includes('-') || legacyId.startsWith('chat_');
     let platform = 'cli';
 
-    if (legacyId.includes('whatsapp.net') || legacyId.includes('@g.us')) {
+    if (hasWhatsAppDomain(legacyId) || legacyId.includes('@g.us')) {
       platform = 'whatsapp';
     } else if (legacyId.includes('discord')) {
       platform = 'discord';
