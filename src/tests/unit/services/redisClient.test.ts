@@ -424,10 +424,159 @@ describe('InMemoryRedisMock - Multi Pipeline', () => {
     expect(results).toHaveLength(3);
     expect(await mock.lRange('items', 0, -1)).toEqual(['a']);
   });
+
+  it('should support discard in multi to clear queued operations', async () => {
+    const pipeline = mock.multi();
+    pipeline.rPush('discard_key', 'val1');
+    const discardResult = pipeline.discard();
+    expect(discardResult).toBe('OK');
+
+    const results = await pipeline.exec();
+    expect(results).toEqual([]);
+    expect(await mock.exists('discard_key')).toBe(0);
+  });
+});
+
+describe('InMemoryRedisMock - Edge cases and advanced semantics', () => {
+  let mock: InMemoryRedisMock;
+
+  beforeEach(() => {
+    mock = new InMemoryRedisMock();
+  });
+
+  it('should remove keys from keyspace when sets become empty (sRem, sPop, sPopCount)', async () => {
+    await mock.sAdd('set_rem', 'a');
+    await mock.sRem('set_rem', 'a');
+    expect(await mock.exists('set_rem')).toBe(0);
+    expect(await mock.keys('set_rem')).toHaveLength(0);
+
+    await mock.sAdd('set_pop', 'b');
+    await mock.sPop('set_pop');
+    expect(await mock.exists('set_pop')).toBe(0);
+
+    await mock.sAdd('set_popc', ['c1', 'c2']);
+    await mock.sPopCount('set_popc', 2);
+    expect(await mock.exists('set_popc')).toBe(0);
+  });
+
+  it('should remove keys from keyspace when lists become empty (rPop, lPop, lTrim, lRem)', async () => {
+    await mock.rPush('list_rpop', 'x');
+    await mock.rPop('list_rpop');
+    expect(await mock.exists('list_rpop')).toBe(0);
+
+    await mock.rPush('list_lpop', 'y');
+    await mock.lPop('list_lpop');
+    expect(await mock.exists('list_lpop')).toBe(0);
+
+    await mock.rPush('list_trim', 'z');
+    await mock.lTrim('list_trim', 5, 2);
+    expect(await mock.exists('list_trim')).toBe(0);
+
+    await mock.rPush('list_rem', 'w');
+    await mock.lRem('list_rem', 0, 'w');
+    expect(await mock.exists('list_rem')).toBe(0);
+  });
+
+  it('should return 0 when del is called on an already expired key', async () => {
+    await mock.set('exp_key', 'val', { PX: 20 });
+    await new Promise((r) => setTimeout(r, 40));
+
+    const delCount = await mock.del('exp_key');
+    expect(delCount).toBe(0);
+  });
+
+  it('should flatten array arguments in exists', async () => {
+    await mock.set('arr_k1', 'v1');
+    await mock.set('arr_k2', 'v2');
+
+    const count = await mock.exists(['arr_k1', 'arr_k2']);
+    expect(count).toBe(2);
+  });
+
+  it('should handle bracket notation in zRangeByScore', async () => {
+    await mock.zAdd('bracket_z', [
+      { score: 10, value: 'ten' },
+      { score: 20, value: 'twenty' },
+      { score: 30, value: 'thirty' },
+    ]);
+
+    const res = await mock.zRangeByScore('bracket_z', '[10', '[20');
+    expect(res).toEqual(['ten', 'twenty']);
+  });
+
+  it('should support zRange and lexicographical tie-breaking in zRangeWithScores', async () => {
+    await mock.zAdd('tie_z', [
+      { score: 10, value: 'cherry' },
+      { score: 10, value: 'apple' },
+      { score: 10, value: 'banana' },
+    ]);
+
+    const rangeVals = await mock.zRange('tie_z', 0, -1);
+    expect(rangeVals).toEqual(['apple', 'banana', 'cherry']);
+
+    const withScores = await mock.zRangeWithScores('tie_z', 0, -1);
+    expect(withScores.map((e) => e.value)).toEqual(['apple', 'banana', 'cherry']);
+
+    const revRange = await mock.zRange('tie_z', 0, -1, { REV: true });
+    expect(revRange).toEqual(['cherry', 'banana', 'apple']);
+  });
+
+  it('should support zAdd options (NX, XX, GT, LT, CH)', async () => {
+    // Initial add
+    await mock.zAdd('opts_z', 10, 'elem1');
+
+    // NX should not update existing
+    const nxAdd = await mock.zAdd('opts_z', 20, 'elem1', { NX: true });
+    expect(nxAdd).toBe(0);
+    expect(await mock.zScore('opts_z', 'elem1')).toBe(10);
+
+    // XX should not add new
+    const xxAdd = await mock.zAdd('opts_z', 50, 'elem_new', { XX: true });
+    expect(xxAdd).toBe(0);
+    expect(await mock.zScore('opts_z', 'elem_new')).toBeNull();
+
+    // XX should update existing
+    const xxUpdate = await mock.zAdd('opts_z', 30, 'elem1', { XX: true });
+    expect(xxUpdate).toBe(0);
+    expect(await mock.zScore('opts_z', 'elem1')).toBe(30);
+
+    // CH option returns count of changed elements
+    const chUpdate = await mock.zAdd('opts_z', 40, 'elem1', { CH: true });
+    expect(chUpdate).toBe(1);
+  });
+
+  it('should support hSet with flat array and array of tuples', async () => {
+    await mock.hSet('hash_arr', ['f1', 'v1', 'f2', 'v2']);
+    expect(await mock.hGetAll('hash_arr')).toEqual({ f1: 'v1', f2: 'v2' });
+
+    await mock.hSet('hash_tuples', [
+      ['k1', 'val1'],
+      ['k2', 'val2'],
+    ]);
+    expect(await mock.hGetAll('hash_tuples')).toEqual({ k1: 'val1', k2: 'val2' });
+  });
+
+  it('should evaluate Lua scripts with camelCase commands and comma in strings', async () => {
+    await mock.hSet('user:eval', 'nickname', 'Neo');
+
+    // camelCase method resolution for 'hget'
+    const hgetRes = await mock.eval('return redis.call("hget", KEYS[1], ARGV[1])', {
+      keys: ['user:eval'],
+      arguments: ['nickname'],
+    });
+    expect(hgetRes).toBe('Neo');
+
+    // Comma inside quoted string argument
+    await mock.eval('return redis.call("set", KEYS[1], "hello, world")', {
+      keys: ['str:comma'],
+      arguments: [],
+    });
+    expect(await mock.get('str:comma')).toBe('hello, world');
+  });
 });
 
 describe('switchToMock and WorkingMemory Integration', () => {
-  it('should dynamically bind all mock methods and prevent rPush crashes in workingMemory', async () => {
+  it('should dynamically bind all mock methods, allow isReady mutation, and prevent rPush crashes in workingMemory', async () => {
     const dummyClient = createClient({ url: 'redis://localhost:6379' });
     switchToMock(dummyClient);
 
@@ -436,10 +585,18 @@ describe('switchToMock and WorkingMemory Integration', () => {
     expect(typeof dummyClient.rPush).toBe('function');
     expect(typeof dummyClient.lTrim).toBe('function');
     expect(typeof dummyClient.zAdd).toBe('function');
+    expect(typeof dummyClient.zRange).toBe('function');
     expect(typeof dummyClient.zRangeByScore).toBe('function');
     expect(typeof dummyClient.hDel).toBe('function');
     expect(typeof dummyClient.hLen).toBe('function');
     expect(typeof dummyClient.eval).toBe('function');
+
+    // Verify setters work without throwing TypeError in strict mode
+    const mutableClient = dummyClient as unknown as { isReady: boolean; isOpen: boolean };
+    mutableClient.isReady = false;
+    expect(dummyClient.isReady).toBe(false);
+    mutableClient.isReady = true;
+    expect(dummyClient.isReady).toBe(true);
 
     const chatId = 'test_chat_integration_123';
     await workingMemory.clearContext(chatId);

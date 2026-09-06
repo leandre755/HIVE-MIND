@@ -175,6 +175,17 @@ interface ZMember {
   value: string;
 }
 
+interface ZAddOptions {
+  NX?: boolean;
+  XX?: boolean;
+  GT?: boolean;
+  LT?: boolean;
+  CH?: boolean;
+  INCR?: boolean;
+}
+
+type HashFieldOrObject = string | Record<string, unknown> | Array<unknown>;
+
 interface EvalOptions {
   keys?: string[];
   arguments?: string[];
@@ -187,7 +198,7 @@ interface MockMulti {
   del(...keys: string[]): MockMulti;
   set(key: string, value: string, options?: MockSetOptions): MockMulti;
   setEx(key: string, seconds: number, value: string): MockMulti;
-  hSet(key: string, fieldOrObj: string | Record<string, unknown>, value?: unknown): MockMulti;
+  hSet(key: string, fieldOrObj: HashFieldOrObject, value?: unknown): MockMulti;
   hGet(key: string, field: string): MockMulti;
   hGetAll(key: string): MockMulti;
   hIncrBy(key: string, field: string, increment: number): MockMulti;
@@ -197,6 +208,7 @@ interface MockMulti {
   sRem(key: string, members: unknown | unknown[]): MockMulti;
   sMembers(key: string): MockMulti;
   sCard(key: string): MockMulti;
+  sPop(key: string): MockMulti;
   sPopCount(key: string, count: number): MockMulti;
   rPush(key: string, ...values: unknown[]): MockMulti;
   lPush(key: string, ...values: unknown[]): MockMulti;
@@ -211,6 +223,7 @@ interface MockMulti {
   ): MockMulti;
   zCard(key: string): MockMulti;
   zIncrBy(key: string, increment: number, member: string): MockMulti;
+  zRange(key: string, start: number, stop: number, options?: { REV?: boolean }): MockMulti;
   zRangeWithScores(
     key: string,
     start: number,
@@ -224,6 +237,7 @@ interface MockMulti {
     options?: unknown,
   ): MockMulti;
   zRemRangeByScore(key: string, min: number | string, max: number | string): MockMulti;
+  discard(): 'OK';
   exec(): Promise<unknown[]>;
 }
 
@@ -240,6 +254,9 @@ function parseScoreBound(bound: number | string): { val: number; inclusive: bool
   }
   if (str.startsWith('(')) {
     return { val: parseFloat(str.slice(1)), inclusive: false };
+  }
+  if (str.startsWith('[')) {
+    return { val: parseFloat(str.slice(1)), inclusive: true };
   }
   return { val: parseFloat(str), inclusive: true };
 }
@@ -265,24 +282,81 @@ function extractEvalArgs(
 }
 
 function isLockReleaseScript(normalizedScript: string): boolean {
-  const hasGet =
-    normalizedScript.includes('redis.call("get"') || normalizedScript.includes("redis.call('get'");
-  const hasDel =
-    normalizedScript.includes('redis.call("del"') || normalizedScript.includes("redis.call('del'");
+  const hasGet = /redis\.call\s*\(\s*['"]get['"]/i.test(normalizedScript);
+  const hasDel = /redis\.call\s*\(\s*['"]del['"]/i.test(normalizedScript);
   return hasGet && hasDel;
 }
 
+function splitLuaArgs(argsStr: string): string[] {
+  const args: string[] = [];
+  let current = '';
+  let inQuote: '"' | "'" | null = null;
+  let escape = false;
+
+  for (let i = 0; i < argsStr.length; i++) {
+    const char = argsStr.charAt(i);
+    if (escape) {
+      current += char;
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      current += char;
+      escape = true;
+      continue;
+    }
+    if (inQuote) {
+      current += char;
+      if (char === inQuote) {
+        inQuote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      inQuote = char;
+      current += char;
+      continue;
+    }
+    if (char === ',') {
+      args.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) {
+    args.push(current.trim());
+  }
+  return args;
+}
+
 function parseSimpleRedisCall(script: string): { command: string; rawArgs: string[] } | null {
-  const prefix = 'return redis.call(';
-  const idx = script.indexOf(prefix);
-  if (idx === -1) return null;
-  const closeParen = script.indexOf(')', idx + prefix.length);
-  if (closeParen === -1) return null;
-  const inside = script.slice(idx + prefix.length, closeParen);
-  const parts = inside.split(',').map((p) => p.trim());
-  if (parts.length === 0) return null;
-  const command = (parts.at(0) || '').replace(/^['"]|['"]$/g, '').toLowerCase();
-  const rawArgs = parts.slice(1);
+  const normalized = script.trim();
+  const match = /^return\s+redis\.call\s*\(/i.exec(normalized);
+  if (!match) return null;
+  const matchStr = match.at(0) || '';
+  const openParen = matchStr.length - 1;
+  const closeParen = normalized.lastIndexOf(')');
+  if (closeParen <= openParen) return null;
+
+  const inside = normalized.slice(openParen + 1, closeParen).trim();
+  if (!inside) return null;
+
+  const commaIdx = inside.indexOf(',');
+  if (commaIdx === -1) {
+    const command = inside
+      .replace(/^['"]|['"]$/g, '')
+      .trim()
+      .toLowerCase();
+    return { command, rawArgs: [] };
+  }
+
+  const command = inside
+    .slice(0, commaIdx)
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+    .toLowerCase();
+  const rawArgs = splitLuaArgs(inside.slice(commaIdx + 1));
   return { command, rawArgs };
 }
 
@@ -299,6 +373,129 @@ function resolveScriptArg(arg: string, keys: string[], args: string[]): string {
     return args.at(idx) ?? '';
   }
   return trimmed.replace(/^['"]|['"]$/g, '');
+}
+
+function resolveMockMethod(
+  instance: InMemoryRedisMock,
+  commandName: string,
+): ((...args: unknown[]) => Promise<unknown>) | null {
+  const direct = Reflect.get(instance, commandName);
+  if (typeof direct === 'function' && !commandName.startsWith('_')) {
+    return (direct as (...fnArgs: unknown[]) => Promise<unknown>).bind(instance);
+  }
+  const lower = commandName.toLowerCase();
+  const proto = Object.getPrototypeOf(instance) as object;
+  for (const name of Object.getOwnPropertyNames(proto)) {
+    if (name.startsWith('_') || name === 'constructor') continue;
+    if (name.toLowerCase() === lower) {
+      const fn = Reflect.get(instance, name);
+      if (typeof fn === 'function') {
+        return (fn as (...fnArgs: unknown[]) => Promise<unknown>).bind(instance);
+      }
+    }
+  }
+  return null;
+}
+
+function parseSetOptions(
+  options?: MockSetOptions | string,
+  moreArgs: unknown[] = [],
+): MockSetOptions {
+  if (typeof options === 'object' && options !== null) return options;
+  if (typeof options === 'string') {
+    const mode = options.toUpperCase();
+    if (mode === 'EX' && moreArgs.length > 0) return { EX: Number(moreArgs.at(0)) };
+    if (mode === 'PX' && moreArgs.length > 0) return { PX: Number(moreArgs.at(0)) };
+    if (mode === 'NX') return { NX: true };
+    if (mode === 'XX') return { XX: true };
+  }
+  return {};
+}
+
+function computeSetExpiresAt(
+  opts: MockSetOptions,
+  existing: StorageEntry | undefined,
+): number | null {
+  if (typeof opts.PX === 'number') return Date.now() + opts.PX;
+  if (typeof opts.EX === 'number') return Date.now() + opts.EX * 1000;
+  if (typeof opts.PXAT === 'number') return opts.PXAT;
+  if (typeof opts.EXAT === 'number') return opts.EXAT * 1000;
+  if (opts.KEEPTTL && existing) return existing.expiresAt;
+  return null;
+}
+
+function extractHashEntries(
+  fieldOrObj: HashFieldOrObject,
+  value?: unknown,
+): Array<[string, string]> {
+  if (Array.isArray(fieldOrObj)) {
+    const entries: Array<[string, string]> = [];
+    if (fieldOrObj.length > 0 && Array.isArray(fieldOrObj.at(0))) {
+      for (const pair of fieldOrObj as [unknown, unknown][]) {
+        entries.push([String(pair.at(0)), String(pair.at(1))]);
+      }
+    } else {
+      for (let i = 0; i < fieldOrObj.length; i += 2) {
+        entries.push([String(fieldOrObj.at(i)), String(fieldOrObj.at(i + 1) ?? '')]);
+      }
+    }
+    return entries;
+  }
+  if (typeof fieldOrObj === 'object' && fieldOrObj !== null) {
+    return Object.entries(fieldOrObj).map(([k, v]) => [k, String(v)]);
+  }
+  if (typeof fieldOrObj === 'string' && value !== undefined) {
+    return [[fieldOrObj, String(value)]];
+  }
+  return [];
+}
+
+function extractZMembersAndOptions(
+  memberOrScore: number | ZMember | ZMember[],
+  memberOrOptions?: string | ZAddOptions,
+  options?: ZAddOptions,
+): { members: ZMember[]; opts: ZAddOptions } {
+  if (typeof memberOrScore === 'number') {
+    return {
+      members: [{ score: memberOrScore, value: String(memberOrOptions) }],
+      opts: options && typeof options === 'object' ? options : {},
+    };
+  }
+  const opts = memberOrOptions && typeof memberOrOptions === 'object' ? memberOrOptions : {};
+  if (Array.isArray(memberOrScore)) {
+    const members: ZMember[] = [];
+    for (const m of memberOrScore) {
+      if (m && typeof m === 'object' && 'score' in m && 'value' in m) {
+        members.push({ score: Number(m.score), value: String(m.value) });
+      }
+    }
+    return { members, opts };
+  }
+  if (
+    memberOrScore &&
+    typeof memberOrScore === 'object' &&
+    'score' in memberOrScore &&
+    'value' in memberOrScore
+  ) {
+    return {
+      members: [{ score: Number(memberOrScore.score), value: String(memberOrScore.value) }],
+      opts,
+    };
+  }
+  return { members: [], opts };
+}
+
+function shouldApplyZMember(
+  exists: boolean,
+  currentScore: number | null,
+  newScore: number,
+  opts: ZAddOptions,
+): boolean {
+  if (opts.NX && exists) return false;
+  if (opts.XX && !exists) return false;
+  if (opts.GT && exists && currentScore !== null && newScore <= currentScore) return false;
+  if (opts.LT && exists && currentScore !== null && newScore >= currentScore) return false;
+  return true;
 }
 
 class InMemoryRedisMock {
@@ -402,30 +599,52 @@ class InMemoryRedisMock {
     return String(entry.value);
   }
 
-  async set(key: string, value: unknown, options: MockSetOptions = {}): Promise<string | null> {
+  private _delCollection<T>(
+    map: Map<string, T>,
+    expiries: Map<string, number | null>,
+    key: string,
+  ): boolean {
+    if (!map.has(key)) return false;
+    const notExpired = !this._isExpired(expiries.get(key));
+    map.delete(key);
+    expiries.delete(key);
+    return notExpired;
+  }
+
+  private _delKeyFromMaps(key: string): boolean {
+    let deleted = false;
+    const entry = this.storage.get(key);
+    if (entry) {
+      if (!this._isExpired(entry.expiresAt)) {
+        deleted = true;
+      }
+      this.storage.delete(key);
+    }
+    if (this._delCollection(this.hashes, this.hashExpiries, key)) deleted = true;
+    if (this._delCollection(this.sets, this.setExpiries, key)) deleted = true;
+    if (this._delCollection(this.sortedSets, this.sortedSetExpiries, key)) deleted = true;
+    return deleted;
+  }
+
+  async set(
+    key: string,
+    value: unknown,
+    options?: MockSetOptions | string,
+    ...moreArgs: unknown[]
+  ): Promise<string | null> {
+    const opts = parseSetOptions(options, moreArgs);
     const existing = this.storage.get(key);
     const exists = existing ? !this._isExpired(existing.expiresAt) : false;
     if (existing && !exists) {
       this.storage.delete(key);
     }
-    if (options.NX && exists) {
+    if (opts.NX && exists) {
       return null;
     }
-    if (options.XX && !exists) {
+    if (opts.XX && !exists) {
       return null;
     }
-    let expiresAt: number | null = null;
-    if (typeof options.PX === 'number') {
-      expiresAt = Date.now() + options.PX;
-    } else if (typeof options.EX === 'number') {
-      expiresAt = Date.now() + options.EX * 1000;
-    } else if (typeof options.PXAT === 'number') {
-      expiresAt = options.PXAT;
-    } else if (typeof options.EXAT === 'number') {
-      expiresAt = options.EXAT * 1000;
-    } else if (options.KEEPTTL && existing) {
-      expiresAt = existing.expiresAt;
-    }
+    const expiresAt = computeSetExpiresAt(opts, existing);
     this.storage.set(key, { value: String(value), expiresAt });
     return 'OK';
   }
@@ -436,24 +655,10 @@ class InMemoryRedisMock {
   }
 
   async del(...keysOrArray: (string | string[])[]): Promise<number> {
-    const keys = keysOrArray.flat();
+    const keys = keysOrArray.flat(Infinity) as string[];
     let count = 0;
     for (const key of keys) {
-      let deleted = false;
-      if (this.storage.delete(key)) deleted = true;
-      if (this.hashes.delete(key)) {
-        this.hashExpiries.delete(key);
-        deleted = true;
-      }
-      if (this.sets.delete(key)) {
-        this.setExpiries.delete(key);
-        deleted = true;
-      }
-      if (this.sortedSets.delete(key)) {
-        this.sortedSetExpiries.delete(key);
-        deleted = true;
-      }
-      if (deleted) count++;
+      if (this._delKeyFromMaps(key)) count++;
     }
     return count;
   }
@@ -582,7 +787,14 @@ class InMemoryRedisMock {
     const existing = this._getList(key);
     if (!existing || existing.list.length === 0) return null;
     const item = existing.list.pop() ?? null;
-    this.storage.set(key, { value: JSON.stringify(existing.list), expiresAt: existing.expiresAt });
+    if (existing.list.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, {
+        value: JSON.stringify(existing.list),
+        expiresAt: existing.expiresAt,
+      });
+    }
     return item;
   }
 
@@ -590,7 +802,14 @@ class InMemoryRedisMock {
     const existing = this._getList(key);
     if (!existing || existing.list.length === 0) return null;
     const item = existing.list.shift() ?? null;
-    this.storage.set(key, { value: JSON.stringify(existing.list), expiresAt: existing.expiresAt });
+    if (existing.list.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, {
+        value: JSON.stringify(existing.list),
+        expiresAt: existing.expiresAt,
+      });
+    }
     return item;
   }
 
@@ -602,12 +821,16 @@ class InMemoryRedisMock {
     const s = start < 0 ? Math.max(0, len + start) : start;
     let e = stop < 0 ? len + stop : stop;
     if (s > e || s >= len) {
-      this.storage.set(key, { value: JSON.stringify([]), expiresAt: existing.expiresAt });
+      this.storage.delete(key);
       return 'OK';
     }
     if (e >= len) e = len - 1;
     const trimmed = list.slice(s, e + 1);
-    this.storage.set(key, { value: JSON.stringify(trimmed), expiresAt: existing.expiresAt });
+    if (trimmed.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, { value: JSON.stringify(trimmed), expiresAt: existing.expiresAt });
+    }
     return 'OK';
   }
 
@@ -626,7 +849,11 @@ class InMemoryRedisMock {
       }
     }
     const finalList = count < 0 ? filtered.reverse() : filtered;
-    this.storage.set(key, { value: JSON.stringify(finalList), expiresAt: existing.expiresAt });
+    if (finalList.length === 0) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, { value: JSON.stringify(finalList), expiresAt: existing.expiresAt });
+    }
     return removed;
   }
 
@@ -647,7 +874,8 @@ class InMemoryRedisMock {
     return existing ? existing.list.length : 0;
   }
 
-  async exists(...keys: string[]): Promise<number> {
+  async exists(...keysOrArray: (string | string[])[]): Promise<number> {
+    const keys = keysOrArray.flat(Infinity) as string[];
     let count = 0;
     for (const key of keys) {
       if (this._checkExists(key)) {
@@ -662,25 +890,17 @@ class InMemoryRedisMock {
     return hash?.get(field) ?? null;
   }
 
-  async hSet(
-    key: string,
-    fieldOrObj: string | Record<string, unknown>,
-    value?: unknown,
-  ): Promise<number> {
+  async hSet(key: string, fieldOrObj: HashFieldOrObject, value?: unknown): Promise<number> {
     let hash = this._getHash(key);
     if (!hash) {
       hash = new Map<string, string>();
       this.hashes.set(key, hash);
     }
     let count = 0;
-    if (typeof fieldOrObj === 'object' && fieldOrObj !== null) {
-      for (const [k, v] of Object.entries(fieldOrObj)) {
-        if (!hash.has(k)) count++;
-        hash.set(k, String(v));
-      }
-    } else if (typeof fieldOrObj === 'string' && value !== undefined) {
-      if (!hash.has(fieldOrObj)) count++;
-      hash.set(fieldOrObj, String(value));
+    const entries = extractHashEntries(fieldOrObj, value);
+    for (const [k, v] of entries) {
+      if (!hash.has(k)) count++;
+      hash.set(k, v);
     }
     return count;
   }
@@ -758,6 +978,10 @@ class InMemoryRedisMock {
     const first = set.values().next().value;
     if (first !== undefined) {
       set.delete(first);
+      if (set.size === 0) {
+        this.sets.delete(key);
+        this.setExpiries.delete(key);
+      }
       return first;
     }
     return null;
@@ -771,6 +995,10 @@ class InMemoryRedisMock {
       if (popped.length >= count) break;
       set.delete(val);
       popped.push(val);
+    }
+    if (set.size === 0) {
+      this.sets.delete(key);
+      this.setExpiries.delete(key);
     }
     return popped;
   }
@@ -788,6 +1016,10 @@ class InMemoryRedisMock {
     for (const item of items.flat()) {
       if (set.delete(String(item))) removed++;
     }
+    if (set.size === 0) {
+      this.sets.delete(key);
+      this.setExpiries.delete(key);
+    }
     return removed;
   }
 
@@ -804,8 +1036,8 @@ class InMemoryRedisMock {
   async zAdd(
     key: string,
     memberOrScore: number | ZMember | ZMember[],
-    memberOrOptions?: string | Record<string, unknown>,
-    _options?: Record<string, unknown>,
+    memberOrOptions?: string | ZAddOptions,
+    options?: ZAddOptions,
   ): Promise<number> {
     let zset = this._getSortedSet(key);
     if (!zset) {
@@ -813,32 +1045,24 @@ class InMemoryRedisMock {
       this.sortedSets.set(key, zset);
     }
 
-    const membersToAdd: ZMember[] = [];
-    if (typeof memberOrScore === 'number' && typeof memberOrOptions === 'string') {
-      membersToAdd.push({ score: memberOrScore, value: memberOrOptions });
-    } else if (Array.isArray(memberOrScore)) {
-      for (const m of memberOrScore) {
-        if (m && typeof m === 'object' && 'score' in m && 'value' in m) {
-          membersToAdd.push({ score: Number(m.score), value: String(m.value) });
-        }
-      }
-    } else if (
-      memberOrScore &&
-      typeof memberOrScore === 'object' &&
-      'score' in memberOrScore &&
-      'value' in memberOrScore
-    ) {
-      membersToAdd.push({ score: Number(memberOrScore.score), value: String(memberOrScore.value) });
-    }
-
+    const { members, opts } = extractZMembersAndOptions(memberOrScore, memberOrOptions, options);
     let addedCount = 0;
-    for (const { score, value } of membersToAdd) {
-      if (!zset.has(value)) {
+    let changed = 0;
+
+    for (const { score, value } of members) {
+      const exists = zset.has(value);
+      const currentScore = exists ? (zset.get(value) as number) : null;
+      if (!shouldApplyZMember(exists, currentScore, score, opts)) continue;
+
+      if (!exists) {
         addedCount++;
+        changed++;
+      } else if (currentScore !== score) {
+        changed++;
       }
       zset.set(value, score);
     }
-    return addedCount;
+    return opts.CH ? changed : addedCount;
   }
 
   async zIncrBy(key: string, increment: number, member: string): Promise<number> {
@@ -853,6 +1077,16 @@ class InMemoryRedisMock {
     return next;
   }
 
+  async zRange(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): Promise<string[]> {
+    const withScores = await this.zRangeWithScores(key, start, stop, options);
+    return withScores.map((e) => e.value);
+  }
+
   async zRangeWithScores(
     key: string,
     start: number,
@@ -862,7 +1096,14 @@ class InMemoryRedisMock {
     const zset = this._getSortedSet(key);
     if (!zset) return [];
     const entries = Array.from(zset.entries()).map(([value, score]) => ({ value, score }));
-    entries.sort((a, b) => (options?.REV ? b.score - a.score : a.score - b.score));
+    entries.sort((a, b) => {
+      if (options?.REV) {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.value.localeCompare(a.value);
+      }
+      if (a.score !== b.score) return a.score - b.score;
+      return a.value.localeCompare(b.value);
+    });
     const actualStop = stop === -1 ? entries.length : stop + 1;
     return entries.slice(start, actualStop);
   }
@@ -898,7 +1139,7 @@ class InMemoryRedisMock {
     key: string,
     min: number | string,
     max: number | string,
-    options?: { WITHSCORES?: boolean; LIMIT?: { offset: number; count: number } },
+    options?: { WITHSCORES?: boolean; LIMIT?: { offset: number; count: number }; REV?: boolean },
   ): Promise<string[] | Array<{ value: string; score: number }>> {
     const zset = this._getSortedSet(key);
     if (!zset) return [];
@@ -916,6 +1157,10 @@ class InMemoryRedisMock {
     }
 
     matched.sort((a, b) => {
+      if (options?.REV) {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.value.localeCompare(a.value);
+      }
       if (a.score !== b.score) return a.score - b.score;
       return a.value.localeCompare(b.value);
     });
@@ -923,7 +1168,7 @@ class InMemoryRedisMock {
     let results = matched;
     if (options?.LIMIT) {
       const { offset, count } = options.LIMIT;
-      results = results.slice(offset, offset + count);
+      results = count < 0 ? results.slice(offset) : results.slice(offset, offset + count);
     }
 
     if (options?.WITHSCORES) {
@@ -981,12 +1226,9 @@ class InMemoryRedisMock {
     const parsed = parseSimpleRedisCall(normalizedScript);
     if (parsed) {
       const resolvedArgs = parsed.rawArgs.map((arg) => resolveScriptArg(arg, keys, args));
-      const targetMethod = Reflect.get(this, parsed.command);
+      const targetMethod = resolveMockMethod(this, parsed.command);
       if (typeof targetMethod === 'function') {
-        return await (targetMethod as (...fnArgs: unknown[]) => Promise<unknown>).apply(
-          this,
-          resolvedArgs,
-        );
+        return await targetMethod(...resolvedArgs);
       }
     }
 
@@ -1004,6 +1246,12 @@ class InMemoryRedisMock {
               results.push(await op());
             }
             return results;
+          };
+        }
+        if (prop === 'discard') {
+          return () => {
+            queue.length = 0;
+            return 'OK';
           };
         }
         const method = Reflect.get(this, prop);
@@ -1025,8 +1273,20 @@ class InMemoryRedisMock {
 function switchToMock(redisInstance: typeof redis): void {
   const mock = new InMemoryRedisMock();
 
-  Object.defineProperty(redisInstance, 'isOpen', { get: () => mock.isOpen, configurable: true });
-  Object.defineProperty(redisInstance, 'isReady', { get: () => mock.isReady, configurable: true });
+  Object.defineProperty(redisInstance, 'isOpen', {
+    get: () => mock.isOpen,
+    set: (val: boolean) => {
+      mock.isOpen = val;
+    },
+    configurable: true,
+  });
+  Object.defineProperty(redisInstance, 'isReady', {
+    get: () => mock.isReady,
+    set: (val: boolean) => {
+      mock.isReady = val;
+    },
+    configurable: true,
+  });
 
   const target = redisInstance as unknown as Record<string, unknown>;
 
@@ -1043,5 +1303,5 @@ function switchToMock(redisInstance: typeof redis): void {
 }
 
 export { redis, ensureConnected, checkHealth, disconnect, InMemoryRedisMock, switchToMock };
-export type { MockSetOptions, ZMember, EvalOptions, MockMulti };
+export type { MockSetOptions, ZMember, ZAddOptions, EvalOptions, MockMulti, HashFieldOrObject };
 export default redis;
