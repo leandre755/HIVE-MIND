@@ -37,12 +37,17 @@ export class EmbeddingsService implements IEmbeddingsService {
     const cleanText = text.replace(/\n/g, ' ');
 
     try {
-      // Strategy: Try Gemini first (Cheaper / Better context)
-      const vector = await this._embedWithGemini(cleanText);
+      let vector: number[] | null = null;
+      try {
+        vector = await this._embedWithGemini(cleanText);
+      } catch (geminiError: unknown) {
+        console.warn(
+          '[Embeddings] Gemini failed, attempting OpenAI fallback...',
+          geminiError instanceof Error ? geminiError.message : String(geminiError),
+        );
+      }
       if (vector) return vector;
 
-      // Fallback
-      console.warn('[Embeddings] Gemini failed, attempting OpenAI fallback...');
       return await this._embedWithOpenAI(cleanText);
     } catch (error: unknown) {
       console.error(
@@ -57,14 +62,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     const apiKey = this.config.geminiKey;
     if (!apiKey) throw new Error('Gemini API key missing');
 
-    // Safe debug log
-    const keyObfuscated = apiKey.startsWith('AIza')
-      ? 'AIza...' + apiKey.slice(-4)
-      : apiKey.substring(0, 5) + '...';
-
-    console.log(
-      `[Embeddings] Using Model: ${this.model}, Dims: ${this.dimensions}, Key: ${keyObfuscated}`,
-    );
+    console.log(`[Embeddings] Using Model: ${this.model}, Dims: ${this.dimensions}`);
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:embedContent?key=${apiKey}`;
 
