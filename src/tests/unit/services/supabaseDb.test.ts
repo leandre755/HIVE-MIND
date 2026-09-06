@@ -48,4 +48,22 @@ describe('db.resolveContextFromLegacyId (SS-18: Multi-Tier Memory / Supabase)', 
     expect(spy).toHaveBeenCalledWith('telegram', 'telegram_user_99');
     expect(context).toEqual({ context_id: 'uuid-user-tg', type: 'user' });
   });
+
+  it('ne classe pas une URL malveillante comme WhatsApp même si elle contient @whatsapp.net dans le chemin', async () => {
+    const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
+
+    const maliciousUrl = 'https://evil.example/path/@whatsapp.net';
+    const context = await db.resolveContextFromLegacyId(maliciousUrl);
+    expect(spy).toHaveBeenCalledWith('cli', maliciousUrl);
+    expect(context).toEqual({ context_id: 'uuid-cli-user', type: 'user' });
+  });
+
+  it('ne classe pas un domaine malveillant se terminant par .evil.com comme WhatsApp', async () => {
+    const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
+
+    const maliciousDomain = 'https://whatsapp.net.evil.com';
+    const context = await db.resolveContextFromLegacyId(maliciousDomain);
+    expect(spy).toHaveBeenCalledWith('cli', maliciousDomain);
+    expect(context).toEqual({ context_id: 'uuid-cli-user', type: 'user' });
+  });
 });

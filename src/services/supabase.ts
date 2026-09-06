@@ -232,7 +232,7 @@ export const db = {
 
       try {
         const parsed = new URL(value);
-        if (isWhatsAppHost(parsed.hostname.toLowerCase())) return true;
+        return isWhatsAppHost(parsed.hostname.toLowerCase());
       } catch {
         // Not an absolute URL, continue with other parsing strategies.
       }
@@ -245,7 +245,19 @@ export const db = {
       }
 
       // Fallback for legacy JID values like "12345@s.whatsapp.net"
-      return /(^|[@.])whatsapp\.net$/i.test(value);
+      if (
+        value.includes('/') ||
+        value.includes('?') ||
+        value.includes('#') ||
+        value.includes(' ')
+      ) {
+        return false;
+      }
+      const parts = value.split('@');
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        return isWhatsAppHost(parts[1].toLowerCase());
+      }
+      return false;
     };
 
     // Heuristiques de détection
