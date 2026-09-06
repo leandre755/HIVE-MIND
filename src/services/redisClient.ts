@@ -1215,7 +1215,8 @@ class InMemoryRedisMock {
     ...restArgs: unknown[]
   ): Promise<unknown> {
     const { keys, args } = extractEvalArgs(optionsOrNumKeys, restArgs);
-    const normalizedScript = script.replace(/\s+/g, ' ').trim().toLowerCase();
+    const cleanedScript = script.replace(/\s+/g, ' ').trim();
+    const normalizedScript = cleanedScript.toLowerCase();
 
     if (isLockReleaseScript(normalizedScript)) {
       const lockKey = keys.at(0);
@@ -1227,7 +1228,7 @@ class InMemoryRedisMock {
       return 0;
     }
 
-    const parsed = parseSimpleRedisCall(normalizedScript);
+    const parsed = parseSimpleRedisCall(cleanedScript);
     if (parsed) {
       const resolvedArgs = parsed.rawArgs.map((arg) => resolveScriptArg(arg, keys, args));
       const targetMethod = resolveMockMethod(this, parsed.command);

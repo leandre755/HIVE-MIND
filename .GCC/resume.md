@@ -8,23 +8,24 @@
   4. Couvrir avec une suite complète de 42 tests unitaires pour `InMemoryRedisMock`, vérifier 100% de la suite de tests globale du dépôt (759/759 passés), committer et pousser vers PR #40.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - **Suite Dédiée (`src/tests/unit/services/redisClient.test.ts`)**: 43/43 tests unitaires réussis (100%), incluant le départage binaire UTF-8 strict (`Buffer.compare`) sur les sorted sets (`zRange`, `zRangeWithScores`, `zRangeByScore`) pour les scores ex æquo (conformité Redis sur les membres Unicode, par exemple 'z' vs 'ä').
-  - **Suite Globale Dépôt**: 76/76 suites de tests réussies, 759/759 tests unitaires passés au vert (`npm run test:unit`).
+  - **Suite Dédiée (`src/tests/unit/services/redisClient.test.ts`)**: 44/44 tests unitaires réussis (100%), incluant le départage binaire UTF-8 strict (`Buffer.compare`) sur les sorted sets et la préservation de casse des littéraux et arguments de scripts Lua dans `eval` (e.g. `MiXeD`).
+  - **Suite Globale Dépôt**: 76/76 suites de tests réussies, 760/760 tests unitaires passés au vert (`npm run test:unit`).
   - **Linters & Typage**: `oxlint` 0 erreur/warning sur 333 fichiers, `eslint` 0 erreur/warning, `prettier` 100% conforme, `tsc --noEmit` 0 erreur, `Semgrep OSS` 0 finding, `gitleaks` 0 fuite.
-  - **GitHub PR**: Branche `fix/in-memory-redis-mock` mise à jour, commit `0c5e1eb`, PR #40.
+  - **GitHub PR**: Branche `fix/in-memory-redis-mock` mise à jour, PR #40.
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/services/redisClient.ts`
-  - Remplacement du départage `localeCompare` par un comparateur binaire UTF-8 strict `compareBinaryUtf8` utilisant `Buffer.compare` dans `zRangeWithScores` et `zRangeByScore`, garantissant la parité exacte avec l'ordre lexicographique binaire de Redis pour l'ordre ascendant et l'inversion en mode `REV`.
+  - Remplacement du départage `localeCompare` par un comparateur binaire UTF-8 strict `compareBinaryUtf8` utilisant `Buffer.compare` dans `zRangeWithScores` et `zRangeByScore`.
+  - Préservation de la casse originale des littéraux et arguments Lua dans `eval` en passant la chaîne non-minusculisée à `parseSimpleRedisCall`, tout en conservant l'insensibilité à la casse sur les commandes Redis et scripts de déverrouillage de verrous.
 - **File**: `src/tests/unit/services/redisClient.test.ts`
-  - Ajout du test unitaire `should support binary UTF-8 lexicographical tie-breaking for equal scores (e.g. z and ä)` validant l'ordre binaire UTF-8 en ascendant et en `REV` (total : 43 tests).
+  - Ajout des tests unitaires validant l'ordre binaire UTF-8 (`should support binary UTF-8 lexicographical tie-breaking for equal scores`) et la préservation de casse dans les scripts Lua (`should preserve case in Lua string literals and arguments`) (total : 44 tests).
 
 ## 🛠️ Static Codebase Health
 - **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/services/redisClient.ts src/tests/unit/services/redisClient.test.ts && npm run test:unit`
 - **Linter/Compiler Status**: 0 erreur, 0 avertissement.
 
 ## 🚧 Unfinished Work & Technical Failures
-- **None**: L'intégralité des commentaires de review (Greptile) a été traitée et validée par test unitaire.
+- **None**: Tous les commentaires de review (Greptile) sont traités et couverts par des tests unitaires stricts.
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target Branch**: `fix/in-memory-redis-mock`.

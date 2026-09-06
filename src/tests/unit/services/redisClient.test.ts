@@ -601,6 +601,21 @@ describe('InMemoryRedisMock - Edge cases and advanced semantics', () => {
     });
     expect(await mock.get('str:comma')).toBe('hello, world');
   });
+
+  it('should preserve case in Lua string literals and arguments (e.g. MiXeD)', async () => {
+    await mock.eval("return redis.call('set', KEYS[1], 'MiXeD_VaLuE')", {
+      keys: ['mixed_key'],
+      arguments: [],
+    });
+    expect(await mock.get('mixed_key')).toBe('MiXeD_VaLuE');
+
+    // Also verify ARGV preserves case
+    await mock.eval("return redis.call('set', KEYS[1], ARGV[1])", {
+      keys: ['argv_key'],
+      arguments: ['Token_ABC_123'],
+    });
+    expect(await mock.get('argv_key')).toBe('Token_ABC_123');
+  });
 });
 
 describe('switchToMock and WorkingMemory Integration', () => {
