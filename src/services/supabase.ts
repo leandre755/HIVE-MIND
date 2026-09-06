@@ -280,10 +280,9 @@ export const db = {
       platform = 'telegram';
     }
 
-    const isGroup =
-      (isWhatsApp && legacyId.toLowerCase().endsWith('@g.us')) ||
-      legacyId.includes('-') ||
-      legacyId.startsWith('chat_');
+    const isGroup = isWhatsApp
+      ? legacyId.toLowerCase().endsWith('@g.us')
+      : legacyId.includes('-') || legacyId.startsWith('chat_');
 
     if (isGroup) {
       const id = await this.resolveGroup(platform, legacyId);

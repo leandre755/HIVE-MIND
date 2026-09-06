@@ -91,21 +91,113 @@ describe('db.resolveContextFromLegacyId (SS-18: Multi-Tier Memory / Supabase)', 
     expect(context).toEqual({ context_id: 'uuid-user-wa', type: 'user' });
   });
 
-  it('résout un JID de groupe WhatsApp avec tiret (123456789-987654@g.us) en appelant resolveGroup', async () => {
-    const spy = jest.spyOn(db, 'resolveGroup').mockResolvedValueOnce('uuid-group-wa');
+  it.each([
+    {
+      description: 'avec tiret (123456789-987654@g.us)',
+      input: '123456789-987654@g.us',
+    },
+    {
+      description: 'avec domaine en majuscules (120363123456789@G.US)',
+      input: '120363123456789@G.US',
+    },
+    {
+      description: 'avec préfixe chat_ (chat_group_123@g.us)',
+      input: 'chat_group_123@g.us',
+    },
+  ])(
+    'résout un JID de groupe WhatsApp $description en appelant resolveGroup',
+    async ({ input }) => {
+      const spy = jest.spyOn(db, 'resolveGroup').mockResolvedValueOnce('uuid-group-wa');
 
-    const input = '123456789-987654@g.us';
+      const context = await db.resolveContextFromLegacyId(input);
+      expect(spy).toHaveBeenCalledWith('whatsapp', input);
+      expect(context).toEqual({ context_id: 'uuid-group-wa', type: 'group' });
+    },
+  );
+
+  it.each([
+    {
+      description: 'un JID utilisateur WhatsApp avec tiret (user-123@s.whatsapp.net)',
+      input: 'user-123@s.whatsapp.net',
+    },
+    {
+      description: 'un JID utilisateur WhatsApp avec préfixe chat_ (chat_support@s.whatsapp.net)',
+      input: 'chat_support@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp avec tiret et préfixe chat- (chat-ops@s.whatsapp.net)',
+      input: 'chat-ops@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp avec tiret et préfixe chat- (chat-admin@s.whatsapp.net)',
+      input: 'chat-admin@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp avec tiret et underscore (my_user-name@s.whatsapp.net)',
+      input: 'my_user-name@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp multi-device avec tiret (user-name:1@s.whatsapp.net)',
+      input: 'user-name:1@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp multi-device avec underscore (user_bob:1@s.whatsapp.net)',
+      input: 'user_bob:1@s.whatsapp.net',
+    },
+    {
+      description:
+        'un JID utilisateur WhatsApp multi-device avec préfixe chat_ (chat_user:2@s.whatsapp.net)',
+      input: 'chat_user:2@s.whatsapp.net',
+    },
+    {
+      description: 'un JID utilisateur WhatsApp avec tiret en majuscules (USER-123@S.WHATSAPP.NET)',
+      input: 'USER-123@S.WHATSAPP.NET',
+    },
+  ])(
+    'résout $description comme utilisateur WhatsApp en appelant resolveUser',
+    async ({ input }) => {
+      const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-user-wa');
+
+      const context = await db.resolveContextFromLegacyId(input);
+      expect(spy).toHaveBeenCalledWith('whatsapp', input);
+      expect(context).toEqual({ context_id: 'uuid-user-wa', type: 'user' });
+    },
+  );
+
+  it.each([
+    {
+      description: 'un identifiant CLI avec tiret (my-group) comme groupe',
+      input: 'my-group',
+      expectedType: 'group',
+      expectedFn: 'resolveGroup',
+      mockId: 'uuid-cli-group',
+    },
+    {
+      description: 'un identifiant CLI avec préfixe chat_ (chat_room) comme groupe',
+      input: 'chat_room',
+      expectedType: 'group',
+      expectedFn: 'resolveGroup',
+      mockId: 'uuid-cli-group',
+    },
+    {
+      description: 'un identifiant CLI utilisateur standard sans tiret ni chat_ (alice) comme user',
+      input: 'alice',
+      expectedType: 'user',
+      expectedFn: 'resolveUser',
+      mockId: 'uuid-cli-user',
+    },
+  ])('résout $description sur CLI', async ({ input, expectedType, expectedFn, mockId }) => {
+    const spy = jest
+      .spyOn(db, expectedFn as 'resolveGroup' | 'resolveUser')
+      .mockResolvedValueOnce(mockId);
+
     const context = await db.resolveContextFromLegacyId(input);
-    expect(spy).toHaveBeenCalledWith('whatsapp', input);
-    expect(context).toEqual({ context_id: 'uuid-group-wa', type: 'group' });
-  });
-
-  it('résout un JID de groupe WhatsApp avec domaine en majuscules (120363123456789@G.US) en appelant resolveGroup', async () => {
-    const spy = jest.spyOn(db, 'resolveGroup').mockResolvedValueOnce('uuid-group-wa');
-
-    const input = '120363123456789@G.US';
-    const context = await db.resolveContextFromLegacyId(input);
-    expect(spy).toHaveBeenCalledWith('whatsapp', input);
-    expect(context).toEqual({ context_id: 'uuid-group-wa', type: 'group' });
+    expect(spy).toHaveBeenCalledWith('cli', input);
+    expect(context).toEqual({ context_id: mockId, type: expectedType });
   });
 });
