@@ -521,6 +521,34 @@ describe('InMemoryRedisMock - Edge cases and advanced semantics', () => {
     expect(revRange).toEqual(['cherry', 'banana', 'apple']);
   });
 
+  it('should support binary UTF-8 lexicographical tie-breaking for equal scores (e.g. z and ä)', async () => {
+    await mock.zAdd('utf8_tie', [
+      { score: 5, value: 'ä' },
+      { score: 5, value: 'z' },
+    ]);
+
+    // In binary UTF-8: 'z' (0x7A) < 'ä' (0xC3 0xA4)
+    const ascRange = await mock.zRange('utf8_tie', 0, -1);
+    expect(ascRange).toEqual(['z', 'ä']);
+
+    const ascWithScores = await mock.zRangeWithScores('utf8_tie', 0, -1);
+    expect(ascWithScores.map((e) => e.value)).toEqual(['z', 'ä']);
+
+    // In REV mode: 'ä' before 'z'
+    const revRange = await mock.zRange('utf8_tie', 0, -1, { REV: true });
+    expect(revRange).toEqual(['ä', 'z']);
+
+    const revWithScores = await mock.zRangeWithScores('utf8_tie', 0, -1, { REV: true });
+    expect(revWithScores.map((e) => e.value)).toEqual(['ä', 'z']);
+
+    // Also verify zRangeByScore
+    const byScoreAsc = await mock.zRangeByScore('utf8_tie', 5, 5);
+    expect(byScoreAsc).toEqual(['z', 'ä']);
+
+    const byScoreRev = await mock.zRangeByScore('utf8_tie', 5, 5, { REV: true });
+    expect(byScoreRev).toEqual(['ä', 'z']);
+  });
+
   it('should support zAdd options (NX, XX, GT, LT, CH)', async () => {
     // Initial add
     await mock.zAdd('opts_z', 10, 'elem1');

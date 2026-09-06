@@ -498,6 +498,10 @@ function shouldApplyZMember(
   return true;
 }
 
+function compareBinaryUtf8(a: string, b: string): number {
+  return Buffer.compare(Buffer.from(a), Buffer.from(b));
+}
+
 class InMemoryRedisMock {
   storage = new Map<string, StorageEntry>();
   hashes = new Map<string, Map<string, string>>();
@@ -1099,10 +1103,10 @@ class InMemoryRedisMock {
     entries.sort((a, b) => {
       if (options?.REV) {
         if (b.score !== a.score) return b.score - a.score;
-        return b.value.localeCompare(a.value);
+        return compareBinaryUtf8(b.value, a.value);
       }
       if (a.score !== b.score) return a.score - b.score;
-      return a.value.localeCompare(b.value);
+      return compareBinaryUtf8(a.value, b.value);
     });
     const actualStop = stop === -1 ? entries.length : stop + 1;
     return entries.slice(start, actualStop);
@@ -1159,10 +1163,10 @@ class InMemoryRedisMock {
     matched.sort((a, b) => {
       if (options?.REV) {
         if (b.score !== a.score) return b.score - a.score;
-        return b.value.localeCompare(a.value);
+        return compareBinaryUtf8(b.value, a.value);
       }
       if (a.score !== b.score) return a.score - b.score;
-      return a.value.localeCompare(b.value);
+      return compareBinaryUtf8(a.value, b.value);
     });
 
     let results = matched;
