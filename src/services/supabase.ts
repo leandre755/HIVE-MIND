@@ -226,18 +226,59 @@ export const db = {
   async resolveContextFromLegacyId(legacyId: string): Promise<ResolvedContext | null> {
     if (!legacyId) return null;
 
+    const hasWhatsAppDomain = (value: string): boolean => {
+      if (!value || typeof value !== 'string') return false;
+
+      // 1. URLs absolues HTTP(S) uniquement (sans credentials userinfo)
+      if (/^https?:\/\//i.test(value)) {
+        try {
+          const parsed = new URL(value);
+          const host = parsed.hostname.toLowerCase();
+          const isWhatsAppHost =
+            host === 'whatsapp.net' || host === 's.whatsapp.net' || host === 'g.us';
+          return isWhatsAppHost && !parsed.username && !parsed.password;
+        } catch {
+          return false;
+        }
+      }
+
+      // 2. Rejet de tout délimiteur d'URL, espace ou antislash pour les identifiants non-URL
+      if (/[/?#\s\\]/.test(value)) {
+        return false;
+      }
+
+      // 3. Parser JID strict à un seul '@' : <local>@<domain>
+      const parts = value.split('@');
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        return false;
+      }
+
+      const [localPart, domainPart] = parts;
+
+      // Local part: caractères alphanumériques, points, tirets, colons (multi-device) et underscores
+      if (!/^[a-zA-Z0-9_.:-]+$/.test(localPart)) {
+        return false;
+      }
+
+      const domain = domainPart.toLowerCase();
+      return domain === 's.whatsapp.net' || domain === 'g.us' || domain === 'whatsapp.net';
+    };
+
     // Heuristiques de détection
-    const isGroup =
-      legacyId.includes('@g.us') || legacyId.includes('-') || legacyId.startsWith('chat_');
+    const isWhatsApp = hasWhatsAppDomain(legacyId);
     let platform = 'cli';
 
-    if (legacyId.includes('whatsapp.net') || legacyId.includes('@g.us')) {
+    if (isWhatsApp) {
       platform = 'whatsapp';
     } else if (legacyId.includes('discord')) {
       platform = 'discord';
     } else if (legacyId.includes('telegram')) {
       platform = 'telegram';
     }
+
+    const isGroup = isWhatsApp
+      ? legacyId.toLowerCase().endsWith('@g.us')
+      : legacyId.includes('-') || legacyId.startsWith('chat_');
 
     if (isGroup) {
       const id = await this.resolveGroup(platform, legacyId);
