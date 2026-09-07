@@ -10,6 +10,7 @@
 //
 // ============================================================================
 
+import { createHash } from 'node:crypto';
 import { StateManager } from './state/StateManager.js';
 import { IdentityMap } from './state/IdentityMap.js';
 import { supabase } from './supabase.js';
@@ -52,6 +53,82 @@ function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return String(error);
+}
+
+function normalizeSpeakerHash(hash: string): string | null {
+  const normalized = hash.trim().substring(0, 3).toUpperCase();
+  return normalized.length === 3 ? normalized : null;
+}
+
+async function readCachedSpeakerHash(cacheKey: string): Promise<string | null> {
+  try {
+    const cached = await redis?.hGet(cacheKey, 'hash');
+    if (!cached) return null;
+    const normalized = normalizeSpeakerHash(cached);
+    if (normalized) {
+      if (cached !== normalized && redis) {
+        redis.hSet(cacheKey, 'hash', normalized).catch(() => {});
+      }
+      return normalized;
+    }
+    return null;
+  } catch (redisErr: unknown) {
+    console.error('[UserService] getSpeakerHash error:', extractErrorMessage(redisErr));
+    return null;
+  }
+}
+
+async function readPersistedSpeakerHash(
+  cacheKey: string,
+  resolvedJid: string,
+): Promise<string | null> {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.from('users').select('hash').eq('jid', resolvedJid).single();
+
+    if (!data?.hash) return null;
+    const normalized = normalizeSpeakerHash(data.hash);
+    if (!normalized) return null;
+
+    redis?.hSet(cacheKey, 'hash', normalized).catch(() => {});
+    if (data.hash !== normalized) {
+      try {
+        const updateBuilder = supabase.from('users').update({ hash: normalized });
+        if (updateBuilder && typeof updateBuilder.eq === 'function') {
+          await updateBuilder.eq('jid', resolvedJid);
+        }
+      } catch {
+        // Ignorer l'erreur de mise à jour Supabase
+      }
+    }
+    return normalized;
+  } catch (dbErr: unknown) {
+    console.warn('[UserService] Supabase getSpeakerHash read error:', extractErrorMessage(dbErr));
+    return null;
+  }
+}
+
+async function persistSpeakerHash(
+  cacheKey: string,
+  resolvedJid: string,
+  hash: string,
+): Promise<void> {
+  try {
+    await redis?.hSet(cacheKey, 'hash', hash);
+  } catch {
+    // Ignorer l'erreur d'écriture Redis
+  }
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('users')
+        .upsert({ jid: resolvedJid, hash }, { onConflict: 'jid' })
+        .select();
+    } catch (upsertErr: unknown) {
+      console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(upsertErr));
+    }
+  }
 }
 
 // ============================================================================
@@ -127,6 +204,15 @@ export const userService = {
   },
 
   /**
+   * Calcule de manière déterministe le hash d'un speaker (SHA-256 tronqué à 3 car. majuscules)
+   * @param identifier - Identifiant utilisateur (JID)
+   * @returns Hash de 3 caractères majuscules (ex: "1B5")
+   */
+  computeSpeakerHash(identifier: string): string {
+    return createHash('sha256').update(identifier).digest('hex').substring(0, 3).toUpperCase();
+  },
+
+  /**
    * Récupère ou génère le hash unique d'un utilisateur (pour Speaker Injection)
    * @param jid - JID de l'utilisateur
    * @returns Hash de 3 caractères (ex: "A7X")
@@ -134,53 +220,31 @@ export const userService = {
   async getSpeakerHash(jid: string | null | undefined): Promise<string> {
     if (!jid) return 'UNK';
 
-    const resolvedJid = (await this.resolveLid(jid)) || jid;
-
+    let resolvedJid: string;
     try {
-      const cacheKey = `user:${resolvedJid}:data`;
-      const cachedHash = await redis?.hGet(cacheKey, 'hash');
-      if (cachedHash) return cachedHash;
+      resolvedJid = (await this.resolveLid(jid)) || jid;
+    } catch {
+      resolvedJid = jid;
+    }
 
-      if (supabase) {
-        const { data } = await supabase
-          .from('users')
-          .select('hash')
-          .eq('jid', resolvedJid)
-          .single();
+    const cacheKey = `user:${resolvedJid}:data`;
 
-        if (data?.hash) {
-          await redis?.hSet(cacheKey, 'hash', data.hash);
-          return data.hash;
-        }
-      }
+    // 1. Tenter la lecture depuis le cache Redis (L1)
+    const cachedHash = await readCachedSpeakerHash(cacheKey);
+    if (cachedHash) return cachedHash;
 
-      const crypto = await import('crypto');
-      const hash = crypto
-        .createHash('sha256')
-        .update(resolvedJid)
-        .digest('hex')
-        .substring(0, 3)
-        .toUpperCase();
+    // 2. Tenter la lecture depuis Supabase (L2 - Persistance)
+    const persistedHash = await readPersistedSpeakerHash(cacheKey, resolvedJid);
+    if (persistedHash) return persistedHash;
 
-      await redis?.hSet(cacheKey, 'hash', hash);
-
-      if (supabase) {
-        await supabase
-          .from('users')
-          .upsert({ jid: resolvedJid, hash }, { onConflict: 'jid' })
-          .select();
-      }
-
+    // 3. Aucun hash existant : calcul déterministe SHA-256
+    try {
+      const hash = this.computeSpeakerHash(resolvedJid);
+      await persistSpeakerHash(cacheKey, resolvedJid, hash);
       return hash;
     } catch (e: unknown) {
-      console.error('[UserService] getSpeakerHash error:', extractErrorMessage(e));
-      const crypto = await import('crypto');
-      return crypto
-        .createHash('sha256')
-        .update(resolvedJid)
-        .digest('hex')
-        .substring(0, 3)
-        .toUpperCase();
+      console.error('[UserService] getSpeakerHash generation error:', extractErrorMessage(e));
+      return this.computeSpeakerHash(resolvedJid);
     }
   },
 
