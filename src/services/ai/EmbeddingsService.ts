@@ -40,20 +40,14 @@ export class EmbeddingsService implements IEmbeddingsService {
       let vector: number[] | null = null;
       try {
         vector = await this._embedWithGemini(cleanText);
-      } catch (geminiError: unknown) {
-        console.warn(
-          '[Embeddings] Gemini failed, attempting OpenAI fallback...',
-          geminiError instanceof Error ? geminiError.message : String(geminiError),
-        );
+      } catch {
+        console.warn('[Embeddings] Gemini provider failed, attempting OpenAI fallback');
       }
       if (vector) return vector;
 
       return await this._embedWithOpenAI(cleanText);
-    } catch (error: unknown) {
-      console.error(
-        '[Embeddings] Fatal error:',
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      console.error('[Embeddings] Fatal error during embedding generation');
       return null;
     }
   }
@@ -77,8 +71,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'Gemini API Error');
+      throw new Error(`Gemini API Error (${response.status})`);
     }
 
     const data = await response.json();
@@ -109,8 +102,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'OpenAI API Error');
+      throw new Error(`OpenAI API Error (${response.status})`);
     }
 
     const data = await response.json();
