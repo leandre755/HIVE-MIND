@@ -234,7 +234,8 @@ export const db = {
         try {
           const parsed = new URL(value);
           const host = parsed.hostname.toLowerCase();
-          const isWhatsAppHost = host === 'whatsapp.net' || host.endsWith('.whatsapp.net');
+          const isWhatsAppHost =
+            host === 'whatsapp.net' || host === 's.whatsapp.net' || host === 'g.us';
           return isWhatsAppHost && !parsed.username && !parsed.password;
         } catch {
           return false;

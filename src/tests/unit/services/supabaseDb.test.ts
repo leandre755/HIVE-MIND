@@ -79,6 +79,11 @@ describe('db.resolveContextFromLegacyId (SS-18: Multi-Tier Memory / Supabase)', 
         'un sous-domaine arbitraire se terminant par whatsapp.net (user@attacker.whatsapp.net)',
       input: 'user@attacker.whatsapp.net',
     },
+    {
+      description:
+        'une URL avec sous-domaine arbitraire se terminant par whatsapp.net (https://attacker.whatsapp.net/path)',
+      input: 'https://attacker.whatsapp.net/path',
+    },
   ])('ne classe pas $description comme WhatsApp et résout en CLI', async ({ input }) => {
     const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
 
