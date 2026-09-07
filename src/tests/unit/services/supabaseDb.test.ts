@@ -74,6 +74,11 @@ describe('db.resolveContextFromLegacyId (SS-18: Multi-Tier Memory / Supabase)', 
       description: 'un courriel standard ou domaine tiers (evil@example.com)',
       input: 'evil@example.com',
     },
+    {
+      description:
+        'un sous-domaine arbitraire se terminant par whatsapp.net (user@attacker.whatsapp.net)',
+      input: 'user@attacker.whatsapp.net',
+    },
   ])('ne classe pas $description comme WhatsApp et résout en CLI', async ({ input }) => {
     const spy = jest.spyOn(db, 'resolveUser').mockResolvedValueOnce('uuid-cli-user');
 

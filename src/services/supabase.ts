@@ -260,12 +260,7 @@ export const db = {
       }
 
       const domain = domainPart.toLowerCase();
-      return (
-        domain === 's.whatsapp.net' ||
-        domain === 'g.us' ||
-        domain === 'whatsapp.net' ||
-        domain.endsWith('.whatsapp.net')
-      );
+      return domain === 's.whatsapp.net' || domain === 'g.us' || domain === 'whatsapp.net';
     };
 
     // Heuristiques de détection
