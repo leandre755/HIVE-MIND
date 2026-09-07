@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master, main]
   workflow_dispatch:
 
 permissions:
@@ -11,19 +11,40 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
 
 jobs:
   validate:
     name: Workspace Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Run Quality Checks
-        run: |
-          echo "Generic workspace checks complete."
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:unit -- --coverage
+        env:
+          NODE_ENV: test
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: leandre755/HIVE-MIND
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
