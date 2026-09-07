@@ -18,7 +18,13 @@ let IdentityMap: IdentityMapModule['IdentityMap'];
 let redis: RedisModule['redis'];
 let supabase: SupabaseModule['supabase'];
 
-function mockSupabaseSelect(hashValue: string | null) {
+function mockSupabaseSelect(
+  hashValue: string | null,
+  upsertFn?: (
+    values: { jid: string; hash: string },
+    options?: { onConflict?: string },
+  ) => { select: () => Promise<{ data: null }> },
+) {
   if (!supabase) return;
   const queryMock = {
     select: () => ({
@@ -26,6 +32,11 @@ function mockSupabaseSelect(hashValue: string | null) {
         single: async () => ({ data: hashValue ? { hash: hashValue } : null }),
       }),
     }),
+    upsert:
+      upsertFn ||
+      (() => ({
+        select: async () => ({ data: null }),
+      })),
   };
   jest
     .spyOn(supabase, 'from')
@@ -145,8 +156,9 @@ function registerSpeakerHashTests() {
     jest.spyOn(redis, 'hGet').mockImplementation(async () => {
       throw new Error('Redis connection failed');
     });
+    let fromSpy: jest.SpiedFunction<NonNullable<typeof supabase>['from']> | undefined;
     if (supabase) {
-      jest.spyOn(supabase, 'from').mockImplementation(() => {
+      fromSpy = jest.spyOn(supabase, 'from').mockImplementation(() => {
         throw new Error('Supabase unreachable');
       });
     }
@@ -154,7 +166,48 @@ function registerSpeakerHashTests() {
 
     const hash = await userService.getSpeakerHash('123');
     expect(hash).toBe('1B5');
+    if (fromSpy) {
+      expect(fromSpy).toHaveBeenCalled();
+    }
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('should reject invalid or corrupted hash in Redis cache, fall back to deterministic SHA-256 and re-persist', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+
+    for (const corruptedHash of ['XYZ', 'CORRUPTED']) {
+      hSetSpy.mockClear();
+      jest.spyOn(redis, 'hGet').mockImplementation(async () => corruptedHash);
+
+      const hash = await userService.getSpeakerHash('123');
+      expect(hash).toBe('1B5');
+      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B5');
+    }
+  });
+
+  it('should reject invalid or corrupted hash in Supabase, fall back to deterministic SHA-256 and re-persist to both cache and DB', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+    const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+
+    for (const corruptedHash of ['CORRUPTED', 'XYZ']) {
+      hSetSpy.mockClear();
+      const upsertSpy = jest.fn(
+        (_values: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+          select: async () => ({ data: null }),
+        }),
+      );
+      mockSupabaseSelect(corruptedHash, upsertSpy);
+
+      const hash = await userService.getSpeakerHash('123');
+      expect(hash).toBe('1B5');
+      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B5');
+      expect(upsertSpy).toHaveBeenCalledWith(
+        { jid: 'resolved@s.whatsapp.net', hash: '1B5' },
+        { onConflict: 'jid' },
+      );
+    }
   });
 }
 

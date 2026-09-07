@@ -56,8 +56,8 @@ function extractErrorMessage(error: unknown): string {
 }
 
 function normalizeSpeakerHash(hash: string): string | null {
-  const normalized = hash.trim().substring(0, 3).toUpperCase();
-  return normalized.length === 3 ? normalized : null;
+  const normalized = hash.trim().toUpperCase();
+  return /^[0-9A-F]{3}$/.test(normalized) ? normalized : null;
 }
 
 async function readCachedSpeakerHash(cacheKey: string): Promise<string | null> {
