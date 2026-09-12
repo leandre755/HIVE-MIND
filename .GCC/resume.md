@@ -18,7 +18,7 @@
 - **File**: `src/services/userService.ts`
   - **Scope**: `checkStoredRedisCollision`, `checkStoredSupabaseCollision`, `isStoredHashColliding`, `computeOutageSpeakerHash`, `setHashOwnerEntry`, `getSpeakerHash`, `_clearLidCacheForTesting`
   - **Exact Technical Change**:
-    1. Implémentation de `checkStoredRedisCollision` et `checkStoredSupabaseCollision` pour valider qu'un hash 8-caractères présent en cache ou en base n'appartient pas déjà à un autre JID avant de le renvoyer.
+    1. Implémentation de `checkStoredRedisCollision` et `checkStoredSupabaseCollision` pour valider qu'un hash 8-caractères présent en cache ou en base n'appartient pas déjà à un autre JID avant de le renvoyer, avec évaluation exhaustive de toutes les lignes retournées par Supabase (`data.find`) afin d'éviter la suppression de détection par un propriétaire en slot zéro.
     2. Implémentation de `isStoredHashColliding` orchestrant les contrôles mémoire, Redis et Supabase sans bypass, avec réservation atomique post-vérification. En cas de collision détectée sur une valeur stockée, le hash conflictuel est ignoré et réparé via `generateUniqueSpeakerHash`.
     3. Implémentation de `computeOutageSpeakerHash` et du cache `jidToVerifiedHashMap` pour conserver la tentative de salage assignée lors de pannes et préserver la stabilité d'attribution d'identité.
 - **File**: `src/tests/unit/services/userService.test.ts`

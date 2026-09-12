@@ -277,9 +277,13 @@ async function checkStoredSupabaseCollision(hash: string, resolvedJid: string): 
       return false;
     }
 
-    const firstOwner = (data[0] as { jid?: string })?.jid;
-    if (firstOwner && firstOwner !== resolvedJid) {
-      setHashOwnerEntry(hash, firstOwner);
+    const conflicting = data.find((row) => {
+      const ownerJid = (row as { jid?: string })?.jid;
+      return Boolean(ownerJid && ownerJid !== resolvedJid);
+    });
+    const conflictingJid = (conflicting as { jid?: string })?.jid;
+    if (conflictingJid) {
+      setHashOwnerEntry(hash, conflictingJid);
       return true;
     }
   } catch {
