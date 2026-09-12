@@ -193,7 +193,7 @@ async function checkSupabaseCandidateOwner(
 ): Promise<'available' | 'collision' | 'error'> {
   if (!supabase) return 'available';
   try {
-    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(2);
+    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(10);
 
     if (error) {
       const isNotFound =
@@ -211,8 +211,9 @@ async function checkSupabaseCandidateOwner(
 
     if (Array.isArray(data) && data.length > 0) {
       const conflicting = data.find((row) => {
-        const ownerJid = (row as { jid?: string })?.jid;
-        return Boolean(ownerJid && ownerJid !== resolvedJid);
+        const rawOwner = (row as { jid?: string })?.jid;
+        const normalizedOwner = rawOwner ? rawOwner.replace(/:\d+@/, '@') : undefined;
+        return Boolean(normalizedOwner && normalizedOwner !== resolvedJid);
       });
       const conflictingJid = (conflicting as { jid?: string })?.jid;
       if (conflictingJid) {
@@ -262,9 +263,12 @@ async function checkStoredRedisCollision(hash: string, resolvedJid: string): Pro
   try {
     const key = `hash:owner:${hash}`;
     const currentOwner = await redis.get(key);
-    if (currentOwner && currentOwner !== resolvedJid) {
-      setHashOwnerEntry(hash, currentOwner);
-      return true;
+    if (currentOwner) {
+      const normalizedCurrentOwner = currentOwner.replace(/:\d+@/, '@');
+      if (normalizedCurrentOwner !== resolvedJid) {
+        setHashOwnerEntry(hash, currentOwner);
+        return true;
+      }
     }
   } catch {
     // Ignorer l'erreur Redis
@@ -275,14 +279,15 @@ async function checkStoredRedisCollision(hash: string, resolvedJid: string): Pro
 async function checkStoredSupabaseCollision(hash: string, resolvedJid: string): Promise<boolean> {
   if (!supabase) return false;
   try {
-    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(2);
+    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(10);
     if (error || !Array.isArray(data) || data.length === 0) {
       return false;
     }
 
     const conflicting = data.find((row) => {
-      const ownerJid = (row as { jid?: string })?.jid;
-      return Boolean(ownerJid && ownerJid !== resolvedJid);
+      const rawOwner = (row as { jid?: string })?.jid;
+      const normalizedOwner = rawOwner ? rawOwner.replace(/:\d+@/, '@') : undefined;
+      return Boolean(normalizedOwner && normalizedOwner !== resolvedJid);
     });
     const conflictingJid = (conflicting as { jid?: string })?.jid;
     if (conflictingJid) {
@@ -297,7 +302,7 @@ async function checkStoredSupabaseCollision(hash: string, resolvedJid: string): 
 
 async function isStoredHashColliding(hash: string, resolvedJid: string): Promise<boolean> {
   const inMemoryOwner = hashToOwnerMap.get(hash);
-  if (inMemoryOwner && inMemoryOwner !== resolvedJid) {
+  if (inMemoryOwner && inMemoryOwner.replace(/:\d+@/, '@') !== resolvedJid) {
     return true;
   }
 
@@ -312,7 +317,7 @@ async function isStoredHashColliding(hash: string, resolvedJid: string): Promise
   }
 
   setHashOwnerEntry(hash, resolvedJid);
-  redis?.set(`hash:owner:${hash}`, resolvedJid).catch(() => {});
+  redis?.set(`hash:owner:${hash}`, resolvedJid, { NX: true }).catch(() => {});
   return false;
 }
 
@@ -410,16 +415,28 @@ async function persistSpeakerHash(
   return 'persisted';
 }
 
+const COMPARE_AND_DELETE_LUA_SCRIPT = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+`;
+
 async function releaseCandidateReservation(hash: string, resolvedJid: string): Promise<void> {
-  if (hashToOwnerMap.get(hash) === resolvedJid) {
+  if (!hash || !resolvedJid) return;
+  const currentMemoryOwner = hashToOwnerMap.get(hash);
+  if (currentMemoryOwner && currentMemoryOwner.replace(/:\d+@/, '@') === resolvedJid) {
     hashToOwnerMap.delete(hash);
   }
   if (!redis) return;
   try {
     const key = `hash:owner:${hash}`;
-    const currentOwner = await redis.get(key);
-    if (currentOwner === resolvedJid) {
-      await redis.del(key);
+    if (typeof redis.eval === 'function') {
+      await redis.eval(COMPARE_AND_DELETE_LUA_SCRIPT, {
+        keys: [key],
+        arguments: [resolvedJid],
+      });
     }
   } catch {
     // Ignorer l'erreur de liberation Redis
@@ -668,7 +685,7 @@ export const userService = {
       const isColliding = await isStoredHashColliding(persisted.hash, resolvedJid);
       if (!isColliding) {
         redis?.hSet(cacheKey, 'hash', persisted.hash).catch(() => {});
-        redis?.set(`hash:owner:${persisted.hash}`, resolvedJid).catch(() => {});
+        redis?.set(`hash:owner:${persisted.hash}`, resolvedJid, { NX: true }).catch(() => {});
         return persisted.hash;
       }
     }
@@ -681,7 +698,15 @@ export const userService = {
     }
 
     // 3. Migration (hash legacy), nouvel utilisateur, ou réparation d'une collision stockée
-    return await generateUniqueSpeakerHash(this, resolvedJid, cacheKey);
+    try {
+      return await generateUniqueSpeakerHash(this, resolvedJid, cacheKey);
+    } catch (allocErr: unknown) {
+      console.warn(
+        '[UserService] generateUniqueSpeakerHash failed, falling back to outage hash:',
+        extractErrorMessage(allocErr),
+      );
+      return computeOutageSpeakerHash(this, resolvedJid);
+    }
   },
 
   /**

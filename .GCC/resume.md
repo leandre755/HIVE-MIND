@@ -2,43 +2,43 @@
 
 ## 🎯 Functional Outcome & Task Reality
 - **Requested Task**:
-  1. Finaliser la PR #44 (`fix/user-service-weak-crypto`) en résolvant le finding de concurrence de Greptile Review 11 sur le commit `f44b9b7` (absence de réservation partagée hors Redis permettant à des instances concurrentes d'écrire le même hash, unicité en base non contrainte, gestion atomique des retries et libération des réservations de candidats).
-  2. Maintenir la conformité stricte ESLint (`max-lines-per-function` ≤ 200 lignes, cognitive-complexity ≤ 15).
-  3. Valider PR #43 (`fix/embeddings-clear-text-logging`) et PR #44 (`fix/user-service-weak-crypto`).
+  1. Résoudre les 2 findings P1 ouverts par Greptile sur le commit `2f906cd` (PR #44):
+     - Dédoublonnage préalable des hashes et JIDs en base dans la migration SQL `20260912140000_users_hash_and_jid_unique.sql` pour éviter l'échec de création des contraintes uniques `users_hash_key` et `users_jid_key` sur les bases comportant des doublons historiques.
+     - Libération atomique de la réservation Redis via script Lua compare-and-delete (`eval`) dans `releaseCandidateReservation` afin d'éviter qu'une suppression ne supprime la réservation concurrente d'un autre worker ayant pris possession du hash entre le `GET` et le `DEL`.
+  2. Repli gracieux de `getSpeakerHash` sur `computeOutageSpeakerHash` en cas d'échec total d'allocation pour garantir la stabilité de `_recordUserMessageAndPresence` sans lever d'exception non gérée.
+  3. Normalisation des JIDs et utilisation de l'option atomique `{ NX: true }` lors de l'enregistrement de propriété Redis pour prévenir les écrasements concurrents.
+  4. Maintenir la conformité stricte ESLint (`max-lines-per-function` ≤ 200 lignes, cognitive-complexity ≤ 15).
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - **PR #43 (`fix/embeddings-clear-text-logging`)** : 100% VALIDÉE & VÉRIFIÉE (13/13 checks CI verts, 9/9 fils résolus, Greptile 5/5, 0 finding CodeRabbit).
-  - **PR #44 (`fix/user-service-weak-crypto`)** :
-    - Contraintes d'unicité SQL `users_jid_key` et `users_hash_key` ajoutées dans `supabase_setup.sql` et migration idempotente `20260912140000_users_hash_and_jid_unique.sql`.
-    - `claimCandidateInRedis` : renvoie désormais `'unreserved'` lorsque Redis est absent au lieu de supposer un claim partagé.
-    - `upsertSpeakerHashToSupabase` : détection des violations de contrainte unique (`code === '23505'` ou duplicate key) et collision post-upsert lors d'une réservation `unreserved`, sans pollution de propriétaire synthétique.
-    - `releaseCandidateReservation` : libération atomique du verrou candidat dans le cache mémoire local et dans Redis (`redis.del` avec vérification d'ownership) en cas de collision ou d'erreur de persistance.
-    - 47/47 tests unitaires passés : `userService.test.ts` (32/32), `identityMap.test.ts` (15/15).
-    - `npm run build` 0 erreur, `npm run lint:fast` 0 erreur/warning, `eslint` 0 erreur/warning.
-    - CodeRabbit CLI local : `Review complete. No new findings ✔`.
+  - `src/supabase/migrations/20260912140000_users_hash_and_jid_unique.sql` : CTEs de réconciliation avec normalisation SQL des JIDs multi-appareils (`regexp_replace(jid, ':[0-9]+@', '@')`), nullification des doublons (`d.rn > 1`) et normalisation de la ligne canonique (`d.rn = 1`) avant l'ajout de `users_jid_key` et `users_hash_key`.
+  - `src/services/userService.ts` :
+    - `releaseCandidateReservation` exécute le script Lua atomique compare-and-delete via `redis.eval`. En l'absence d'`eval`, aucun `del` non atomique n'est appelé pour éviter toute course TOCTOU ; la réservation expire naturellement par son TTL court de 15s.
+    - `getSpeakerHash` capture les erreurs d'allocation et se replie sur `computeOutageSpeakerHash(this, resolvedJid)`.
+    - `isStoredHashColliding` et `getSpeakerHash` enregistrent la propriété Redis avec `{ NX: true }`.
+    - Requêtes d'inspection des propriétaires candidats et collisions stockées étendues à `limit(10)` avec normalisation de JID (`replace(/:\d+@/, '@')`).
+  - `src/tests/unit/services/userService.test.ts` :
+    - Test de repli sans `redis.eval` mis à jour pour vérifier que `delSpy` n'est pas appelé (`expect(delSpy).not.toHaveBeenCalled()`), prévenant toute suppression de réservation de remplacement.
+    - 37/37 tests unitaires `userService.test.ts` réussis.
+  - `npm run build` : 0 erreur.
+  - `npm run lint:fast` : 0 erreur, 0 warning.
+  - `coderabbit review --agent --uncommitted` : 0 finding.
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/supabase/supabase_setup.sql`
-  - **Scope**: Définition de la table `public.users`
-  - **Exact Technical Change**: Ajout de `jid text UNIQUE,` et de `CONSTRAINT users_hash_key UNIQUE (hash)`.
 - **File**: `src/supabase/migrations/20260912140000_users_hash_and_jid_unique.sql`
   - **Scope**: Migration DDL idempotente
-  - **Exact Technical Change**: Blocs `DO $$` vérifiant l'absence des contraintes `users_jid_key` et `users_hash_key` avant `ALTER TABLE public.users ADD CONSTRAINT ...`.
+  - **Exact Technical Change**: Ajout des CTEs de réconciliation pour nullifier les doublons de `jid` et de `hash` avant création de `users_jid_key` et `users_hash_key`.
 - **File**: `src/services/userService.ts`
-  - **Scope**: `claimCandidateInRedis`, `isUniqueConstraintViolation`, `upsertSpeakerHashToSupabase`, `persistSpeakerHash`, `releaseCandidateReservation`, `generateUniqueSpeakerHash`
-  - **Exact Technical Change**:
-    1. Statut `'unreserved'` quand Redis est absent.
-    2. Détection `isUniqueConstraintViolation` et retry automatique sans marquer `'collision_owner'`.
-    3. Libération explicite du verrou candidat `releaseCandidateReservation` sur collision/erreur de persistance.
+  - **Scope**: `releaseCandidateReservation`, `getSpeakerHash`, `checkSupabaseCandidateOwner`, `checkStoredSupabaseCollision`, `checkStoredRedisCollision`, `isStoredHashColliding`
+  - **Exact Technical Change**: Script Lua atomique CAS pour la libération de réservation Redis, normalisation JID multi-device, enregistrement propriétaire Redis `{ NX: true }`, try/catch sur `generateUniqueSpeakerHash` avec fallback panne, requêtes élargies à `limit(10)`.
 - **File**: `src/tests/unit/services/userService.test.ts`
-  - **Scope**: `registerSpeakerHashConcurrencyTests`
-  - **Exact Technical Change**: Ajout de 3 tests unitaires couvrant la réallocation sur violation de contrainte unique, la détection post-upsert en cas de Redis absent, et la libération des réservations candidates en mémoire et Redis.
+  - **Scope**: Suites de tests de concurrence, d'atomicité et de normalisation
+  - **Exact Technical Change**: Séparation en 3 blocs ≤ 200 lignes, tests de script Lua CAS, tests de course avec propriétaire de remplacement, test de repli gracieux sur panne d'allocation, test fallback sans `eval`, test normalisation device suffix et test option NX.
 - **File**: `.GCC/main.md`
-  - **Scope**: `## 🧠 Decisions Made`, `## 🎯 Objective`
-  - **Exact Technical Change**: Consignation de la décision d'unicité en base et de libération atomique des réservations candidates.
+  - **Scope**: `## 🧠 Decisions Made`
+  - **Exact Technical Change**: Consignation de la décision d'atomicité CAS Lua, de réconciliation pré-migration `jid` & `hash`, de normalisation JID et des réservations NX.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/services/userService.ts src/tests/unit/services/userService.test.ts && npm test -- src/tests/unit/services/userService.test.ts src/tests/unit/services/identityMap.test.ts`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/services/userService.ts src/tests/unit/services/userService.test.ts && NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/services/userService.test.ts`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -48,14 +48,13 @@
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
 
-Test Suites: 2 passed, 2 total
-Tests:       47 passed, 47 total
+PASS src/tests/unit/services/userService.test.ts
+Tests: 37 passed, 37 total
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloqueur local. Le commit doit être poussé pour déclencher les checks CI et l'évaluation Greptile/CodeRabbit.
+- **Blocker / Failure Explanation**: Aucun bloqueur local.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `src/services/userService.ts`, `src/supabase/supabase_setup.sql`, `src/supabase/migrations/20260912140000_users_hash_and_jid_unique.sql`, `src/tests/unit/services/userService.test.ts`, `.GCC/main.md`, `.GCC/resume.md`
-2. **Immediate Action**: Créer le commit `fix(services): enforce hash uniqueness and atomic candidate reservation release` et pousser la branche sur GitHub.
-3. **Verification Command**: `git push origin fix/user-service-weak-crypto && gh pr comment 44 --body "@greptile-apps full review"`
+1. **Target File**: `src/supabase/migrations/20260912140000_users_hash_and_jid_unique.sql`, `src/services/userService.ts`, `src/tests/unit/services/userService.test.ts`, `.GCC/main.md`, `.GCC/resume.md`
+2. **Immediate Action**: Valider et commiter les modifications avec le message conventionnel `fix(services): reconcile legacy duplicate hashes/jids, enforce atomic CAS release in Redis and normalize device jids`, puis pousser sur la branche `fix/user-service-weak-crypto`.

@@ -846,7 +846,9 @@ function registerSpeakerHashConcurrencyTests() {
     );
     setSpy.mockRestore();
   });
+}
 
+function registerSpeakerHashReservationAndRaceTests() {
   it('should release abandoned candidate reservation in Redis and memory when Supabase persistence collides', async () => {
     userService._clearLidCacheForTesting();
     const requester = 'releasing_worker@s.whatsapp.net';
@@ -859,12 +861,15 @@ function registerSpeakerHashConcurrencyTests() {
     const redisStore = new Map<string, string>();
     redisStore.set(`hash:owner:${candidate0}`, requester);
 
-    const delSpy = jest.spyOn(redis, 'del').mockImplementation(async (key) => {
-      redisStore.delete(String(key));
-      return 1;
-    });
-    const getSpy = jest.spyOn(redis, 'get').mockImplementation(async (key) => {
-      return redisStore.get(String(key)) ?? null;
+    const evalSpy = jest.spyOn(redis, 'eval').mockImplementation(async (_script, options) => {
+      const opts = options as { keys?: string[]; arguments?: string[] };
+      const key = opts?.keys?.[0];
+      const expectedOwner = opts?.arguments?.[0];
+      if (key && redisStore.get(key) === expectedOwner) {
+        redisStore.delete(key);
+        return 1;
+      }
+      return 0;
     });
     const setSpy = jest.spyOn(redis, 'set').mockImplementation(async (key, val, options) => {
       if (options && typeof options === 'object' && 'NX' in options && options.NX) {
@@ -894,7 +899,11 @@ function registerSpeakerHashConcurrencyTests() {
     mockSupabaseSelectAndUpsert(upsertSpy);
     const hash = await userService.getSpeakerHash(requester);
     expect(hash).toBe(candidate1);
-    expect(delSpy).toHaveBeenCalledWith(`hash:owner:${candidate0}`);
+    expect(evalSpy).toHaveBeenCalledWith(expect.stringContaining('redis.call("del", KEYS[1])'), {
+      keys: [`hash:owner:${candidate0}`],
+      arguments: [requester],
+    });
+    expect(redisStore.has(`hash:owner:${candidate0}`)).toBe(false);
 
     // Verify candidate0 was also removed from the in-memory ownership map by reclaiming it
     const reclaimer = 'reclaimer@s.whatsapp.net';
@@ -916,8 +925,205 @@ function registerSpeakerHashConcurrencyTests() {
     expect(reclaimedHash).toBe(candidate0);
 
     computeSpy.mockRestore();
+    evalSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('should not delete replacement owner when candidate reservation release races with new owner', async () => {
+    userService._clearLidCacheForTesting();
+    const originalRequester = 'original_worker@s.whatsapp.net';
+    const replacementWorker = 'replacement_worker@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(originalRequester, 0);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const redisStore = new Map<string, string>();
+    const evalSpy = jest.spyOn(redis, 'eval').mockImplementation(async (_script, options) => {
+      const opts = options as { keys?: string[]; arguments?: string[] };
+      const key = opts?.keys?.[0];
+      const expectedOwner = opts?.arguments?.[0];
+      // Simulate another worker claiming the candidate before release executes
+      redisStore.set(`hash:owner:${candidate0}`, replacementWorker);
+      if (key && redisStore.get(key) === expectedOwner) {
+        redisStore.delete(key);
+        return 1;
+      }
+      return 0;
+    });
+
+    const upsertSpy = jest.fn(
+      (values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => {
+          if (values?.hash === candidate0) {
+            return {
+              data: null,
+              error: { message: 'Transient timeout' },
+            };
+          }
+          return { data: null, error: null };
+        },
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    await userService.getSpeakerHash(originalRequester);
+    expect(redisStore.get(`hash:owner:${candidate0}`)).toBe(replacementWorker);
+
+    evalSpy.mockRestore();
+  });
+
+  it('should fallback to outage hash when candidate allocation fails completely instead of throwing unhandled error', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'outage_requester@s.whatsapp.net';
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const queryMock = {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+          limit: async () => ({ data: null, error: { message: 'Fatal DB outage' } }),
+        }),
+        limit: async () => ({ data: null, error: { message: 'Fatal DB outage' } }),
+      }),
+      upsert: () => ({
+        select: async () => ({ data: null, error: { message: 'Fatal DB outage' } }),
+      }),
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toHaveLength(8);
+    expect(hash).toBe(userService.computeSpeakerHash(requester, 0));
+  });
+}
+
+function registerSpeakerHashFallbackAndNormalizationTests() {
+  it('should not delete reservation non-atomically when redis.eval is not a function to prevent TOCTOU', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'eval_fallback_worker@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+    const candidate1 = userService.computeSpeakerHash(requester, 1);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const redisStore = new Map<string, string>();
+    redisStore.set(`hash:owner:${candidate0}`, requester);
+
+    const originalEval = redis.eval;
+    (redis as unknown as { eval?: unknown }).eval = undefined;
+
+    const delSpy = jest.spyOn(redis, 'del').mockImplementation(async (key) => {
+      redisStore.delete(String(key));
+      return 1;
+    });
+
+    const upsertSpy = jest.fn(
+      (values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => {
+          if (values?.hash === candidate0) {
+            return {
+              data: null,
+              error: { message: 'Transient timeout' },
+            };
+          }
+          return { data: null, error: null };
+        },
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate1);
+    expect(delSpy).not.toHaveBeenCalled();
+    expect(redisStore.get(`hash:owner:${candidate0}`)).toBe(requester);
+
+    (redis as unknown as { eval?: unknown }).eval = originalEval;
     delSpy.mockRestore();
-    getSpy.mockRestore();
+  });
+
+  it('should recognize same user across device suffixes when checking stored Supabase collision', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'device_user@s.whatsapp.net';
+    const storedHash = 'BADC0FFE';
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const queryMock = {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { hash: storedHash }, error: null }),
+          limit: async () => ({
+            data: [{ jid: 'device_user:2@s.whatsapp.net' }],
+            error: null,
+          }),
+        }),
+        limit: async () => ({
+          data: [{ jid: 'device_user:2@s.whatsapp.net' }],
+          error: null,
+        }),
+      }),
+      upsert: () => ({
+        select: async () => ({ data: null, error: null }),
+      }),
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(storedHash);
+  });
+
+  it('should pass NX option to redis.set when recording stored owner', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'nx_test_user@s.whatsapp.net';
+    const storedHash = 'AABBCCDD';
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const setSpy = jest.spyOn(redis, 'set').mockResolvedValue('OK');
+    const queryMock = {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { hash: storedHash }, error: null }),
+          limit: async () => ({ data: [], error: null }),
+        }),
+        limit: async () => ({ data: [], error: null }),
+      }),
+      upsert: () => ({
+        select: async () => ({ data: null, error: null }),
+      }),
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(storedHash);
+    expect(setSpy).toHaveBeenCalledWith(
+      `hash:owner:${storedHash}`,
+      requester,
+      expect.objectContaining({ NX: true }),
+    );
     setSpy.mockRestore();
   });
 }
@@ -1018,4 +1224,12 @@ describe('userService unit tests', () => {
   describe('getSpeakerHash() - Collision Repair', registerSpeakerHashCollisionTests);
   describe('getSpeakerHash() - LID Resilience', registerSpeakerHashLidResilienceTests);
   describe('getSpeakerHash() - Concurrency & Uniqueness', registerSpeakerHashConcurrencyTests);
+  describe(
+    'getSpeakerHash() - Atomic Release & Race Resilience',
+    registerSpeakerHashReservationAndRaceTests,
+  );
+  describe(
+    'getSpeakerHash() - Fallback & Normalization',
+    registerSpeakerHashFallbackAndNormalizationTests,
+  );
 });
