@@ -39,9 +39,14 @@ Mission de remédiation et validation séquentielle des 5 Pull Requests (#42, #4
 - PR #45 (`fix/workflow-hygiene-eslint-greetings`) : FUSIONNÉE (MERGED).
 - PR #46 (`ci/codecov-integration`) : FUSIONNÉE (MERGED).
 - PR #43 (`fix/embeddings-clear-text-logging`) : 100% VALIDÉE & VÉRIFIÉE (13/13 checks CI verts, 9/9 fils résolus, Greptile 5/5, 0 finding CodeRabbit).
-- PR #44 (`fix/user-service-weak-crypto`) : IMPLÉMENTÉE, TESTÉE & POUSSÉE (commits `9ce9716`, `8946bb9` et `5ac3026`, 11/11 checks CI réussis, résolution des collisions et pannes transitoires validée, 39/39 tests unitaires passés : userService 24, identityMap 15, 0 finding CodeRabbit).
+- PR #44 (`fix/user-service-weak-crypto`) : EN COURS DE FINALISATION (commits `9ce9716`, `8946bb9`, `5ac3026`, `ebf61d3`, `d15e10c`, résolution Greptile Review 10 : checkSupabaseCandidateOwner étendu à limit(2) et data.find, 44/44 tests unitaires passés : userService 29, identityMap 15, 0 finding CodeRabbit).
 
 ## 🧠 Decisions Made
+
+- [2026-09-12] **Évaluation Multi-Lignes des Candidats de Collision Supabase dans `checkSupabaseCandidateOwner` (PR #44)**
+  - **Context**: L'audit Greptile (finding P1 sur le commit `d15e10c`) a identifié que `checkSupabaseCandidateOwner` effectuait un `.limit(1)` et n'évaluait que la première ligne (`data[0]`). Lorsque le JID du demandeur possédait déjà une ligne dans Supabase retournée en première position par l'index, la présence d'un second propriétaire distinct pour ce même hash (`data[1]`) était occultée et le candidat était faussement jugé disponible.
+  - **Discarded Options**: Conserver `.limit(1)` avec filtre SQL `neq('jid', resolvedJid)` (rejeté : complexifie les requêtes et ne permet pas d'identifier si le demandeur est déjà associé au hash) ; ne vérifier les collisions que via Redis (rejeté : inopérant si la collision n'existe que dans la base Supabase).
+  - **Rationale**: (1) Requête `supabase.from('users').select('jid').eq('hash', hash).limit(2)` et évaluation via `data.find((row) => Boolean(ownerJid && ownerJid !== resolvedJid))`. Si un tiers distinct est détecté, la collision est signalée immédiatement et enregistrée dans `hashToOwnerMap`. (2) Ajout du test unitaire dédié avec mock multi-lignes vérifiant la bascule vers la tentative 1. (3) 44/44 tests unitaires validés (userService: 29, identityMap: 15), 0 warning/erreur ESLint/oxlint.
 
 - [2026-09-12] **Réparation des Collisions Stockées & Stabilité de l'Attribution Locuteur en Panne Transitoire (PR #44)**
   - **Context**: L'audit Greptile (deux findings P1 sur le commit `25a8a08`) a révélé deux faiblesses critiques : (1) Lors d'une panne Supabase transitoire, le renvoi d'un hash legacy Redis `ABC` après une récupération partielle rompait la stabilité de l'identité du locuteur par rapport à la panne totale (`22E45B99`). (2) Les hashes 8-caractères déjà stockés en cache Redis (`cached.status === 'found'`) ou en base Supabase (`persisted.status === 'found'`) étaient retournés sans vérifier si un autre JID en était déjà propriétaire, permettant à des collisions préalablement persistées de fusionner deux locuteurs distincts.

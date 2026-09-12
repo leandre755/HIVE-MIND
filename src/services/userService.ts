@@ -193,7 +193,7 @@ async function checkSupabaseCandidateOwner(
 ): Promise<'available' | 'collision' | 'error'> {
   if (!supabase) return 'available';
   try {
-    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(1);
+    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(2);
 
     if (error) {
       const isNotFound =
@@ -210,10 +210,13 @@ async function checkSupabaseCandidateOwner(
     }
 
     if (Array.isArray(data) && data.length > 0) {
-      const firstRow = data[0] as { jid?: string } | undefined;
-      const ownerJid = firstRow?.jid;
-      if (ownerJid && ownerJid !== resolvedJid) {
-        setHashOwnerEntry(hash, ownerJid);
+      const conflicting = data.find((row) => {
+        const ownerJid = (row as { jid?: string })?.jid;
+        return Boolean(ownerJid && ownerJid !== resolvedJid);
+      });
+      const conflictingJid = (conflicting as { jid?: string })?.jid;
+      if (conflictingJid) {
+        setHashOwnerEntry(hash, conflictingJid);
         return 'collision';
       }
     }

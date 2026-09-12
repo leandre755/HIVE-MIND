@@ -500,7 +500,7 @@ function registerSpeakerHashMigrationTests() {
   });
 }
 
-function registerSpeakerHashCollisionAndLidResilienceTests() {
+function registerSpeakerHashCollisionTests() {
   it('should detect and repair previously stored colliding hash in Redis cache', async () => {
     userService._clearLidCacheForTesting();
     const jid1 = '4477009016300@s.whatsapp.net';
@@ -575,6 +575,48 @@ function registerSpeakerHashCollisionAndLidResilienceTests() {
     expect(upsertSpy).toHaveBeenCalledWith({ jid: jid2, hash: hash2 }, { onConflict: 'jid' });
   });
 
+  it('should detect candidate collision when requester is returned in slot zero before a distinct owner in Supabase', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'requester@s.whatsapp.net';
+    const distinctOwner = 'distinct@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+
+    const queryMock = {
+      select: () => ({
+        eq: (_field: string, val: string) => ({
+          single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+          limit: async () => ({
+            data: val === candidate0 ? [{ jid: requester }, { jid: distinctOwner }] : [],
+          }),
+        }),
+        limit: async () => ({ data: [] }),
+      }),
+      upsert: upsertSpy,
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).not.toBe(candidate0);
+    expect(hash).toHaveLength(8);
+    expect(hash).toBe(userService.computeSpeakerHash(requester, 1));
+    expect(upsertSpy).toHaveBeenCalledWith({ jid: requester, hash }, { onConflict: 'jid' });
+  });
+
   it('should retain verified collision attempt during Supabase read outage rather than reverting to attempt zero', async () => {
     userService._clearLidCacheForTesting();
     const jid1 = '4477009016300@s.whatsapp.net';
@@ -602,7 +644,9 @@ function registerSpeakerHashCollisionAndLidResilienceTests() {
     expect(outageHash2).toBe(hash2);
     expect(outageHash2).not.toBe('CB1421A6');
   });
+}
 
+function registerSpeakerHashLidResilienceTests() {
   it('should not create durable speaker identity in Redis or Supabase when LID resolution temporarily fails', async () => {
     userService._clearLidCacheForTesting();
     const testLid = '123456789@lid';
@@ -793,8 +837,6 @@ describe('userService unit tests', () => {
 
   describe('getSpeakerHash()', registerSpeakerHashTests);
   describe('getSpeakerHash() - Migration & Resilience', registerSpeakerHashMigrationTests);
-  describe(
-    'getSpeakerHash() - Collision Repair & LID Resilience',
-    registerSpeakerHashCollisionAndLidResilienceTests,
-  );
+  describe('getSpeakerHash() - Collision Repair', registerSpeakerHashCollisionTests);
+  describe('getSpeakerHash() - LID Resilience', registerSpeakerHashLidResilienceTests);
 });
