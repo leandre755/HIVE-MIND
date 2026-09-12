@@ -43,7 +43,7 @@ describe('EmbeddingsService - Core Generation', () => {
     const service = new EmbeddingsService({
       geminiKey: 'mock-gemini-test-key',
       model: 'custom-model',
-      dimensions: 768,
+      dimensions: 3,
     });
 
     const result = await service.embed('hello\nworld');
@@ -59,7 +59,7 @@ describe('EmbeddingsService - Core Generation', () => {
 
     const requestBody = JSON.parse(fetchCall[1]?.body as string);
     expect(requestBody.content.parts[0].text).toBe('hello world');
-    expect(requestBody.outputDimensionality).toBe(768);
+    expect(requestBody.outputDimensionality).toBe(3);
 
     // Verify console.log does NOT contain the API key (clear-text or obfuscated)
     expect(logSpy).toHaveBeenCalled();
@@ -128,6 +128,42 @@ describe('EmbeddingsService - OpenAI Fallback & Validation', () => {
     }
   });
 
+  it('should fallback to OpenAI if Gemini returns an invalid or incorrectly sized vector', async () => {
+    const mockOpenAiVector = [0.4, 0.5, 0.6];
+    const mockFetch = jest
+      .fn<typeof fetch>()
+      .mockImplementation(async (input: RequestInfo | URL) => {
+        const parsed = new URL(String(input));
+        if (parsed.hostname === 'generativelanguage.googleapis.com') {
+          return {
+            ok: true,
+            json: async () => ({
+              embedding: { values: [0.1, 0.2] },
+            }),
+          } as unknown as Response;
+        }
+        if (parsed.hostname === 'api.openai.com') {
+          return {
+            ok: true,
+            json: async () => ({
+              data: [{ embedding: mockOpenAiVector }],
+            }),
+          } as unknown as Response;
+        }
+        throw new Error(`Unexpected hostname: ${parsed.hostname}`);
+      });
+    global.fetch = mockFetch;
+
+    const service = new EmbeddingsService({
+      geminiKey: 'gemini-key',
+      openaiKey: 'openai-key',
+      dimensions: 3,
+    });
+
+    const result = await service.embed('gemini invalid vector test');
+    expect(result).toEqual(mockOpenAiVector);
+  });
+
   it('should return null when Gemini fails and OpenAI key is not provided', async () => {
     const mockFetch = jest.fn<typeof fetch>().mockResolvedValue({
       ok: false,
@@ -186,6 +222,15 @@ describe('EmbeddingsService - OpenAI Fallback & Validation', () => {
     for (const callArgs of errorSpy.mock.calls) {
       expect(callArgs.join(' ')).not.toContain('OpenAI socket hang up');
     }
+  });
+});
+
+describe('EmbeddingsService - Response Validation', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
   });
 
   it('should handle malformed or empty OpenAI response during fallback and return null', async () => {

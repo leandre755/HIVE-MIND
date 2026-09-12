@@ -75,7 +75,15 @@ export class EmbeddingsService implements IEmbeddingsService {
     }
 
     const data = await response.json();
-    return data.embedding?.values || null;
+    const values: unknown = data.embedding?.values;
+    if (
+      !Array.isArray(values) ||
+      values.length !== this.dimensions ||
+      !values.every((value) => typeof value === 'number' && Number.isFinite(value))
+    ) {
+      return null;
+    }
+    return values;
   }
 
   private async _embedWithOpenAI(text: string): Promise<number[] | null> {
