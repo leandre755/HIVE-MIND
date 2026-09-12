@@ -1,7 +1,17 @@
 import { describe, it, afterEach, jest, expect } from '@jest/globals';
 import { EmbeddingsService } from '../../../services/ai/EmbeddingsService.js';
 
-describe('EmbeddingsService - Core Generation and Fallback', () => {
+function serializeLoggedArg(arg: unknown): string {
+  if (arg instanceof Error) {
+    return `${arg.name}: ${arg.message} ${arg.stack ?? ''}`;
+  }
+  if (typeof arg === 'object' && arg !== null) {
+    return JSON.stringify(arg);
+  }
+  return String(arg);
+}
+
+describe('EmbeddingsService - Core Generation', () => {
   const originalFetch = global.fetch;
 
   afterEach(() => {
@@ -60,6 +70,15 @@ describe('EmbeddingsService - Core Generation and Fallback', () => {
       expect(loggedStr).not.toContain('Key:');
     }
   });
+});
+
+describe('EmbeddingsService - OpenAI Fallback & Validation', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
 
   it('should fallback to OpenAI if Gemini fails', async () => {
     const mockOpenAiVector = [0.4, 0.5, 0.6];
@@ -94,7 +113,7 @@ describe('EmbeddingsService - Core Generation and Fallback', () => {
     const service = new EmbeddingsService({
       geminiKey: 'gemini-key',
       openaiKey: 'openai-key',
-      dimensions: 512,
+      dimensions: 3,
     });
 
     const result = await service.embed('fallback test');
@@ -185,7 +204,7 @@ describe('EmbeddingsService - Core Generation and Fallback', () => {
         if (parsed.hostname === 'api.openai.com') {
           return {
             ok: true,
-            json: async () => ({ data: [] }),
+            json: async () => ({}),
           } as unknown as Response;
         }
         throw new Error(`Unexpected hostname: ${parsed.hostname}`);
@@ -202,6 +221,50 @@ describe('EmbeddingsService - Core Generation and Fallback', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
     );
+  });
+
+  it('should return null when OpenAI response vector is empty, non-numeric, or incorrectly sized', async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const testCases: unknown[] = [
+      [],
+      [0.1, 0.2],
+      [0.1, '0.2', 0.3],
+      [0.1, Number.NaN, 0.3],
+      'not-an-array',
+    ];
+
+    for (const invalidEmbedding of testCases) {
+      global.fetch = jest
+        .fn<typeof fetch>()
+        .mockImplementation(async (input: RequestInfo | URL) => {
+          const parsed = new URL(String(input));
+          if (parsed.hostname === 'generativelanguage.googleapis.com') {
+            return {
+              ok: false,
+              status: 500,
+              json: async () => ({ error: { message: 'Gemini offline' } }),
+            } as unknown as Response;
+          }
+          if (parsed.hostname === 'api.openai.com') {
+            return {
+              ok: true,
+              json: async () => ({ data: [{ embedding: invalidEmbedding }] }),
+            } as unknown as Response;
+          }
+          throw new Error(`Unexpected hostname: ${parsed.hostname}`);
+        });
+
+      const service = new EmbeddingsService({
+        geminiKey: 'gemini-key',
+        openaiKey: 'openai-key',
+        dimensions: 3,
+      });
+
+      const result = await service.embed('invalid vector test');
+      expect(result).toBeNull();
+    }
   });
 });
 
@@ -273,8 +336,7 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
     ];
 
     for (const arg of allLoggedArgs) {
-      const serialized = typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
-      expect(serialized).not.toContain(syntheticSecret);
+      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
     }
   });
 
@@ -320,8 +382,7 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
     ];
 
     for (const arg of allLoggedArgs) {
-      const serialized = typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
-      expect(serialized).not.toContain(syntheticSecret);
+      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
     }
   });
 });

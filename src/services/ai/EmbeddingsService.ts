@@ -106,6 +106,14 @@ export class EmbeddingsService implements IEmbeddingsService {
     }
 
     const data = await response.json();
-    return data?.data?.[0]?.embedding || null;
+    const embedding: unknown = data?.data?.[0]?.embedding;
+    if (
+      !Array.isArray(embedding) ||
+      embedding.length !== this.dimensions ||
+      !embedding.every((value) => typeof value === 'number' && Number.isFinite(value))
+    ) {
+      return null;
+    }
+    return embedding;
   }
 }
