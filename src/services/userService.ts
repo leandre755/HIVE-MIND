@@ -55,57 +55,83 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function normalizeSpeakerHash(hash: string): string | null {
+type CachedHashResult =
+  { status: 'found'; hash: string } | { status: 'legacy'; hash: string } | { status: 'not_found' };
+
+type PersistedHashResult =
+  | { status: 'found'; hash: string }
+  | { status: 'legacy'; hash: string }
+  | { status: 'not_found' }
+  | { status: 'error' };
+
+function classifySpeakerHash(hash: string): 'found' | 'legacy' | 'not_found' {
   const normalized = hash.trim().toUpperCase();
-  // Supporte les nouveaux hashs (>= 8 car.) et preserve les hashs legacy (ex: 3 car.) pour continuite
-  return /^[0-9A-F]{3,64}$/.test(normalized) ? normalized : null;
+  if (/^[0-9A-F]{8,64}$/.test(normalized)) {
+    return 'found';
+  }
+  if (/^[0-9A-F]{3,7}$/.test(normalized)) {
+    return 'legacy';
+  }
+  return 'not_found';
 }
 
-async function readCachedSpeakerHash(cacheKey: string): Promise<string | null> {
+async function readCachedSpeakerHash(cacheKey: string): Promise<CachedHashResult> {
   try {
     const cached = await redis?.hGet(cacheKey, 'hash');
-    if (!cached) return null;
-    const normalized = normalizeSpeakerHash(cached);
-    if (normalized) {
-      if (cached !== normalized && redis) {
-        redis.hSet(cacheKey, 'hash', normalized).catch(() => {});
-      }
-      return normalized;
+    if (!cached) return { status: 'not_found' };
+    const classification = classifySpeakerHash(cached);
+    const normalized = cached.trim().toUpperCase();
+    if (classification === 'found') {
+      return { status: 'found', hash: normalized };
     }
-    return null;
+    if (classification === 'legacy') {
+      return { status: 'legacy', hash: normalized };
+    }
+    return { status: 'not_found' };
   } catch (redisErr: unknown) {
     console.error('[UserService] getSpeakerHash error:', extractErrorMessage(redisErr));
-    return null;
+    return { status: 'not_found' };
   }
 }
 
-async function readPersistedSpeakerHash(
-  cacheKey: string,
-  resolvedJid: string,
-): Promise<string | null> {
-  if (!supabase) return null;
+async function readPersistedSpeakerHash(resolvedJid: string): Promise<PersistedHashResult> {
+  if (!supabase) return { status: 'not_found' };
   try {
-    const { data } = await supabase.from('users').select('hash').eq('jid', resolvedJid).single();
+    const { data, error } = await supabase
+      .from('users')
+      .select('hash')
+      .eq('jid', resolvedJid)
+      .single();
 
-    if (!data?.hash) return null;
-    const normalized = normalizeSpeakerHash(data.hash);
-    if (!normalized) return null;
-
-    redis?.hSet(cacheKey, 'hash', normalized).catch(() => {});
-    if (data.hash !== normalized) {
-      try {
-        const updateBuilder = supabase.from('users').update({ hash: normalized });
-        if (updateBuilder && typeof updateBuilder.eq === 'function') {
-          await updateBuilder.eq('jid', resolvedJid);
-        }
-      } catch {
-        // Ignorer l'erreur de mise à jour Supabase
+    if (error) {
+      const isNotFound =
+        (typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'PGRST116') ||
+        (typeof error.message === 'string' &&
+          (error.message.includes('0 rows') || error.message.includes('JSON object requested')));
+      if (isNotFound) {
+        return { status: 'not_found' };
       }
+      console.warn('[UserService] Supabase getSpeakerHash read error:', extractErrorMessage(error));
+      return { status: 'error' };
     }
-    return normalized;
+
+    if (!data?.hash) return { status: 'not_found' };
+
+    const classification = classifySpeakerHash(String(data.hash));
+    const normalized = String(data.hash).trim().toUpperCase();
+    if (classification === 'found') {
+      return { status: 'found', hash: normalized };
+    }
+    if (classification === 'legacy') {
+      return { status: 'legacy', hash: normalized };
+    }
+    return { status: 'not_found' };
   } catch (dbErr: unknown) {
     console.warn('[UserService] Supabase getSpeakerHash read error:', extractErrorMessage(dbErr));
-    return null;
+    return { status: 'error' };
   }
 }
 
@@ -216,7 +242,7 @@ export const userService = {
   /**
    * Recupere ou genere le hash unique d'un utilisateur (pour Speaker Injection)
    * @param jid - JID de l'utilisateur
-   * @returns Hash de 8 caracteres (ou hash legacy 3+ car. conserve pour continuite)
+   * @returns Hash de 8 caracteres
    */
   async getSpeakerHash(jid: string | null | undefined): Promise<string> {
     if (!jid) return 'UNK';
@@ -231,14 +257,34 @@ export const userService = {
     const cacheKey = `user:${resolvedJid}:data`;
 
     // 1. Tenter la lecture depuis le cache Redis (L1)
-    const cachedHash = await readCachedSpeakerHash(cacheKey);
-    if (cachedHash) return cachedHash;
+    const cached = await readCachedSpeakerHash(cacheKey);
+    if (cached.status === 'found') {
+      return cached.hash;
+    }
 
     // 2. Tenter la lecture depuis Supabase (L2 - Persistance)
-    const persistedHash = await readPersistedSpeakerHash(cacheKey, resolvedJid);
-    if (persistedHash) return persistedHash;
+    // Note: Si Redis contient un hash legacy, nous consultons d'abord Supabase
+    // pour preserver un hash courant valide eventuellement present dans la base.
+    const persisted = await readPersistedSpeakerHash(resolvedJid);
+    if (persisted.status === 'found') {
+      redis?.hSet(cacheKey, 'hash', persisted.hash).catch(() => {});
+      return persisted.hash;
+    }
 
-    // 3. Aucun hash existant : calcul déterministe SHA-256
+    // En cas d'erreur de lecture Supabase (panne transitoire) :
+    // Calculer le hash deterministe sans persister pour eviter d'ecraser l'identite existante
+    if (persisted.status === 'error') {
+      return this.computeSpeakerHash(resolvedJid);
+    }
+
+    // Si Supabase ou Redis contient un hash legacy, migrer vers le hash deterministe 8-car
+    if (persisted.status === 'legacy' || cached.status === 'legacy') {
+      const migratedHash = this.computeSpeakerHash(resolvedJid);
+      await persistSpeakerHash(cacheKey, resolvedJid, migratedHash);
+      return migratedHash;
+    }
+
+    // 4. Absence confirmee dans le cache et la base : nouvel utilisateur
     try {
       const hash = this.computeSpeakerHash(resolvedJid);
       await persistSpeakerHash(cacheKey, resolvedJid, hash);

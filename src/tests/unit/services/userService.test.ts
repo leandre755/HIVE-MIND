@@ -45,6 +45,32 @@ function mockSupabaseSelect(
     );
 }
 
+function mockSupabaseSelectError(
+  errorToThrow: Error,
+  upsertFn?: () => { select: () => Promise<{ data: null }> },
+) {
+  if (!supabase) return;
+  const queryMock = {
+    select: () => ({
+      eq: () => ({
+        single: async () => {
+          throw errorToThrow;
+        },
+      }),
+    }),
+    upsert:
+      upsertFn ||
+      (() => ({
+        select: async () => ({ data: null }),
+      })),
+  };
+  jest
+    .spyOn(supabase, 'from')
+    .mockImplementation(
+      () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+    );
+}
+
 function mockSupabaseSelectAndUpsert() {
   if (!supabase) return;
   const queryMock = {
@@ -72,10 +98,10 @@ function registerSpeakerHashTests() {
 
   it('should return hash from cache if available', async () => {
     jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
-    jest.spyOn(redis, 'hGet').mockImplementation(async () => 'ABC');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => 'ABCDEF01');
 
     const hash = await userService.getSpeakerHash('123');
-    expect(hash).toBe('ABC');
+    expect(hash).toBe('ABCDEF01');
   });
 
   it('should generate and return an 8-char hash if not in cache', async () => {
@@ -102,8 +128,8 @@ function registerSpeakerHashTests() {
     );
   });
 
-  it('should preserve existing inherited hash from Supabase when Redis lookup and write fail', async () => {
-    const legacyHash = 'FBF';
+  it('should preserve existing valid 8-char hash from Supabase when Redis lookup and write fail', async () => {
+    const existingHash = 'FBF12345';
     jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
     jest.spyOn(redis, 'hGet').mockImplementation(async () => {
       throw new Error('Redis connection failed');
@@ -111,14 +137,14 @@ function registerSpeakerHashTests() {
     jest.spyOn(redis, 'hSet').mockImplementation(async () => {
       throw new Error('Redis write failed');
     });
-    mockSupabaseSelect(legacyHash);
+    mockSupabaseSelect(existingHash);
 
     const hash = await userService.getSpeakerHash('123');
-    expect(hash).toBe(legacyHash);
+    expect(hash).toBe(existingHash);
   });
 
-  it('should populate Redis cache with existing Supabase hash for continuity', async () => {
-    const existingHash = 'FBF';
+  it('should populate Redis cache with existing valid Supabase hash for continuity', async () => {
+    const existingHash = 'FBF12345';
     jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
     jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
     const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
@@ -253,6 +279,74 @@ function registerSpeakerHashTests() {
   });
 }
 
+function registerSpeakerHashMigrationTests() {
+  it('should migrate legacy 3-char hash in Redis to deterministic 8-char hash', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => 'ABC');
+    const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe('1B581DBD');
+    expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B581DBD');
+  });
+
+  it('should migrate legacy 3-char hash in Supabase to deterministic 8-char hash resolving collisions', async () => {
+    const jid1 = '4477009000040@s.whatsapp.net';
+    const jid2 = '4477009000112@s.whatsapp.net';
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const upsertSpy = jest.fn(
+      (_values: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelect('0C2', upsertSpy);
+
+    const speakerHash1 = await userService.getSpeakerHash(jid1);
+    const speakerHash2 = await userService.getSpeakerHash(jid2);
+
+    expect(speakerHash1).toBe('0C275883');
+    expect(speakerHash2).toBe('0C2E0893');
+    expect(speakerHash1).not.toBe(speakerHash2);
+    expect(upsertSpy).toHaveBeenCalledWith({ jid: jid1, hash: '0C275883' }, { onConflict: 'jid' });
+    expect(upsertSpy).toHaveBeenCalledWith({ jid: jid2, hash: '0C2E0893' }, { onConflict: 'jid' });
+  });
+
+  it('should not overwrite stored Supabase identity when a transient read error occurs', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const upsertSpy = jest.fn(() => ({
+      select: async () => ({ data: null }),
+    }));
+
+    mockSupabaseSelectError(new Error('Supabase network timeout'), upsertSpy);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe('1B581DBD');
+    expect(upsertSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('should preserve valid current Supabase hash and heal Redis when Redis contains a legacy hash', async () => {
+    const existingValidHash = 'A1B2C3D4';
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => 'ABC');
+    const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+    mockSupabaseSelect(existingValidHash);
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe(existingValidHash);
+    expect(hSetSpy).toHaveBeenCalledWith(
+      'user:resolved@s.whatsapp.net:data',
+      'hash',
+      existingValidHash,
+    );
+  });
+}
+
 describe('userService unit tests', () => {
   beforeAll(async () => {
     // Import redis client and mock connect immediately
@@ -339,4 +433,5 @@ describe('userService unit tests', () => {
   });
 
   describe('getSpeakerHash()', registerSpeakerHashTests);
+  describe('getSpeakerHash() - Migration & Resilience', registerSpeakerHashMigrationTests);
 });
