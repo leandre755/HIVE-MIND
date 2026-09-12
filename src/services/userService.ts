@@ -227,6 +227,8 @@ async function checkSupabaseCandidateOwner(
   }
 }
 
+const CANDIDATE_RESERVATION_TTL_SEC = 30;
+
 async function claimCandidateInRedis(
   hash: string,
   resolvedJid: string,
@@ -237,18 +239,22 @@ async function claimCandidateInRedis(
   }
   try {
     const key = `hash:owner:${hash}`;
-    const setRes = await redis.set(key, resolvedJid, { NX: true });
+    const setRes = await redis.set(key, resolvedJid, {
+      NX: true,
+      EX: CANDIDATE_RESERVATION_TTL_SEC,
+    });
     if (setRes === 'OK') {
       setHashOwnerEntry(hash, resolvedJid);
       return 'claimed';
     }
 
     const currentOwner = await redis.get(key);
-    if (currentOwner === resolvedJid) {
-      setHashOwnerEntry(hash, resolvedJid);
-      return 'claimed';
-    }
-    if (currentOwner && currentOwner !== resolvedJid) {
+    if (currentOwner) {
+      const normalizedCurrentOwner = currentOwner.replace(/:\d+@/, '@');
+      if (normalizedCurrentOwner === resolvedJid) {
+        setHashOwnerEntry(hash, resolvedJid);
+        return 'claimed';
+      }
       setHashOwnerEntry(hash, currentOwner);
       return 'collision';
     }

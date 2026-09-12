@@ -1126,6 +1126,92 @@ function registerSpeakerHashFallbackAndNormalizationTests() {
     );
     setSpy.mockRestore();
   });
+
+  it('should set bounded TTL (EX) when reserving candidate in Redis to prevent indefinite lockouts on eval failure', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'ttl_test_user@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const setSpy = jest.spyOn(redis, 'set').mockResolvedValue('OK');
+    const queryMock = {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+          limit: async () => ({ data: [], error: null }),
+        }),
+        limit: async () => ({ data: [], error: null }),
+      }),
+      upsert: () => ({
+        select: async () => ({ data: null, error: null }),
+      }),
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate0);
+
+    // Initial temporary reservation MUST have NX and EX
+    expect(setSpy).toHaveBeenCalledWith(
+      `hash:owner:${candidate0}`,
+      requester,
+      expect.objectContaining({ NX: true, EX: expect.any(Number) }),
+    );
+    // Verified confirmed owner write (after persistence) does NOT have EX (permanent)
+    expect(setSpy).toHaveBeenCalledWith(`hash:owner:${candidate0}`, requester);
+
+    setSpy.mockRestore();
+  });
+
+  it('should treat device-suffixed owner in Redis as same user during candidate reservation', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'device_reserve_user@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    // First NX fails (already reserved)
+    const setSpy = jest.spyOn(redis, 'set').mockResolvedValue(null as unknown as string);
+    // get returns owner with device suffix
+    const getSpy = jest
+      .spyOn(redis, 'get')
+      .mockResolvedValue('device_reserve_user:1@s.whatsapp.net');
+
+    const queryMock = {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+          limit: async () => ({ data: [], error: null }),
+        }),
+        limit: async () => ({ data: [], error: null }),
+      }),
+      upsert: () => ({
+        select: async () => ({ data: null, error: null }),
+      }),
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate0);
+
+    setSpy.mockRestore();
+    getSpy.mockRestore();
+  });
 }
 
 describe('userService unit tests', () => {
