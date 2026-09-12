@@ -57,7 +57,8 @@ function extractErrorMessage(error: unknown): string {
 
 function normalizeSpeakerHash(hash: string): string | null {
   const normalized = hash.trim().toUpperCase();
-  return /^[0-9A-F]{3}$/.test(normalized) ? normalized : null;
+  // Supporte les nouveaux hashs (>= 8 car.) et preserve les hashs legacy (ex: 3 car.) pour continuite
+  return /^[0-9A-F]{3,64}$/.test(normalized) ? normalized : null;
 }
 
 async function readCachedSpeakerHash(cacheKey: string): Promise<string | null> {
@@ -204,18 +205,18 @@ export const userService = {
   },
 
   /**
-   * Calcule de manière déterministe le hash d'un speaker (SHA-256 tronqué à 3 car. majuscules)
+   * Calcule de maniere deterministe le hash d'un speaker (SHA-256 tronque a 8 car. majuscules)
    * @param identifier - Identifiant utilisateur (JID)
-   * @returns Hash de 3 caractères majuscules (ex: "1B5")
+   * @returns Hash de 8 caracteres majuscules (ex: "1B581DBD")
    */
   computeSpeakerHash(identifier: string): string {
-    return createHash('sha256').update(identifier).digest('hex').substring(0, 3).toUpperCase();
+    return createHash('sha256').update(identifier).digest('hex').substring(0, 8).toUpperCase();
   },
 
   /**
-   * Récupère ou génère le hash unique d'un utilisateur (pour Speaker Injection)
+   * Recupere ou genere le hash unique d'un utilisateur (pour Speaker Injection)
    * @param jid - JID de l'utilisateur
-   * @returns Hash de 3 caractères (ex: "A7X")
+   * @returns Hash de 8 caracteres (ou hash legacy 3+ car. conserve pour continuite)
    */
   async getSpeakerHash(jid: string | null | undefined): Promise<string> {
     if (!jid) return 'UNK';

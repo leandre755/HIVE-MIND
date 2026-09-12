@@ -78,13 +78,13 @@ function registerSpeakerHashTests() {
     expect(hash).toBe('ABC');
   });
 
-  it('should generate and return a 3-char hash if not in cache', async () => {
+  it('should generate and return an 8-char hash if not in cache', async () => {
     jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
     jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
 
     const hash = await userService.getSpeakerHash('123');
-    expect(hash).toHaveLength(3);
-    expect(hash).toBe('1B5');
+    expect(hash).toHaveLength(8);
+    expect(hash).toBe('1B581DBD');
   });
 
   it('should compute hash via error fallback path if an exception occurs during cache lookup', async () => {
@@ -95,7 +95,7 @@ function registerSpeakerHashTests() {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const hash = await userService.getSpeakerHash('123');
-    expect(hash).toBe('1B5');
+    expect(hash).toBe('1B581DBD');
     expect(errorSpy).toHaveBeenCalledWith(
       '[UserService] getSpeakerHash error:',
       'Redis connection failed',
@@ -129,7 +129,7 @@ function registerSpeakerHashTests() {
     expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', existingHash);
   });
 
-  it('should deterministically produce exact 3-char uppercase SHA-256 hash for new users across diverse JIDs', async () => {
+  it('should deterministically produce exact 8-char uppercase SHA-256 hash for new users across diverse JIDs', async () => {
     const cryptoModule = await import('node:crypto');
     const testJids = ['user1@s.whatsapp.net', 'user2@s.whatsapp.net', 'user3@s.whatsapp.net'];
 
@@ -141,14 +141,56 @@ function registerSpeakerHashTests() {
         .createHash('sha256')
         .update(testJid)
         .digest('hex')
-        .substring(0, 3)
+        .substring(0, 8)
         .toUpperCase();
 
       const hash = await userService.getSpeakerHash(testJid);
       expect(hash).toBe(expected);
-      expect(hash).toHaveLength(3);
-      expect(hash).toMatch(/^[0-9A-F]{3}$/);
+      expect(hash).toHaveLength(8);
+      expect(hash).toMatch(/^[0-9A-F]{8}$/);
     }
+  });
+
+  it('should avoid collisions for distinct JIDs that share the first 3 hex characters (e.g. 0C2)', async () => {
+    const cryptoModule = await import('node:crypto');
+    const jid1 = '4477009000040@s.whatsapp.net';
+    const jid2 = '4477009000112@s.whatsapp.net';
+
+    // Verify that legacy 3-char truncation caused a collision
+    const legacy3Char1 = cryptoModule
+      .createHash('sha256')
+      .update(jid1)
+      .digest('hex')
+      .substring(0, 3)
+      .toUpperCase();
+    const legacy3Char2 = cryptoModule
+      .createHash('sha256')
+      .update(jid2)
+      .digest('hex')
+      .substring(0, 3)
+      .toUpperCase();
+    expect(legacy3Char1).toBe('0C2');
+    expect(legacy3Char2).toBe('0C2');
+    expect(legacy3Char1).toBe(legacy3Char2);
+
+    // Verify that 8-char computeSpeakerHash produces distinct hashes
+    const hash1 = userService.computeSpeakerHash(jid1);
+    const hash2 = userService.computeSpeakerHash(jid2);
+    expect(hash1).toBe('0C275883');
+    expect(hash2).toBe('0C2E0893');
+    expect(hash1).not.toBe(hash2);
+    expect(hash1).toHaveLength(8);
+    expect(hash2).toHaveLength(8);
+
+    // Verify that getSpeakerHash generates and returns distinct hashes for both users
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const speakerHash1 = await userService.getSpeakerHash(jid1);
+    const speakerHash2 = await userService.getSpeakerHash(jid2);
+    expect(speakerHash1).toBe('0C275883');
+    expect(speakerHash2).toBe('0C2E0893');
+    expect(speakerHash1).not.toBe(speakerHash2);
   });
 
   it('should fall back to deterministic SHA-256 calculation when both Redis and Supabase fail', async () => {
@@ -165,7 +207,7 @@ function registerSpeakerHashTests() {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const hash = await userService.getSpeakerHash('123');
-    expect(hash).toBe('1B5');
+    expect(hash).toBe('1B581DBD');
     if (fromSpy) {
       expect(fromSpy).toHaveBeenCalled();
     }
@@ -181,8 +223,8 @@ function registerSpeakerHashTests() {
       jest.spyOn(redis, 'hGet').mockImplementation(async () => corruptedHash);
 
       const hash = await userService.getSpeakerHash('123');
-      expect(hash).toBe('1B5');
-      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B5');
+      expect(hash).toBe('1B581DBD');
+      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B581DBD');
     }
   });
 
@@ -201,10 +243,10 @@ function registerSpeakerHashTests() {
       mockSupabaseSelect(corruptedHash, upsertSpy);
 
       const hash = await userService.getSpeakerHash('123');
-      expect(hash).toBe('1B5');
-      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B5');
+      expect(hash).toBe('1B581DBD');
+      expect(hSetSpy).toHaveBeenCalledWith('user:resolved@s.whatsapp.net:data', 'hash', '1B581DBD');
       expect(upsertSpy).toHaveBeenCalledWith(
-        { jid: 'resolved@s.whatsapp.net', hash: '1B5' },
+        { jid: 'resolved@s.whatsapp.net', hash: '1B581DBD' },
         { onConflict: 'jid' },
       );
     }
