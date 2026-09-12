@@ -30,7 +30,9 @@ function mockSupabaseSelect(
     select: () => ({
       eq: () => ({
         single: async () => ({ data: hashValue ? { hash: hashValue } : null }),
+        limit: async () => ({ data: [] }),
       }),
+      limit: async () => ({ data: [] }),
     }),
     upsert:
       upsertFn ||
@@ -56,7 +58,13 @@ function mockSupabaseSelectError(
         single: async () => {
           throw errorToThrow;
         },
+        limit: async () => {
+          throw errorToThrow;
+        },
       }),
+      limit: async () => {
+        throw errorToThrow;
+      },
     }),
     upsert:
       upsertFn ||
@@ -76,13 +84,46 @@ type UpsertMockFn = (
   options?: { onConflict?: string },
 ) => { select: () => Promise<{ data: null }> };
 
+function mockSupabaseSelectReturnedError(
+  errorReturned: { code?: string; message?: string },
+  upsertFn?: UpsertMockFn,
+) {
+  if (!supabase) return;
+  const isNotFound =
+    errorReturned.code === 'PGRST116' ||
+    (typeof errorReturned.message === 'string' &&
+      (errorReturned.message.includes('0 rows') ||
+        errorReturned.message.includes('JSON object requested')));
+  const queryMock = {
+    select: () => ({
+      eq: () => ({
+        single: async () => ({ data: null, error: errorReturned }),
+        limit: async () => (isNotFound ? { data: [] } : { data: null, error: errorReturned }),
+      }),
+      limit: async () => (isNotFound ? { data: [] } : { data: null, error: errorReturned }),
+    }),
+    upsert:
+      upsertFn ||
+      (() => ({
+        select: async () => ({ data: null }),
+      })),
+  };
+  jest
+    .spyOn(supabase, 'from')
+    .mockImplementation(
+      () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+    );
+}
+
 function mockSupabaseSelectAndUpsert(upsertFn?: UpsertMockFn) {
   if (!supabase) return;
   const queryMock = {
     select: () => ({
       eq: () => ({
         single: async () => ({ data: null }),
+        limit: async () => ({ data: [] }),
       }),
+      limit: async () => ({ data: [] }),
     }),
     upsert:
       upsertFn ||
@@ -226,6 +267,34 @@ function registerSpeakerHashTests() {
     expect(speakerHash1).not.toBe(speakerHash2);
   });
 
+  it('should resolve collisions and produce distinct hashes for distinct JIDs with identical initial 8-hex SHA-256', async () => {
+    const jid1 = '4477009016300@s.whatsapp.net';
+    const jid2 = '4477009088614@s.whatsapp.net';
+
+    // Verify both JIDs share identical attempt-0 8-hex SHA-256 hash (CB1421A6)
+    expect(userService.computeSpeakerHash(jid1, 0)).toBe('CB1421A6');
+    expect(userService.computeSpeakerHash(jid2, 0)).toBe('CB1421A6');
+
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const hash1 = await userService.getSpeakerHash(jid1);
+    const hash2 = await userService.getSpeakerHash(jid2);
+
+    expect(hash1).toBe('CB1421A6');
+    expect(hash2).not.toBe(hash1);
+    expect(hash2).toHaveLength(8);
+    expect(hash2).toBe(userService.computeSpeakerHash(jid2, 1));
+    expect(upsertSpy).toHaveBeenCalledWith({ jid: jid1, hash: hash1 }, { onConflict: 'jid' });
+    expect(upsertSpy).toHaveBeenCalledWith({ jid: jid2, hash: hash2 }, { onConflict: 'jid' });
+  });
+
   it('should fall back to deterministic SHA-256 calculation when both Redis and Supabase fail', async () => {
     jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
     jest.spyOn(redis, 'hGet').mockImplementation(async () => {
@@ -335,6 +404,59 @@ function registerSpeakerHashMigrationTests() {
     expect(hash).toBe('1B581DBD');
     expect(upsertSpy).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('should return known legacy Redis hash when Supabase read fails transiently instead of generating a new SHA-256 hash', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => 'ABC');
+    const upsertSpy = jest.fn(() => ({
+      select: async () => ({ data: null }),
+    }));
+    mockSupabaseSelectReturnedError(
+      { code: 'PGRST500', message: 'Transient connection timeout' },
+      upsertSpy,
+    );
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe('ABC');
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+
+  it('should persist a new hash when Supabase returns PGRST116 not found error', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelectReturnedError(
+      { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
+      upsertSpy,
+    );
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe('1B581DBD');
+    expect(upsertSpy).toHaveBeenCalledWith(
+      { jid: 'resolved@s.whatsapp.net', hash: '1B581DBD' },
+      { onConflict: 'jid' },
+    );
+  });
+
+  it('should return computed hash without calling upsert when Supabase returns a non-not-found error', async () => {
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async () => 'resolved@s.whatsapp.net');
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+    const upsertSpy = jest.fn(() => ({
+      select: async () => ({ data: null }),
+    }));
+    mockSupabaseSelectReturnedError(
+      { code: 'PGRST500', message: 'Database connection failed' },
+      upsertSpy,
+    );
+
+    const hash = await userService.getSpeakerHash('123');
+    expect(hash).toBe('1B581DBD');
+    expect(upsertSpy).not.toHaveBeenCalled();
   });
 
   it('should preserve valid current Supabase hash and heal Redis when Redis contains a legacy hash', async () => {

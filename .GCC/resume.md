@@ -10,16 +10,16 @@
   - **PR #45 (`fix/workflow-hygiene-eslint-greetings`)** : FUSIONNÉE (MERGED).
   - **PR #46 (`ci/codecov-integration`)** : FUSIONNÉE (MERGED).
   - **PR #43 (`fix/embeddings-clear-text-logging`)** : 100% VALIDÉE & VÉRIFIÉE. Commits `c4f2a53`, `8f9ce91`, `4d13913`, `c5d83ee` poussés. 13/13 checks CI réussis, 9/9 fils de revue résolus (`isResolved: true`), Greptile 5/5, 0 finding CodeRabbit.
-  - **PR #44 (`fix/user-service-weak-crypto`)** : Durcissement implémenté (isolation des erreurs d'écriture Redis, cache mémoire bidirectionnel symétrique borné à 1000 entrées, rejet des LIDs en identités canoniques), 35/35 tests unitaires passés sur userService et identityMap. En attente de commit, push et validation des revues distantes CodeRabbit et Greptile.
+  - **PR #44 (`fix/user-service-weak-crypto`)** : Durcissement complet implémenté (détection et résolution active des collisions de speaker hash avec réservation atomique Redis SET NX, salage déterministe itératif, isolation des erreurs d'écriture Redis, cache mémoire bidirectionnel symétrique borné à 1000 entrées, rejet des LIDs en identités canoniques, conservation des hashes legacy sur panne transitoire Supabase), 39/39 tests unitaires passés (userService: 24, identityMap: 15). En attente de commit, push et validation des revues distantes CodeRabbit et Greptile.
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/services/userService.ts`
-  - **Scope**: `computeSpeakerHash(identifier: string): string`, `readCachedSpeakerHash(cacheKey: string): Promise<CachedHashResult>`, `readPersistedSpeakerHash(resolvedJid: string): Promise<PersistedHashResult>`, `getSpeakerHash(jid: string | null | undefined): Promise<string>`, `classifySpeakerHash(hash: string): 'found' | 'legacy' | 'not_found'`, `resolveSpeakerIdentity(userServiceInstance: typeof userService, jid: string): Promise<ResolvedSpeakerIdentity>`, `registerLid(jid: string, lid: string): Promise<void>`
+  - **Scope**: `computeSpeakerHash(identifier: string, attempt?: number): string`, `readCachedSpeakerHash(cacheKey: string): Promise<CachedHashResult>`, `readPersistedSpeakerHash(resolvedJid: string): Promise<PersistedHashResult>`, `getSpeakerHash(jid: string | null | undefined): Promise<string>`, `classifySpeakerHash(hash: string): 'found' | 'legacy' | 'not_found'`, `resolveSpeakerIdentity(userServiceInstance: typeof userService, jid: string): Promise<ResolvedSpeakerIdentity>`, `registerLid(jid: string, lid: string): Promise<void>`, `checkSupabaseCandidateOwner`, `claimCandidateInRedis`, `verifyAndReserveCandidate`, `generateUniqueSpeakerHash`
   - **Exact Technical Change**:
-    1. Étendu `computeSpeakerHash` de 3 à 8 caractères hexadécimaux majuscules (~4,3 milliards de combinaisons possibles), résolvant les collisions démontrées entre identifiants JID distincts (ex: `4477009000040@s.whatsapp.net` vs `4477009000112@s.whatsapp.net`) et réduisant drastiquement le risque général de collision.
-    2. Ajout de `classifySpeakerHash` distinguant `found` (8-64 hex), `legacy` (3-7 hex) et `not_found` (absence confirmée via `PGRST116`). Les autres erreurs de base de données retournent `error` (erreur transitoire).
-    3. Traitement des hashes legacy en cache Redis ou base Supabase comme déclencheurs de migration vers un hash déterministe 8-caractères avec persistance bilatérale. Si Redis a un hash legacy mais Supabase possède déjà un hash 8-caractères valide, le cache Redis est réparé.
-    4. Tolérance aux pannes transitoires Supabase : en cas d'erreur de lecture réseau/timeout (non-404), renvoie le hash déterministe en mémoire sans exécuter d'upsert destructif, protégeant les identités existantes en base.
+    1. Étendu `computeSpeakerHash` de 3 à 8 caractères hexadécimaux majuscules (~4,3 milliards de combinaisons possibles), avec support de paramètre `attempt` déterministe (`${identifier}:${attempt}`) pour résoudre les collisions avérées (ex: paire Greptile P1 `4477009016300@s.whatsapp.net` vs `4477009088614@s.whatsapp.net` générant `CB1421A6` au premier essai).
+    2. Implémentation de `generateUniqueSpeakerHash` avec vérification tri-partite (`hashToOwnerMap` LRU 1000 entrées, réservation atomique Redis `SET NX` sur `hash:owner:${hash}`, et requête Supabase `users.select('jid').eq('hash', candidate)`). En cas de collision, itération déterministe sans jamais renvoyer de hash en collision avérée.
+    3. Ajout de `classifySpeakerHash` distinguant `found` (8-64 hex), `legacy` (3-7 hex) et `not_found` (absence confirmée via `PGRST116`). Les erreurs Supabase non-PGRST116 retournent `error`.
+    4. Tolérance aux pannes transitoires Supabase : si Redis dispose d'un hash legacy connu et que Supabase échoue avec une erreur transitoire (non-404), le hash legacy Redis est conservé sans régénération aléatoire pour préserver la continuité du locuteur. En cas d'absence confirmée, un nouveau hash unique est alloué et persisté.
     5. Dans `resolveSpeakerIdentity`, rejet des LIDs normalisés (`@lid`) comme identités canoniques pour ne jamais polluer le cache mémoire ou les identités durables avec un identifiant device non résolu.
 - **File**: `src/services/state/IdentityMap.ts`
   - **Scope**: `cleanJid(jid: string): string`, `setBidirectionalCacheEntry(jid: string, lid: string): void`, `getLidForJid(jid: string | null | undefined): string | null`, `hydrateLidCache(identifier: string): Promise<void>`, `resolve<T extends string | null | undefined>(identifier: T): Promise<T extends string ? string : null>`, `register(id1: string | null | undefined, id2: string | null | undefined): Promise<void>`
@@ -29,10 +29,11 @@
     3. Typage runtime strict dans `resolve` vérifiant `identifier == null` pour préserver les chaînes vides `''` conformément à la signature générique `T extends string ? string : null`.
     4. Isolation try/catch des écritures Redis (`redis?.set`) lors de la résolution Supabase afin de préserver l'identité canonique résolue même en cas d'erreur Redis.
 - **File**: `src/tests/unit/services/userService.test.ts`
-  - **Scope**: `getSpeakerHash() - Migration & Resilience`
+  - **Scope**: `getSpeakerHash()`, `getSpeakerHash() - Migration & Resilience`
   - **Exact Technical Change**:
-    1. Ajout de tests unitaires complets pour la migration de hash legacy Redis et Supabase avec assertion de résolution de collisions, tolérance aux pannes transitoires Supabase, et non-pollution par LIDs bruts.
-    2. Extraction du helper `mockSupabaseSelectError` respectant la complexité cognitive (`sonarjs/no-nested-functions`). 20/20 tests réussis.
+    1. Ajout du test de reproduction de collision Greptile P1 (`4477009016300@s.whatsapp.net` vs `4477009088614@s.whatsapp.net`) validant l'allocation de hashes distincts et uniques.
+    2. Ajout de tests pour les erreurs retournées par Supabase (PGRST116 -> nouvel hash persisté, erreur 500 -> hash calculé sans upsert) et la préservation de hash legacy Redis lors de panne transitoire Supabase.
+    3. 24/24 tests unitaires au vert sur `userService.test.ts`.
 - **File**: `src/tests/unit/services/identityMap.test.ts`
   - **Scope**: `hydrateLidCache`, `bounded cache eviction`, `resolve('')`
   - **Exact Technical Change**:
@@ -53,14 +54,14 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 157ms on 333 files with 96 rules using 4 threads.
+Finished in 78ms on 333 files with 96 rules using 4 threads.
 
 Test Suites: 2 passed, 2 total
-Tests:       35 passed, 35 total (userService: 20 passed, identityMap: 15 passed)
+Tests:       39 passed, 39 total (userService: 24 passed, identityMap: 15 passed)
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloqueur technique local. Le commit de durcissement doit être poussé pour déclencher les revues distantes CodeRabbit et Greptile sur PR #44 et obtenir les statuts finaux.
+- **Blocker / Failure Explanation**: Aucun bloqueur technique local. Le commit de durcissement doit être validé par git hook, poussé pour déclencher les revues distantes CodeRabbit et Greptile sur PR #44 et obtenir les statuts finaux.
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target File**: `src/services/userService.ts`, `src/services/state/IdentityMap.ts`

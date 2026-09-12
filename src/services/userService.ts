@@ -52,6 +52,14 @@ interface GroupMember {
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
   return String(error);
 }
 
@@ -152,6 +160,134 @@ function setLidCacheEntry(key: string, value: string): void {
   lidToCanonicalJidCache.set(key, value);
 }
 
+// Cache en mémoire des correspondances Hash -> JID propriétaire pour détecter et résoudre les collisions
+const hashToOwnerMap = new Map<string, string>();
+const MAX_HASH_OWNER_ENTRIES = 1000;
+
+function setHashOwnerEntry(hash: string, jid: string): void {
+  if (hashToOwnerMap.has(hash)) {
+    hashToOwnerMap.delete(hash);
+  } else if (hashToOwnerMap.size >= MAX_HASH_OWNER_ENTRIES) {
+    const oldestKey = hashToOwnerMap.keys().next().value;
+    if (oldestKey !== undefined) {
+      hashToOwnerMap.delete(oldestKey);
+    }
+  }
+  hashToOwnerMap.set(hash, jid);
+}
+
+async function checkSupabaseCandidateOwner(
+  hash: string,
+  resolvedJid: string,
+): Promise<'available' | 'collision' | 'error'> {
+  if (!supabase) return 'available';
+  try {
+    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(1);
+
+    if (error) {
+      const isNotFound =
+        (typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'PGRST116') ||
+        (typeof error.message === 'string' &&
+          (error.message.includes('0 rows') || error.message.includes('JSON object requested')));
+      if (isNotFound) {
+        return 'available';
+      }
+      return 'error';
+    }
+
+    if (Array.isArray(data) && data.length > 0) {
+      const firstRow = data[0] as { jid?: string } | undefined;
+      const ownerJid = firstRow?.jid;
+      if (ownerJid && ownerJid !== resolvedJid) {
+        setHashOwnerEntry(hash, ownerJid);
+        return 'collision';
+      }
+    }
+    return 'available';
+  } catch {
+    return 'error';
+  }
+}
+
+async function claimCandidateInRedis(
+  hash: string,
+  resolvedJid: string,
+): Promise<'claimed' | 'collision' | 'error'> {
+  if (!redis) {
+    setHashOwnerEntry(hash, resolvedJid);
+    return 'claimed';
+  }
+  try {
+    const key = `hash:owner:${hash}`;
+    const setRes = await redis.set(key, resolvedJid, { NX: true });
+    if (setRes === 'OK') {
+      setHashOwnerEntry(hash, resolvedJid);
+      return 'claimed';
+    }
+
+    const currentOwner = await redis.get(key);
+    if (currentOwner === resolvedJid) {
+      setHashOwnerEntry(hash, resolvedJid);
+      return 'claimed';
+    }
+    if (currentOwner && currentOwner !== resolvedJid) {
+      setHashOwnerEntry(hash, currentOwner);
+      return 'collision';
+    }
+    return 'error';
+  } catch {
+    return 'error';
+  }
+}
+
+async function verifyAndReserveCandidate(
+  hash: string,
+  resolvedJid: string,
+): Promise<'claimed' | 'collision' | 'error'> {
+  const inMemoryOwner = hashToOwnerMap.get(hash);
+  if (inMemoryOwner && inMemoryOwner !== resolvedJid) {
+    return 'collision';
+  }
+
+  const supabaseResult = await checkSupabaseCandidateOwner(hash, resolvedJid);
+  if (supabaseResult === 'collision' || supabaseResult === 'error') {
+    return supabaseResult;
+  }
+
+  return await claimCandidateInRedis(hash, resolvedJid);
+}
+
+async function generateUniqueSpeakerHash(
+  userServiceInstance: typeof userService,
+  resolvedJid: string,
+): Promise<string> {
+  const MAX_COLLISION_ATTEMPTS = 10;
+  let encounteredLookupError = false;
+
+  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
+    const candidate = userServiceInstance.computeSpeakerHash(resolvedJid, attempt);
+    const result = await verifyAndReserveCandidate(candidate, resolvedJid);
+    if (result === 'claimed') {
+      return candidate;
+    }
+    if (result === 'error') {
+      encounteredLookupError = true;
+    }
+  }
+
+  if (encounteredLookupError) {
+    throw new Error(
+      `Unable to verify speaker hash availability for ${resolvedJid} due to lookup error`,
+    );
+  }
+  throw new Error(
+    `Unable to allocate a unique speaker hash for ${resolvedJid} after ${MAX_COLLISION_ATTEMPTS} attempts`,
+  );
+}
+
 async function persistSpeakerHash(
   cacheKey: string,
   resolvedJid: string,
@@ -162,8 +298,11 @@ async function persistSpeakerHash(
     return;
   }
 
+  setHashOwnerEntry(hash, resolvedJid);
+
   try {
     await redis?.hSet(cacheKey, 'hash', hash);
+    await redis?.set(`hash:owner:${hash}`, resolvedJid);
   } catch {
     // Ignorer l'erreur d'écriture Redis
   }
@@ -312,11 +451,14 @@ export const userService = {
 
   /**
    * Calcule de maniere deterministe le hash d'un speaker (SHA-256 tronque a 8 car. majuscules)
+   * En cas de collision detectee sur attempt 0, un sel deterministe ':attempt' est ajoute.
    * @param identifier - Identifiant utilisateur (JID)
+   * @param attempt - Index de tentative en cas de collision (defaut: 0)
    * @returns Hash de 8 caracteres majuscules (ex: "1B581DBD")
    */
-  computeSpeakerHash(identifier: string): string {
-    return createHash('sha256').update(identifier).digest('hex').substring(0, 8).toUpperCase();
+  computeSpeakerHash(identifier: string, attempt: number = 0): string {
+    const input = attempt === 0 ? identifier : `${identifier}:${attempt}`;
+    return createHash('sha256').update(input).digest('hex').substring(0, 8).toUpperCase();
   },
 
   /**
@@ -342,6 +484,7 @@ export const userService = {
     // 1. Tenter la lecture depuis le cache Redis (L1)
     const cached = await readCachedSpeakerHash(cacheKey);
     if (cached.status === 'found') {
+      setHashOwnerEntry(cached.hash, resolvedJid);
       return cached.hash;
     }
 
@@ -350,32 +493,33 @@ export const userService = {
     // pour preserver un hash courant valide eventuellement present dans la base.
     const persisted = await readPersistedSpeakerHash(resolvedJid);
     if (persisted.status === 'found') {
+      setHashOwnerEntry(persisted.hash, resolvedJid);
       redis?.hSet(cacheKey, 'hash', persisted.hash).catch(() => {});
+      redis?.set(`hash:owner:${persisted.hash}`, resolvedJid).catch(() => {});
       return persisted.hash;
     }
 
     // En cas d'erreur de lecture Supabase (panne transitoire) :
-    // Calculer le hash deterministe sans persister pour eviter d'ecraser l'identite existante
+    // Si Redis dispose d'un hash legacy connu, le renvoyer pour assurer la continuite
+    // sans generer de hash alternatif non synchronise. Sinon calculer le hash sans persister.
     if (persisted.status === 'error') {
+      if (cached.status === 'legacy') {
+        return cached.hash;
+      }
       return this.computeSpeakerHash(resolvedJid);
     }
 
-    // Si Supabase ou Redis contient un hash legacy, migrer vers le hash deterministe 8-car
+    // Si Supabase ou Redis contient un hash legacy, migrer vers le hash deterministe 8-car unique
     if (persisted.status === 'legacy' || cached.status === 'legacy') {
-      const migratedHash = this.computeSpeakerHash(resolvedJid);
+      const migratedHash = await generateUniqueSpeakerHash(this, resolvedJid);
       await persistSpeakerHash(cacheKey, resolvedJid, migratedHash);
       return migratedHash;
     }
 
     // 4. Absence confirmee dans le cache et la base : nouvel utilisateur
-    try {
-      const hash = this.computeSpeakerHash(resolvedJid);
-      await persistSpeakerHash(cacheKey, resolvedJid, hash);
-      return hash;
-    } catch (e: unknown) {
-      console.error('[UserService] getSpeakerHash generation error:', extractErrorMessage(e));
-      return this.computeSpeakerHash(resolvedJid);
-    }
+    const hash = await generateUniqueSpeakerHash(this, resolvedJid);
+    await persistSpeakerHash(cacheKey, resolvedJid, hash);
+    return hash;
   },
 
   /**
@@ -387,6 +531,7 @@ export const userService = {
 
   _clearLidCacheForTesting() {
     lidToCanonicalJidCache.clear();
+    hashToOwnerMap.clear();
   },
 
   // ======== FONCTIONS LEGACY / NON-MIGRÉES ========
