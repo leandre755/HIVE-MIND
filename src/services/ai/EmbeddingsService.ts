@@ -37,18 +37,17 @@ export class EmbeddingsService implements IEmbeddingsService {
     const cleanText = text.replace(/\n/g, ' ');
 
     try {
-      // Strategy: Try Gemini first (Cheaper / Better context)
-      const vector = await this._embedWithGemini(cleanText);
+      let vector: number[] | null = null;
+      try {
+        vector = await this._embedWithGemini(cleanText);
+      } catch {
+        console.warn('[Embeddings] Gemini provider failed, attempting OpenAI fallback');
+      }
       if (vector) return vector;
 
-      // Fallback
-      console.warn('[Embeddings] Gemini failed, attempting OpenAI fallback...');
       return await this._embedWithOpenAI(cleanText);
-    } catch (error: unknown) {
-      console.error(
-        '[Embeddings] Fatal error:',
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      console.error('[Embeddings] Fatal error during embedding generation');
       return null;
     }
   }
@@ -57,14 +56,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     const apiKey = this.config.geminiKey;
     if (!apiKey) throw new Error('Gemini API key missing');
 
-    // Safe debug log
-    const keyObfuscated = apiKey.startsWith('AIza')
-      ? 'AIza...' + apiKey.slice(-4)
-      : apiKey.substring(0, 5) + '...';
-
-    console.log(
-      `[Embeddings] Using Model: ${this.model}, Dims: ${this.dimensions}, Key: ${keyObfuscated}`,
-    );
+    console.log(`[Embeddings] Using Model: ${this.model}, Dims: ${this.dimensions}`);
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:embedContent?key=${apiKey}`;
 
@@ -79,12 +71,19 @@ export class EmbeddingsService implements IEmbeddingsService {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'Gemini API Error');
+      throw new Error(`Gemini API Error (${response.status})`);
     }
 
     const data = await response.json();
-    return data.embedding?.values || null;
+    const values: unknown = data.embedding?.values;
+    if (
+      !Array.isArray(values) ||
+      values.length !== this.dimensions ||
+      !values.every((value) => typeof value === 'number' && Number.isFinite(value))
+    ) {
+      return null;
+    }
+    return values;
   }
 
   private async _embedWithOpenAI(text: string): Promise<number[] | null> {
@@ -111,11 +110,18 @@ export class EmbeddingsService implements IEmbeddingsService {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'OpenAI API Error');
+      throw new Error(`OpenAI API Error (${response.status})`);
     }
 
     const data = await response.json();
-    return data.data[0]?.embedding || null;
+    const embedding: unknown = data?.data?.[0]?.embedding;
+    if (
+      !Array.isArray(embedding) ||
+      embedding.length !== this.dimensions ||
+      !embedding.every((value) => typeof value === 'number' && Number.isFinite(value))
+    ) {
+      return null;
+    }
+    return embedding;
   }
 }
