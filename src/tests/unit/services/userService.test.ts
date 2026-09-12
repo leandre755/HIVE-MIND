@@ -71,7 +71,12 @@ function mockSupabaseSelectError(
     );
 }
 
-function mockSupabaseSelectAndUpsert() {
+type UpsertMockFn = (
+  values?: { jid: string; hash: string },
+  options?: { onConflict?: string },
+) => { select: () => Promise<{ data: null }> };
+
+function mockSupabaseSelectAndUpsert(upsertFn?: UpsertMockFn) {
   if (!supabase) return;
   const queryMock = {
     select: () => ({
@@ -79,9 +84,11 @@ function mockSupabaseSelectAndUpsert() {
         single: async () => ({ data: null }),
       }),
     }),
-    upsert: () => ({
-      select: async () => ({ data: null }),
-    }),
+    upsert:
+      upsertFn ||
+      (() => ({
+        select: async () => ({ data: null }),
+      })),
   };
   jest
     .spyOn(supabase, 'from')
@@ -209,7 +216,7 @@ function registerSpeakerHashTests() {
     expect(hash2).toHaveLength(8);
 
     // Verify that getSpeakerHash generates and returns distinct hashes for both users
-    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j);
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
     jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
 
     const speakerHash1 = await userService.getSpeakerHash(jid1);
@@ -293,7 +300,7 @@ function registerSpeakerHashMigrationTests() {
   it('should migrate legacy 3-char hash in Supabase to deterministic 8-char hash resolving collisions', async () => {
     const jid1 = '4477009000040@s.whatsapp.net';
     const jid2 = '4477009000112@s.whatsapp.net';
-    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j);
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
     jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
 
     const upsertSpy = jest.fn(
@@ -345,6 +352,102 @@ function registerSpeakerHashMigrationTests() {
       existingValidHash,
     );
   });
+
+  it('should not create durable speaker identity in Redis or Supabase when LID resolution temporarily fails', async () => {
+    userService._clearLidCacheForTesting();
+    const testLid = '123456789@lid';
+    jest
+      .spyOn(userService, 'resolveLid')
+      .mockRejectedValue(new Error('Resolver transient timeout'));
+    const hSetSpy = jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    const hash = await userService.getSpeakerHash(testLid);
+    expect(hash).toBe(userService.computeSpeakerHash(testLid));
+    expect(hSetSpy).not.toHaveBeenCalled();
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+
+  it('should preserve canonical identity and avoid key split across LID resolution failure and recovery', async () => {
+    userService._clearLidCacheForTesting();
+    const testLid = '987654321@lid';
+    const canonicalJid = '33612345678@s.whatsapp.net';
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    // Step 1: Pre-register canonical mapping
+    await userService.registerLid(canonicalJid, testLid);
+
+    // Step 2: Resolver encounters transient failure
+    jest.spyOn(userService, 'resolveLid').mockRejectedValueOnce(new Error('Transient failure'));
+    const hashDuringFailure = await userService.getSpeakerHash(testLid);
+
+    // Step 3: Resolver recovers
+    jest.spyOn(userService, 'resolveLid').mockResolvedValue(canonicalJid);
+    const hashAfterRecovery = await userService.getSpeakerHash(testLid);
+
+    // Identity must not split: both hashes must equal the canonical JID hash
+    const expectedCanonicalHash = userService.computeSpeakerHash(canonicalJid);
+    expect(hashDuringFailure).toBe(expectedCanonicalHash);
+    expect(hashAfterRecovery).toBe(expectedCanonicalHash);
+
+    // Durable identity in Supabase must only be keyed by canonical JID, never raw LID
+    expect(upsertSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ jid: testLid }),
+      expect.anything(),
+    );
+  });
+
+  it('should preserve registered canonical mapping when resolving a device-qualified LID and not accept normalized LID as canonical', async () => {
+    userService._clearLidCacheForTesting();
+    const baseLid = '987654321@lid';
+    const deviceLid = '987654321:12@lid';
+    const canonicalJid = '33612345678@s.whatsapp.net';
+    const upsertSpy = jest.fn(
+      (_values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => ({ data: null }),
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    // Step 1: Pre-register canonical mapping
+    await userService.registerLid(canonicalJid, baseLid);
+
+    // Step 2: Mock resolveLid returning the stripped LID (IdentityMap unmapped fallback)
+    jest
+      .spyOn(userService, 'resolveLid')
+      .mockImplementation(async (id) => id.replace(/:\d+@/, '@'));
+
+    // Step 3: Verify getSpeakerHash on device-qualified LID resolves to canonical JID hash
+    const expectedCanonicalHash = userService.computeSpeakerHash(canonicalJid);
+    const hashForDeviceLid = await userService.getSpeakerHash(deviceLid);
+    expect(hashForDeviceLid).toBe(expectedCanonicalHash);
+    expect(hashForDeviceLid).not.toBe(userService.computeSpeakerHash(deviceLid));
+    expect(hashForDeviceLid).not.toBe(userService.computeSpeakerHash(baseLid));
+
+    // Step 4: Verify that the in-memory cache was not poisoned with the raw LID
+    const hashForBaseLid = await userService.getSpeakerHash(baseLid);
+    expect(hashForBaseLid).toBe(expectedCanonicalHash);
+
+    // Step 5: Verify no durable identity is persisted for LID
+    expect(upsertSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ jid: deviceLid }),
+      expect.anything(),
+    );
+    expect(upsertSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ jid: baseLid }),
+      expect.anything(),
+    );
+  });
 }
 
 describe('userService unit tests', () => {
@@ -376,10 +479,16 @@ describe('userService unit tests', () => {
     if (redis) {
       jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
       jest.spyOn(redis, 'hSet').mockImplementation(async () => 1);
+      jest.spyOn(redis, 'set').mockImplementation(async () => 'OK');
+      jest.spyOn(redis, 'get').mockImplementation(async () => null);
+      jest.spyOn(redis, 'del').mockImplementation(async () => 1);
       jest.spyOn(redis, 'connect').mockImplementation(async () => redis);
     }
 
     mockSupabaseSelectAndUpsert();
+    if (typeof userService?._clearLidCacheForTesting === 'function') {
+      userService._clearLidCacheForTesting();
+    }
   });
 
   afterAll(async () => {

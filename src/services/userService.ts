@@ -135,11 +135,33 @@ async function readPersistedSpeakerHash(resolvedJid: string): Promise<PersistedH
   }
 }
 
+// Cache en mémoire des correspondances LID -> JID canonique pour préserver l'identité
+// lors de pannes transitoires du résolveur et éviter les identités dupliquées
+const lidToCanonicalJidCache = new Map<string, string>();
+const MAX_LID_CACHE_ENTRIES = 1000;
+
+function setLidCacheEntry(key: string, value: string): void {
+  if (lidToCanonicalJidCache.has(key)) {
+    lidToCanonicalJidCache.delete(key);
+  } else if (lidToCanonicalJidCache.size >= MAX_LID_CACHE_ENTRIES) {
+    const oldestKey = lidToCanonicalJidCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      lidToCanonicalJidCache.delete(oldestKey);
+    }
+  }
+  lidToCanonicalJidCache.set(key, value);
+}
+
 async function persistSpeakerHash(
   cacheKey: string,
   resolvedJid: string,
   hash: string,
 ): Promise<void> {
+  // Les LIDs bruts non résolus ne doivent jamais créer d'identité durable (ni Redis ni Supabase)
+  if (resolvedJid.endsWith('@lid')) {
+    return;
+  }
+
   try {
     await redis?.hSet(cacheKey, 'hash', hash);
   } catch {
@@ -156,6 +178,57 @@ async function persistSpeakerHash(
       console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(upsertErr));
     }
   }
+}
+
+interface ResolvedSpeakerIdentity {
+  resolvedJid: string;
+  isLid: boolean;
+  resolutionFailed: boolean;
+  hasCanonicalMapping: boolean;
+}
+
+async function resolveSpeakerIdentity(
+  userServiceInstance: typeof userService,
+  jid: string,
+): Promise<ResolvedSpeakerIdentity> {
+  const normalizedJid = jid.replace(/:\d+@/, '@');
+  const isLid = normalizedJid.endsWith('@lid');
+  const knownCanonical = isLid
+    ? (lidToCanonicalJidCache.get(normalizedJid) ?? lidToCanonicalJidCache.get(jid))
+    : undefined;
+
+  let resolvedJid: string;
+  let resolutionFailed = false;
+
+  try {
+    const resolved = await userServiceInstance.resolveLid(jid);
+    const normalizedResolved = resolved?.replace(/:\d+@/, '@');
+    if (normalizedResolved && !normalizedResolved.endsWith('@lid')) {
+      resolvedJid = normalizedResolved;
+      if (isLid) {
+        setLidCacheEntry(normalizedJid, resolvedJid);
+        setLidCacheEntry(jid, resolvedJid);
+      }
+    } else if (knownCanonical) {
+      resolvedJid = knownCanonical;
+    } else {
+      resolvedJid = normalizedResolved ?? normalizedJid;
+    }
+  } catch {
+    resolutionFailed = true;
+    resolvedJid = knownCanonical ?? normalizedJid;
+  }
+
+  const hasCanonicalMapping = Boolean(
+    knownCanonical || (resolvedJid !== normalizedJid && !resolvedJid.endsWith('@lid')),
+  );
+
+  return {
+    resolvedJid,
+    isLid,
+    resolutionFailed,
+    hasCanonicalMapping,
+  };
 }
 
 // ============================================================================
@@ -214,6 +287,13 @@ export const userService = {
   },
 
   async registerLid(jid: string, lid: string) {
+    if (jid && lid) {
+      const cleanLid = lid.replace(/:\d+@/, '@');
+      const cleanJid = jid.replace(/:\d+@/, '@');
+      setLidCacheEntry(cleanLid, cleanJid);
+      setLidCacheEntry(lid, cleanJid);
+      redis?.del(`user:${cleanLid}:data`).catch(() => {});
+    }
     await IdentityMap.register(jid, lid);
   },
 
@@ -247,13 +327,16 @@ export const userService = {
   async getSpeakerHash(jid: string | null | undefined): Promise<string> {
     if (!jid) return 'UNK';
 
-    let resolvedJid: string;
-    try {
-      resolvedJid = (await this.resolveLid(jid)) || jid;
-    } catch {
-      resolvedJid = jid;
+    const identity = await resolveSpeakerIdentity(this, jid);
+
+    // Si la résolution a échoué (erreur temporaire) pour un LID sans mapping canonique disponible :
+    // Éviter de créer une identité durable (ni dans Redis, ni dans Supabase)
+    // Renvoyer un hash déterministe éphémère jusqu'au rétablissement du résolveur
+    if (identity.resolutionFailed && !identity.hasCanonicalMapping && identity.isLid) {
+      return this.computeSpeakerHash(identity.resolvedJid);
     }
 
+    const resolvedJid = identity.resolvedJid;
     const cacheKey = `user:${resolvedJid}:data`;
 
     // 1. Tenter la lecture depuis le cache Redis (L1)
@@ -300,6 +383,10 @@ export const userService = {
    */
   async flushAll() {
     return await StateManager.processSyncQueue(1000);
+  },
+
+  _clearLidCacheForTesting() {
+    lidToCanonicalJidCache.clear();
   },
 
   // ======== FONCTIONS LEGACY / NON-MIGRÉES ========
