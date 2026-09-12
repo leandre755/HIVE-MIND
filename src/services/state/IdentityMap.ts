@@ -34,6 +34,10 @@ import { extractNumericId } from '../../utils/jidHelper.js';
 // WHY: In-memory reverse cache (JID → LID) for synchronous hot-path access.
 // _isBotMentioned is called on every group message and cannot afford async Redis lookups.
 const jidToLidCache = new Map<string, string>();
+// WHY: In-memory forward cache (LID → JID) to preserve canonical identities during transient failures.
+const lidToJidCache = new Map<string, string>();
+
+const MAX_CACHE_ENTRIES = 1000;
 
 function cleanJid(jid: string): string {
   const colonIdx = jid.indexOf(':');
@@ -42,6 +46,111 @@ function cleanJid(jid: string): string {
     return jid.slice(0, colonIdx) + jid.slice(atIdx);
   }
   return jid;
+}
+
+function setBidirectionalCacheEntry(jid: string, lid: string): void {
+  const cleanJ = cleanJid(jid);
+  const cleanL = cleanJid(lid);
+
+  // If existing keys point to different pairings, purge old mappings
+  const oldLid = jidToLidCache.get(cleanJ);
+  if (oldLid && oldLid !== cleanL) {
+    lidToJidCache.delete(oldLid);
+  }
+  const oldJid = lidToJidCache.get(cleanL);
+  if (oldJid && oldJid !== cleanJ) {
+    jidToLidCache.delete(oldJid);
+  }
+
+  // Delete both entries first to refresh recency (LRU behavior)
+  jidToLidCache.delete(cleanJ);
+  lidToJidCache.delete(cleanL);
+
+  // If at capacity, evict oldest entry from both caches
+  while (jidToLidCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestJid = jidToLidCache.keys().next().value;
+    if (oldestJid === undefined) break;
+    const mappedLid = jidToLidCache.get(oldestJid);
+    jidToLidCache.delete(oldestJid);
+    if (mappedLid) lidToJidCache.delete(mappedLid);
+  }
+  while (lidToJidCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestLid = lidToJidCache.keys().next().value;
+    if (oldestLid === undefined) break;
+    const mappedJid = lidToJidCache.get(oldestLid);
+    lidToJidCache.delete(oldestLid);
+    if (mappedJid) jidToLidCache.delete(mappedJid);
+  }
+
+  jidToLidCache.set(cleanJ, cleanL);
+  lidToJidCache.set(cleanL, cleanJ);
+}
+
+async function resolveLidFromRedis(numericId: string): Promise<string | null> {
+  if (!redis) return null;
+  try {
+    const cachedJid = await redis.get(`map:lid:${numericId}`);
+    return cachedJid ? cleanJid(cachedJid) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveLidFromSupabase(rawLid: string): Promise<string | null> {
+  if (!supabase) return null;
+  try {
+    const { data: lidIdentity } = await supabase
+      .from('user_identities')
+      .select('user_id')
+      .eq('platform', 'whatsapp')
+      .eq('platform_user_id', rawLid)
+      .single();
+
+    if (!lidIdentity?.user_id) return null;
+
+    const { data: phoneIdentity } = await supabase
+      .from('user_identities')
+      .select('platform_user_id')
+      .eq('platform', 'whatsapp')
+      .eq('user_id', lidIdentity.user_id)
+      .like('platform_user_id', '%@s.whatsapp.net')
+      .single();
+
+    return phoneIdentity?.platform_user_id ? cleanJid(phoneIdentity.platform_user_id) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveLidIdentifier(id: string): Promise<string> {
+  const cleanedId = cleanJid(id);
+  const memoryJid = lidToJidCache.get(cleanedId);
+  if (memoryJid) {
+    setBidirectionalCacheEntry(memoryJid, cleanedId);
+    return memoryJid;
+  }
+
+  const numericId = extractNumericId(id);
+  const lidKey = `map:lid:${numericId}`;
+
+  const redisJid = await resolveLidFromRedis(numericId);
+  if (redisJid) {
+    setBidirectionalCacheEntry(redisJid, cleanedId);
+    return redisJid;
+  }
+
+  const dbJid = await resolveLidFromSupabase(id);
+  if (dbJid) {
+    setBidirectionalCacheEntry(dbJid, cleanedId);
+    try {
+      await redis?.set(lidKey, dbJid, { EX: 86400 * 7 });
+    } catch {
+      // Keep the successful Supabase resolution even if Redis write fails
+    }
+    return dbJid;
+  }
+
+  return id;
 }
 
 export const IdentityMap = {
@@ -54,23 +163,49 @@ export const IdentityMap = {
   getLidForJid(jid: string | null | undefined): string | null {
     if (!jid) return null;
     const cleaned = cleanJid(jid);
-    return jidToLidCache.get(cleaned) || null;
+    const lid = jidToLidCache.get(cleaned);
+    if (lid) {
+      setBidirectionalCacheEntry(cleaned, lid);
+      return lid;
+    }
+    return null;
   },
 
   /**
-   * Async hydration: loads a JID→LID mapping from Redis into the in-memory cache.
+   * Async hydration: loads a JID↔LID mapping from Redis into the in-memory cache symmetrically.
    * Call once at startup for the bot's own JID to ensure getLidForJid works
    * synchronously from the very first message.
    */
-  async hydrateLidCache(jid: string): Promise<void> {
-    if (!jid || !redis) return;
-    const cleaned = cleanJid(jid);
-    if (jidToLidCache.has(cleaned)) return; // Already hydrated
-    const numericId = extractNumericId(jid);
+  async hydrateLidCache(identifier: string): Promise<void> {
+    if (!identifier || !redis) return;
+    const cleaned = cleanJid(identifier);
+
+    if (cleaned.endsWith('@lid')) {
+      const existingJid = lidToJidCache.get(cleaned);
+      if (existingJid) {
+        setBidirectionalCacheEntry(existingJid, cleaned);
+        return;
+      }
+      const numericId = extractNumericId(cleaned);
+      const lidKey = `map:lid:${numericId}`;
+      const resolvedJid = await redis.get(lidKey);
+      if (resolvedJid) {
+        setBidirectionalCacheEntry(resolvedJid, cleaned);
+      }
+      return;
+    }
+
+    const existingLid = jidToLidCache.get(cleaned);
+    if (existingLid) {
+      setBidirectionalCacheEntry(cleaned, existingLid);
+      return;
+    }
+
+    const numericId = extractNumericId(cleaned);
     const reverseKey = `map:jid2lid:${numericId}`;
     const lid = await redis.get(reverseKey);
     if (lid) {
-      jidToLidCache.set(cleaned, lid);
+      setBidirectionalCacheEntry(cleaned, lid);
     }
   },
   /**
@@ -86,55 +221,27 @@ export const IdentityMap = {
    * // Si pas de mapping, retourne l'original
    * await IdentityMap.resolve('inconnu@lid'); // 'inconnu@lid'
    */
-  async resolve(identifier: string | null | undefined) {
-    if (!identifier) return null;
+  async resolve<T extends string | null | undefined>(
+    identifier: T,
+  ): Promise<T extends string ? string : null> {
+    if (identifier == null) return null as T extends string ? string : null;
 
     // Groupes: pas de résolution nécessaire
-    if (identifier.endsWith('@g.us')) return identifier;
+    if (identifier.endsWith('@g.us')) {
+      return identifier as unknown as T extends string ? string : null;
+    }
 
     // Nettoyage (supprime le ':12' de '33612345678:12@s.whatsapp.net')
     const id = identifier.replace(/:\d+@/, '@');
 
-    if (id.endsWith('@s.whatsapp.net')) return id;
+    if (id.endsWith('@s.whatsapp.net')) return id as T extends string ? string : null;
 
     if (id.endsWith('@lid')) {
-      const numericId = extractNumericId(id);
-      const lidKey = `map:lid:${numericId}`;
-
-      // A. Cache Redis
-      const cachedJid = await redis?.get(lidKey);
-      if (cachedJid) return cachedJid;
-
-      // B. Fallback Supabase (Recherche d'une identité soeur)
-      if (supabase) {
-        // Trouver le user_id de ce LID
-        const { data: lidIdentity } = await supabase
-          .from('user_identities')
-          .select('user_id')
-          .eq('platform', 'whatsapp')
-          .eq('platform_user_id', id)
-          .single();
-
-        if (lidIdentity?.user_id) {
-          // Trouver le JID associé à ce même user_id
-          const { data: phoneIdentity } = await supabase
-            .from('user_identities')
-            .select('platform_user_id')
-            .eq('platform', 'whatsapp')
-            .eq('user_id', lidIdentity.user_id)
-            .like('platform_user_id', '%@s.whatsapp.net')
-            .single();
-
-          if (phoneIdentity?.platform_user_id) {
-            await redis?.set(lidKey, phoneIdentity.platform_user_id, { EX: 86400 * 7 });
-            return phoneIdentity.platform_user_id;
-          }
-        }
-      }
-      return id;
+      const resolved = await resolveLidIdentifier(id);
+      return resolved as T extends string ? string : null;
     }
 
-    return id;
+    return id as T extends string ? string : null;
   },
 
   // ========================================================================
@@ -157,14 +264,27 @@ export const IdentityMap = {
 
     // Forward mapping: LID → JID (existing)
     const lidKey = `map:lid:${extractNumericId(deviceLid)}`;
-    await redis?.set(lidKey, phoneJid);
+    try {
+      await redis?.set(lidKey, phoneJid);
+    } catch {
+      // Ignorer l'erreur d'écriture Redis
+    }
 
     // Reverse mapping: JID → LID (new — for bot self-identification in @mentions)
     const reverseKey = `map:jid2lid:${extractNumericId(phoneJid)}`;
-    await redis?.set(reverseKey, deviceLid, { EX: 86400 * 30 });
-    jidToLidCache.set(cleanJid(phoneJid), deviceLid);
+    try {
+      await redis?.set(reverseKey, deviceLid, { EX: 86400 * 30 });
+    } catch {
+      // Ignorer l'erreur d'écriture Redis
+    }
+    setBidirectionalCacheEntry(phoneJid, deviceLid);
 
     await syncIdentitiesHelper(deviceLid, phoneJid);
+  },
+
+  _clearCacheForTesting() {
+    jidToLidCache.clear();
+    lidToJidCache.clear();
   },
 };
 async function syncIdentitiesHelper(deviceLid: string, phoneJid: string): Promise<void> {
