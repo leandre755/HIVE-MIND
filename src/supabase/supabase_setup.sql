@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS public.users CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
+  jid text UNIQUE,
   username text,
   interaction_count bigint DEFAULT 0,
   language varchar(10),
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS public.users (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   hash character varying,
-  CONSTRAINT users_pkey PRIMARY KEY (id)
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_hash_key UNIQUE (hash)
 );
 
 CREATE TABLE IF NOT EXISTS public.user_identities (

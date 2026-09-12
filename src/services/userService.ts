@@ -229,10 +229,10 @@ async function checkSupabaseCandidateOwner(
 async function claimCandidateInRedis(
   hash: string,
   resolvedJid: string,
-): Promise<'claimed' | 'collision' | 'error'> {
+): Promise<'claimed' | 'unreserved' | 'collision'> {
   if (!redis) {
     setHashOwnerEntry(hash, resolvedJid);
-    return 'claimed';
+    return 'unreserved';
   }
   try {
     const key = `hash:owner:${hash}`;
@@ -251,9 +251,9 @@ async function claimCandidateInRedis(
       setHashOwnerEntry(hash, currentOwner);
       return 'collision';
     }
-    return 'error';
+    return 'unreserved';
   } catch {
-    return 'error';
+    return 'unreserved';
   }
 }
 
@@ -316,10 +316,23 @@ async function isStoredHashColliding(hash: string, resolvedJid: string): Promise
   return false;
 }
 
+function isUniqueConstraintViolation(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const errorObj = err as { code?: string; message?: string };
+  if (errorObj.code === '23505') return true;
+  if (typeof errorObj.message === 'string') {
+    const msg = errorObj.message.toLowerCase();
+    return (
+      msg.includes('unique') || msg.includes('duplicate key') || msg.includes('users_hash_key')
+    );
+  }
+  return false;
+}
+
 async function verifyAndReserveCandidate(
   hash: string,
   resolvedJid: string,
-): Promise<'claimed' | 'collision' | 'error'> {
+): Promise<'claimed' | 'unreserved' | 'collision' | 'error'> {
   const inMemoryOwner = hashToOwnerMap.get(hash);
   if (inMemoryOwner && inMemoryOwner !== resolvedJid) {
     return 'collision';
@@ -333,42 +346,56 @@ async function verifyAndReserveCandidate(
   return await claimCandidateInRedis(hash, resolvedJid);
 }
 
-async function generateUniqueSpeakerHash(
-  userServiceInstance: typeof userService,
+async function upsertSpeakerHashToSupabase(
   resolvedJid: string,
-): Promise<string> {
-  const MAX_COLLISION_ATTEMPTS = 10;
-  let encounteredLookupError = false;
+  hash: string,
+  reservation: 'claimed' | 'unreserved',
+): Promise<'persisted' | 'collision' | 'error'> {
+  if (!supabase) return 'persisted';
+  try {
+    const { error } = await supabase
+      .from('users')
+      .upsert({ jid: resolvedJid, hash }, { onConflict: 'jid' })
+      .select();
 
-  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
-    const candidate = userServiceInstance.computeSpeakerHash(resolvedJid, attempt);
-    const result = await verifyAndReserveCandidate(candidate, resolvedJid);
-    if (result === 'claimed') {
-      return candidate;
+    if (error) {
+      if (isUniqueConstraintViolation(error)) {
+        return 'collision';
+      }
+      console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(error));
+      return 'error';
     }
-    if (result === 'error') {
-      encounteredLookupError = true;
-    }
-  }
 
-  if (encounteredLookupError) {
-    throw new Error(
-      `Unable to verify speaker hash availability for ${resolvedJid} due to lookup error`,
-    );
+    if (reservation === 'unreserved') {
+      const postCheck = await checkSupabaseCandidateOwner(hash, resolvedJid);
+      if (postCheck === 'collision') {
+        return 'collision';
+      }
+    }
+    return 'persisted';
+  } catch (upsertErr: unknown) {
+    if (isUniqueConstraintViolation(upsertErr)) {
+      return 'collision';
+    }
+    console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(upsertErr));
+    return 'error';
   }
-  throw new Error(
-    `Unable to allocate a unique speaker hash for ${resolvedJid} after ${MAX_COLLISION_ATTEMPTS} attempts`,
-  );
 }
 
 async function persistSpeakerHash(
   cacheKey: string,
   resolvedJid: string,
   hash: string,
-): Promise<void> {
+  reservation: 'claimed' | 'unreserved',
+): Promise<'persisted' | 'collision' | 'error'> {
   // Les LIDs bruts non résolus ne doivent jamais créer d'identité durable (ni Redis ni Supabase)
   if (resolvedJid.endsWith('@lid')) {
-    return;
+    return 'persisted';
+  }
+
+  const supabaseResult = await upsertSpeakerHashToSupabase(resolvedJid, hash, reservation);
+  if (supabaseResult !== 'persisted') {
+    return supabaseResult;
   }
 
   setHashOwnerEntry(hash, resolvedJid);
@@ -380,16 +407,64 @@ async function persistSpeakerHash(
     // Ignorer l'erreur d'écriture Redis
   }
 
-  if (supabase) {
-    try {
-      await supabase
-        .from('users')
-        .upsert({ jid: resolvedJid, hash }, { onConflict: 'jid' })
-        .select();
-    } catch (upsertErr: unknown) {
-      console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(upsertErr));
-    }
+  return 'persisted';
+}
+
+async function releaseCandidateReservation(hash: string, resolvedJid: string): Promise<void> {
+  if (hashToOwnerMap.get(hash) === resolvedJid) {
+    hashToOwnerMap.delete(hash);
   }
+  if (!redis) return;
+  try {
+    const key = `hash:owner:${hash}`;
+    const currentOwner = await redis.get(key);
+    if (currentOwner === resolvedJid) {
+      await redis.del(key);
+    }
+  } catch {
+    // Ignorer l'erreur de liberation Redis
+  }
+}
+
+async function generateUniqueSpeakerHash(
+  userServiceInstance: typeof userService,
+  resolvedJid: string,
+  cacheKey: string,
+): Promise<string> {
+  const MAX_COLLISION_ATTEMPTS = 10;
+  let encounteredLookupError = false;
+
+  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
+    const candidate = userServiceInstance.computeSpeakerHash(resolvedJid, attempt);
+    const reservation = await verifyAndReserveCandidate(candidate, resolvedJid);
+    if (reservation === 'collision') {
+      continue;
+    }
+    if (reservation === 'error') {
+      encounteredLookupError = true;
+      continue;
+    }
+
+    const persistResult = await persistSpeakerHash(cacheKey, resolvedJid, candidate, reservation);
+    if (persistResult === 'collision' || persistResult === 'error') {
+      await releaseCandidateReservation(candidate, resolvedJid);
+      if (persistResult === 'error') {
+        encounteredLookupError = true;
+      }
+      continue;
+    }
+
+    return candidate;
+  }
+
+  if (encounteredLookupError) {
+    throw new Error(
+      `Unable to verify speaker hash availability for ${resolvedJid} due to lookup error`,
+    );
+  }
+  throw new Error(
+    `Unable to allocate a unique speaker hash for ${resolvedJid} after ${MAX_COLLISION_ATTEMPTS} attempts`,
+  );
 }
 
 function computeOutageSpeakerHash(
@@ -606,9 +681,7 @@ export const userService = {
     }
 
     // 3. Migration (hash legacy), nouvel utilisateur, ou réparation d'une collision stockée
-    const hash = await generateUniqueSpeakerHash(this, resolvedJid);
-    await persistSpeakerHash(cacheKey, resolvedJid, hash);
-    return hash;
+    return await generateUniqueSpeakerHash(this, resolvedJid, cacheKey);
   },
 
   /**

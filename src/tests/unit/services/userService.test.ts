@@ -744,6 +744,184 @@ function registerSpeakerHashLidResilienceTests() {
   });
 }
 
+function registerSpeakerHashConcurrencyTests() {
+  it('should retry allocation and resolve collision when Supabase returns unique constraint violation on hash', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'requester_concurrent@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+    const candidate1 = userService.computeSpeakerHash(requester, 1);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const upsertSpy = jest.fn(
+      (values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => {
+          if (values?.hash === candidate0) {
+            return {
+              data: null,
+              error: {
+                code: '23505',
+                message: 'duplicate key value violates unique constraint "users_hash_key"',
+              },
+            };
+          }
+          return { data: null, error: null };
+        },
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate1);
+    expect(hash).not.toBe(candidate0);
+    expect(upsertSpy).toHaveBeenCalledWith(
+      { jid: requester, hash: candidate0 },
+      { onConflict: 'jid' },
+    );
+    expect(upsertSpy).toHaveBeenCalledWith(
+      { jid: requester, hash: candidate1 },
+      { onConflict: 'jid' },
+    );
+  });
+
+  it('should detect collision and retry when Redis is absent and concurrent owner is detected in Supabase post-upsert check', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'second_worker@s.whatsapp.net';
+    const firstOwner = 'first_worker@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+    const candidate1 = userService.computeSpeakerHash(requester, 1);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+    const setSpy = jest
+      .spyOn(redis, 'set')
+      .mockImplementation(async () => null as unknown as string);
+
+    let candidate0Upserted = false;
+    const upsertSpy = jest.fn(
+      (values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => {
+        if (values?.hash === candidate0) {
+          candidate0Upserted = true;
+        }
+        return {
+          select: async () => ({ data: null }),
+        };
+      },
+    );
+
+    const queryMock = {
+      select: () => ({
+        eq: (_field: string, val: string) => ({
+          single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+          limit: async () => {
+            if (val === candidate0 && candidate0Upserted) {
+              return { data: [{ jid: requester }, { jid: firstOwner }] };
+            }
+            return { data: [] };
+          },
+        }),
+        limit: async () => ({ data: [] }),
+      }),
+      upsert: upsertSpy,
+    };
+    if (supabase) {
+      jest
+        .spyOn(supabase, 'from')
+        .mockImplementation(
+          () => queryMock as unknown as ReturnType<NonNullable<typeof supabase>['from']>,
+        );
+    }
+
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate1);
+    expect(hash).not.toBe(candidate0);
+    expect(upsertSpy).toHaveBeenCalledWith(
+      { jid: requester, hash: candidate0 },
+      { onConflict: 'jid' },
+    );
+    expect(upsertSpy).toHaveBeenCalledWith(
+      { jid: requester, hash: candidate1 },
+      { onConflict: 'jid' },
+    );
+    setSpy.mockRestore();
+  });
+
+  it('should release abandoned candidate reservation in Redis and memory when Supabase persistence collides', async () => {
+    userService._clearLidCacheForTesting();
+    const requester = 'releasing_worker@s.whatsapp.net';
+    const candidate0 = userService.computeSpeakerHash(requester, 0);
+    const candidate1 = userService.computeSpeakerHash(requester, 1);
+
+    jest.spyOn(IdentityMap, 'resolve').mockImplementation(async (j) => j ?? null);
+    jest.spyOn(redis, 'hGet').mockImplementation(async () => null);
+
+    const redisStore = new Map<string, string>();
+    redisStore.set(`hash:owner:${candidate0}`, requester);
+
+    const delSpy = jest.spyOn(redis, 'del').mockImplementation(async (key) => {
+      redisStore.delete(String(key));
+      return 1;
+    });
+    const getSpy = jest.spyOn(redis, 'get').mockImplementation(async (key) => {
+      return redisStore.get(String(key)) ?? null;
+    });
+    const setSpy = jest.spyOn(redis, 'set').mockImplementation(async (key, val, options) => {
+      if (options && typeof options === 'object' && 'NX' in options && options.NX) {
+        if (redisStore.has(String(key))) {
+          return null as unknown as string;
+        }
+      }
+      redisStore.set(String(key), String(val));
+      return 'OK';
+    });
+
+    const upsertSpy = jest.fn(
+      (values?: { jid: string; hash: string }, _options?: { onConflict?: string }) => ({
+        select: async () => {
+          if (values?.hash === candidate0) {
+            return {
+              data: null,
+              error: {
+                message: 'Transient connection timeout',
+              },
+            };
+          }
+          return { data: null, error: null };
+        },
+      }),
+    );
+    mockSupabaseSelectAndUpsert(upsertSpy);
+    const hash = await userService.getSpeakerHash(requester);
+    expect(hash).toBe(candidate1);
+    expect(delSpy).toHaveBeenCalledWith(`hash:owner:${candidate0}`);
+
+    // Verify candidate0 was also removed from the in-memory ownership map by reclaiming it
+    const reclaimer = 'reclaimer@s.whatsapp.net';
+    const computeSpy = jest
+      .spyOn(userService, 'computeSpeakerHash')
+      .mockImplementation((jid, attempt) => {
+        if (jid === reclaimer && attempt === 0) {
+          return candidate0;
+        }
+        return 'FALLBACK1';
+      });
+
+    const reclaimUpsert = jest.fn(() => ({
+      select: async () => ({ data: null, error: null }),
+    }));
+    mockSupabaseSelectAndUpsert(reclaimUpsert);
+
+    const reclaimedHash = await userService.getSpeakerHash(reclaimer);
+    expect(reclaimedHash).toBe(candidate0);
+
+    computeSpy.mockRestore();
+    delSpy.mockRestore();
+    getSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+}
+
 describe('userService unit tests', () => {
   beforeAll(async () => {
     // Import redis client and mock connect immediately
@@ -839,4 +1017,5 @@ describe('userService unit tests', () => {
   describe('getSpeakerHash() - Migration & Resilience', registerSpeakerHashMigrationTests);
   describe('getSpeakerHash() - Collision Repair', registerSpeakerHashCollisionTests);
   describe('getSpeakerHash() - LID Resilience', registerSpeakerHashLidResilienceTests);
+  describe('getSpeakerHash() - Concurrency & Uniqueness', registerSpeakerHashConcurrencyTests);
 });
