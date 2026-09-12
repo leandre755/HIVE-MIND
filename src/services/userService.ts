@@ -162,6 +162,7 @@ function setLidCacheEntry(key: string, value: string): void {
 
 // Cache en mémoire des correspondances Hash -> JID propriétaire pour détecter et résoudre les collisions
 const hashToOwnerMap = new Map<string, string>();
+const jidToVerifiedHashMap = new Map<string, string>();
 const MAX_HASH_OWNER_ENTRIES = 1000;
 
 function setHashOwnerEntry(hash: string, jid: string): void {
@@ -174,6 +175,16 @@ function setHashOwnerEntry(hash: string, jid: string): void {
     }
   }
   hashToOwnerMap.set(hash, jid);
+
+  if (jidToVerifiedHashMap.has(jid)) {
+    jidToVerifiedHashMap.delete(jid);
+  } else if (jidToVerifiedHashMap.size >= MAX_HASH_OWNER_ENTRIES) {
+    const oldestKey = jidToVerifiedHashMap.keys().next().value;
+    if (oldestKey !== undefined) {
+      jidToVerifiedHashMap.delete(oldestKey);
+    }
+  }
+  jidToVerifiedHashMap.set(jid, hash);
 }
 
 async function checkSupabaseCandidateOwner(
@@ -241,6 +252,61 @@ async function claimCandidateInRedis(
   } catch {
     return 'error';
   }
+}
+
+async function checkStoredRedisCollision(hash: string, resolvedJid: string): Promise<boolean> {
+  if (!redis) return false;
+  try {
+    const key = `hash:owner:${hash}`;
+    const currentOwner = await redis.get(key);
+    if (currentOwner && currentOwner !== resolvedJid) {
+      setHashOwnerEntry(hash, currentOwner);
+      return true;
+    }
+  } catch {
+    // Ignorer l'erreur Redis
+  }
+  return false;
+}
+
+async function checkStoredSupabaseCollision(hash: string, resolvedJid: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.from('users').select('jid').eq('hash', hash).limit(2);
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return false;
+    }
+
+    const firstOwner = (data[0] as { jid?: string })?.jid;
+    if (firstOwner && firstOwner !== resolvedJid) {
+      setHashOwnerEntry(hash, firstOwner);
+      return true;
+    }
+  } catch {
+    // Ignorer l'erreur Supabase
+  }
+  return false;
+}
+
+async function isStoredHashColliding(hash: string, resolvedJid: string): Promise<boolean> {
+  const inMemoryOwner = hashToOwnerMap.get(hash);
+  if (inMemoryOwner && inMemoryOwner !== resolvedJid) {
+    return true;
+  }
+
+  const hasRedisCollision = await checkStoredRedisCollision(hash, resolvedJid);
+  if (hasRedisCollision) {
+    return true;
+  }
+
+  const hasSupabaseCollision = await checkStoredSupabaseCollision(hash, resolvedJid);
+  if (hasSupabaseCollision) {
+    return true;
+  }
+
+  setHashOwnerEntry(hash, resolvedJid);
+  redis?.set(`hash:owner:${hash}`, resolvedJid).catch(() => {});
+  return false;
 }
 
 async function verifyAndReserveCandidate(
@@ -317,6 +383,28 @@ async function persistSpeakerHash(
       console.warn('[UserService] getSpeakerHash upsert error:', extractErrorMessage(upsertErr));
     }
   }
+}
+
+function computeOutageSpeakerHash(
+  userServiceInstance: typeof userService,
+  resolvedJid: string,
+): string {
+  const verifiedInMemory = jidToVerifiedHashMap.get(resolvedJid);
+  if (verifiedInMemory) {
+    return verifiedInMemory;
+  }
+
+  const MAX_ATTEMPTS = 10;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const candidate = userServiceInstance.computeSpeakerHash(resolvedJid, attempt);
+    const owner = hashToOwnerMap.get(candidate);
+    if (!owner || owner === resolvedJid) {
+      setHashOwnerEntry(candidate, resolvedJid);
+      return candidate;
+    }
+  }
+
+  return userServiceInstance.computeSpeakerHash(resolvedJid);
 }
 
 interface ResolvedSpeakerIdentity {
@@ -484,8 +572,10 @@ export const userService = {
     // 1. Tenter la lecture depuis le cache Redis (L1)
     const cached = await readCachedSpeakerHash(cacheKey);
     if (cached.status === 'found') {
-      setHashOwnerEntry(cached.hash, resolvedJid);
-      return cached.hash;
+      const isColliding = await isStoredHashColliding(cached.hash, resolvedJid);
+      if (!isColliding) {
+        return cached.hash;
+      }
     }
 
     // 2. Tenter la lecture depuis Supabase (L2 - Persistance)
@@ -493,30 +583,22 @@ export const userService = {
     // pour preserver un hash courant valide eventuellement present dans la base.
     const persisted = await readPersistedSpeakerHash(resolvedJid);
     if (persisted.status === 'found') {
-      setHashOwnerEntry(persisted.hash, resolvedJid);
-      redis?.hSet(cacheKey, 'hash', persisted.hash).catch(() => {});
-      redis?.set(`hash:owner:${persisted.hash}`, resolvedJid).catch(() => {});
-      return persisted.hash;
+      const isColliding = await isStoredHashColliding(persisted.hash, resolvedJid);
+      if (!isColliding) {
+        redis?.hSet(cacheKey, 'hash', persisted.hash).catch(() => {});
+        redis?.set(`hash:owner:${persisted.hash}`, resolvedJid).catch(() => {});
+        return persisted.hash;
+      }
     }
 
     // En cas d'erreur de lecture Supabase (panne transitoire) :
-    // Si Redis dispose d'un hash legacy connu, le renvoyer pour assurer la continuite
-    // sans generer de hash alternatif non synchronise. Sinon calculer le hash sans persister.
+    // Renvoyer le hash vérifié ou déterministe en mémoire sans persister pour maintenir
+    // une attribution stable tout au long de la panne et préserver la résolution de collision.
     if (persisted.status === 'error') {
-      if (cached.status === 'legacy') {
-        return cached.hash;
-      }
-      return this.computeSpeakerHash(resolvedJid);
+      return computeOutageSpeakerHash(this, resolvedJid);
     }
 
-    // Si Supabase ou Redis contient un hash legacy, migrer vers le hash deterministe 8-car unique
-    if (persisted.status === 'legacy' || cached.status === 'legacy') {
-      const migratedHash = await generateUniqueSpeakerHash(this, resolvedJid);
-      await persistSpeakerHash(cacheKey, resolvedJid, migratedHash);
-      return migratedHash;
-    }
-
-    // 4. Absence confirmee dans le cache et la base : nouvel utilisateur
+    // 3. Migration (hash legacy), nouvel utilisateur, ou réparation d'une collision stockée
     const hash = await generateUniqueSpeakerHash(this, resolvedJid);
     await persistSpeakerHash(cacheKey, resolvedJid, hash);
     return hash;
@@ -532,6 +614,7 @@ export const userService = {
   _clearLidCacheForTesting() {
     lidToCanonicalJidCache.clear();
     hashToOwnerMap.clear();
+    jidToVerifiedHashMap.clear();
   },
 
   // ======== FONCTIONS LEGACY / NON-MIGRÉES ========
