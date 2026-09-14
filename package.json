@@ -25,6 +25,8 @@
     "test:unit": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit",
     "test:integration": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/integration",
     "test:e2e": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/e2e",
+    "test:coverage": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit --coverage --coverageReporters=lcov --coverageReporters=text",
+    "sonar": "sh -c 'if [ -f ~/.env ]; then export $(grep -v \"^#\" ~/.env | xargs); fi; npx --yes sonarqube-scanner -Dsonar.host.url=https://sonarcloud.io \"$@\"' _",
     "postinstall": "npx playwright install chromium"
   },
   "keywords": [
