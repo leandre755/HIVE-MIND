@@ -65,7 +65,7 @@ Par défaut, SonarCloud applique le profil **Sonar way** (géré par SonarSource
 4. Repérez le langage **TypeScript** :
    - Cliquez sur la roue dentée / menu à droite de **Sonar way** > **Copy** (Dupliquer).
    - Nommez votre profil (ex: `HIVE-MIND TypeScript`).
-5. Définissez ce nouveau profil comme profil par défaut (**Set as Default**) pour votre organisation ou associez-le spécifiquement à `leandre755_HIVE-MIND` dans les paramètres du projet.
+5. Définissez ce nouveau profil comme profil par défaut (**Set as Default**) pour votre organisation ou associez-le spécifiquement à `leandre755_HIVE-MIND2` dans les paramètres du projet.
 6. Cliquez sur le profil dupliqué :
    - Vous pouvez maintenant cliquer sur n'importe quelle règle pour la **Désactiver** (Deactivate) ou changer sa sévérité (Info, Minor, Major, Critical, Blocker).
    - Vous pouvez également cliquer sur **Activate More** pour rechercher et activer des règles optionnelles plus strictes.
@@ -134,11 +134,11 @@ docker run --rm \
 Pour voir les alertes Sonar en direct pendant que vous codez (sans attendre le scan) :
 1. Installez l'extension **SonarLint** dans votre IDE (VS Code / Antigravity).
 2. Ouvrez les paramètres SonarLint > **Connected Mode**.
-3. Liez votre compte SonarCloud `leandre755` et sélectionnez le projet `leandre755_HIVE-MIND`.
+3. Liez votre compte SonarCloud `leandre755` et sélectionnez le projet `leandre755_HIVE-MIND2`.
 4. SonarLint appliquera instantanément les mêmes règles que votre CI directement sous votre curseur.
 
 ---
 
 Une fois l'analyse terminée, retrouvez le rapport complet en ligne sur :
-👉 [Tableau de bord SonarCloud HIVE-MIND](https://sonarcloud.io/dashboard?id=leandre755_HIVE-MIND)
+👉 [Tableau de bord SonarCloud HIVE-MIND](https://sonarcloud.io/dashboard?id=leandre755_HIVE-MIND2)
 
