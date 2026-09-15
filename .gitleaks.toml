@@ -9,5 +9,11 @@
 useDefault = true
 
 [allowlist]
-description = "Jeton d'exemple factice illustrant le handshake du transport TUI (documentations/tui/reference/core-connection.md, lignes 27 et 52). Les vrais jetons de session vivent dans tui-connection.json, hors de Git."
-paths = ['''^documentations/tui/reference/core-connection\.md$''']
+description = "Jeton d'exemple factice illustrant le handshake du transport TUI et identifiant public de projet SonarCloud."
+paths = [
+  '''^documentations/tui/reference/core-connection\.md$''',
+  '''^sonar-project\.properties$'''
+]
+regexes = [
+  '''sonar\.projectKey=[a-zA-Z0-9_-]+'''
+]
