@@ -117,6 +117,16 @@ export default {
 
     // ── Textual admin commands ──────────────────────────────────────
     if (toolName === 'shutdown_bot') {
+      const sender = typeof context?.sender === 'string' ? context.sender : undefined;
+      const { adminService } = await import('../../../services/adminService.js');
+      const isAuthorized = sender !== undefined && (await adminService.isGlobalAdmin(sender));
+      if (!isAuthorized) {
+        console.log(
+          `[Security] .shutdown refusé : expéditeur non autorisé (${sender ?? 'inconnu'})`,
+        );
+        return { success: false, message: 'UNAUTHORIZED: global admin required for .shutdown' };
+      }
+
       console.log('🛑 Shutdown requested via .shutdown command');
       if (transport) {
         await transport.sendText(chatId, '🛑 System shutting down...');
