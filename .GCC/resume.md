@@ -2,40 +2,31 @@
 
 ## 🎯 Functional Outcome & Task Reality
 - **Requested Task**:
-  1. Résoudre le finding P1 de Greptile vérifié par T-Rex (review comment #3997851418 sur `src/services/userService.ts`) : "Redis reservations never expire".
-  2. Ajouter un TTL borné (`EX: 30`) aux réservations candidates dans Redis (`claimCandidateInRedis`) tout en préservant le CAS atomique de libération (`releaseCandidateReservation`), garantissant qu'une panne transitoire ou l'absence d'`eval` ne verrouille pas indéfiniment un hash locuteur déterministe.
-  3. Normaliser le suffixe d'appareil (`replace(/:\d+@/, '@')`) sur `currentOwner` dans `claimCandidateInRedis`.
-  4. Valider l'ensemble de la suite de tests et vérifier la propreté statique (TypeScript, oxlint, ESLint, Prettier).
+  1. Point de situation de session (« on en était où »), puis nettoyage : abandon du workflow SonarCloud (redondant avec l'app GitHub `sonarqubecloud` déjà installée) et suppression des branches locales.
+  2. Remédiation des 5 bugs et des 9 vulnérabilités de l'audit SonarCloud du projet `leandre755_HIVE-MIND2` (branche `master`, extraction du 2026-09-14), sur branche dédiée + PR.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `src/services/userService.ts` :
-    - `CANDIDATE_RESERVATION_TTL_SEC = 30` introduit et passé en option `{ NX: true, EX: CANDIDATE_RESERVATION_TTL_SEC }` à `redis.set` dans `claimCandidateInRedis`.
-    - Normalisation multi-appareils de `currentOwner` (`currentOwner.replace(/:\d+@/, '@') === resolvedJid`).
-    - Écrasement sans TTL (`redis?.set(\`hash:owner:${hash}\`, resolvedJid)`) lors de la persistance confirmée dans `persistSpeakerHash`, convertissant la réservation temporaire en mapping permanent.
-  - `src/tests/unit/services/userService.test.ts` :
-    - Test unitaire dédié vérifiant que `redis.set` reçoit `{ NX: true, EX: expect.any(Number) }` lors de la réservation et qu'après persistance, `redis.set` est réappelé sans TTL.
-    - Test unitaire dédié vérifiant la reconnaissance d'un même utilisateur via son JID normalisé lors d'une réservation concurrente.
-    - 39/39 tests unitaires `userService.test.ts` passés.
-    - 76/76 suites de tests unitaires (800/800 tests) passées sans régression.
-  - `npm run build` : 0 erreur TypeScript.
-  - `npm run lint:fast` : 0 erreur, 0 warning (oxlint).
-  - ESLint et Prettier : 100% conformes.
+  - 7 branches locales supprimées avec SHA consignés (`ci/codecov-integration` c6c77ed, `ci/sonarcloud-setup` 12b122b, `docs/tui-decoupling-and-readme-rework` d08af3d, `fix(baileys)-alert-autofix-4` c23a041, `fix/embeddings-clear-text-logging` c5d83ee, `fix/user-service-weak-crypto` debbe61, `fix/workflow-hygiene-eslint-greetings` 838227d) ; `worktree-ci+rigorous-pipeline` conservée (extraite dans `.claude/worktrees/ci+rigorous-pipeline`, aucun upstream).
+  - **Faille d'autorisation réelle corrigée** : `src/core/index.ts:3807` testait `!adminService.isGlobalAdmin(sender)` alors que la méthode est `async` — la Promise étant toujours *truthy*, le garde de `.shutdown` ne s'exécutait jamais. `await` ajouté.
+  - **Bug de fiabilité réel corrigé** : `LSPTool.execute` retournait 4 handlers `async` sans `await` dans un `try`, leurs rejets échappaient donc au `catch`. `await` ajouté sur les 4 appels.
+  - CI reproduite localement, non supposée : `npm ci --ignore-scripts && npm rebuild hnswlib-node` puis suite unitaire → **77/77 suites, 834/834 tests**.
+  - Commande exacte du workflow ESLint exécutée localement → SARIF 2.1.0 valide (1 run, outil ESLint).
+  - PR **#82** ouverte : https://github.com/leandre755/HIVE-MIND/pull/82
+- **Note méthodologique critique**: `NODE_ENV=production` est présent dans l'environnement de l'agent harnais — un `npm ci` lancé sans surcharge (`NODE_ENV=development`) n'installe PAS les devDependencies et fausse toute vérification. Les codes de sortie doivent aussi être lus sans pipe (`cmd | tail` renvoie le code de `tail`, pas celui de `cmd`) : c'est ce piège qui a masqué 2 erreurs ESLint `sonarjs/no-nested-conditional` introduites puis corrigées.
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/services/userService.ts`
-  - **Scope**: `claimCandidateInRedis`
-  - **Exact Technical Change**: Définition de `CANDIDATE_RESERVATION_TTL_SEC = 30`, passage de `{ NX: true, EX: CANDIDATE_RESERVATION_TTL_SEC }` à `redis.set`, et normalisation de `currentOwner` pour les suffixes multi-appareils.
-- **File**: `src/tests/unit/services/userService.test.ts`
-  - **Scope**: `registerSpeakerHashFallbackAndNormalizationTests`
-  - **Exact Technical Change**: Ajout des 2 tests unitaires de TTL borné et de reconnaissance multi-appareils.
-- **File**: `.GCC/main.md`
-  - **Scope**: `## 🧠 Decisions Made`
-  - **Exact Technical Change**: Consignation de la décision relative au TTL borné de 30s des réservations candidates Redis.
-- **File**: `.GCC/resume.md`
-  - **Scope**: Session handoff & état technique de transition.
+- **File**: `src/core/index.ts` — `_handleShutdown` : `if (!(await adminService.isGlobalAdmin(sender)))`.
+- **File**: `src/plugins/base/dev_tools/LSPTool.ts` — `execute` : `await` sur `handleDocumentSymbol`, `handleGoToDefinition`, `handleFindReferences`, `handleHover`.
+- **File**: `src/plugins/tools/send_sticker/index.ts` — `tagCloud` trié via `.sort((a, b) => a.localeCompare(b))`.
+- **File**: `src/scripts/generate-blueprint.js` — ajout de `compareByCodeUnit(a, b)` (déterministe, indépendant de la locale) et usage aux 2 sites de tri (dédoublonnage des cercles, ordre des fichiers par couche).
+- **File**: `.github/workflows/ci.yml` — `npm ci --ignore-scripts` + `npm rebuild hnswlib-node` (le paquet ne fournit aucun binaire prébuild et dépend du `node-gyp rebuild` implicite de npm).
+- **File**: `.github/workflows/eslint.yml` — `npm ci --ignore-scripts`, suppression de l'installation dynamique du formateur, `./node_modules/.bin/eslint`.
+- **File**: `.github/workflows/release.yml` — `./node_modules/.bin/semantic-release` (dry-run et publish).
+- **File**: `package.json` / `package-lock.json` — `@microsoft/eslint-formatter-sarif: 3.1.0` en devDependency épinglée (59 entrées de lockfile ajoutées, 0 supprimée, `overrides` et `allowScripts` intacts ; tri alphabétique des devDependencies imposé par npm).
+- **File**: `.GCC/branches/plan_sonar_p1_bugs_vulns.md`, `.GCC/main.md` — plan d'exécution avec preuves brutes et décision consignée.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npx prettier --check src/services/userService.ts src/tests/unit/services/userService.test.ts && npx eslint src/services/userService.ts src/tests/unit/services/userService.test.ts && npm run test:unit`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx prettier --check <fichiers> && ./node_modules/.bin/eslint <fichiers> && python3 .github/scripts/verify_workflows.py && npm run test:unit`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -44,18 +35,22 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 79ms on 333 files with 96 rules using 4 threads.
+Finished in 69ms on 334 files with 96 rules using 4 threads.
 
-PASS src/tests/unit/services/userService.test.ts
-Tests: 39 passed, 39 total
-
-Test Suites: 76 passed, 76 total
-Tests: 800 passed, 800 total
+ESLint (4 fichiers modifiés) : EXIT=0
+Prettier : All matched files use Prettier code style!
+verify_workflows.py : Validation succeeded: 9 workflow(s) compliant. (EXIT=0 ; 4 erreurs de pinning SHA avant)
+Test Suites: 77 passed, 77 total
+Tests:       834 passed, 834 total
 ```
+- Gate pré-commit (8/8) et pre-push (gitleaks historique, tests, npm audit, tsc, depcruise) passées sans contournement.
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloqueur local. Prêt pour commit et push.
+- **Blocage résolu** : le hook `pre-push` était bloqué par un faux positif gitleaks (`generic-api-key`, heuristique d'entropie déclenchée par l'affectation de la clé de projet SonarCloud publique en ligne 2 de `sonar-project.properties`) hérité de la branche morte `ci/sonarcloud-setup` (commit `12b122b`). Résolution validée par le mainteneur : suppression de la réf distante via l'API GitHub (`gh api -X DELETE .../git/refs/heads/ci/sonarcloud-setup`) — le hook aurait bloqué la suppression elle-même, puisqu'il scanne l'historique avant la mise à jour de réf. Après prune : plus aucune réf ne contient `12b122b`, `gitleaks` → « no leaks found ». **Aucune détection n'a été affaiblie** (pas d'exemption ajoutée à `.gitleaks.toml`). Conséquence éditoriale : ce journal **nomme** le motif détecté sans le reproduire en clair, sinon la gate refuse le commit qui le documente.
+- **Reste à faire** : lire 100% des retours des bots sur la PR #82 (Greptile via webhook automatique, CodeRabbit à taguer manuellement) et résoudre 100% des fils ; la fusion reste réservée au mainteneur (un agent ne fusionne jamais).
+- **Dettes signalées, non traitées (hors périmètre)** : `eslint.yml` épingle `node-version: 20` contre `>=22.0.0` exigé par `package.json` ; le `postinstall` du projet (`npx playwright install chromium`) contient un `npx` non épinglé ; 511 code smells SonarCloud restants (~45 h estimées).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `src/services/userService.ts`, `src/tests/unit/services/userService.test.ts`, `.GCC/main.md`, `.GCC/resume.md`
-2. **Immediate Action**: Commiter les modifications avec le message conventionnel `fix(services): enforce bounded TTL on Redis candidate reservations and normalize current owner`, puis pousser sur la branche `fix/user-service-weak-crypto`.
+1. **Target File**: `.GCC/branches/plan_sonar_p1_bugs_vulns.md` (preuves brutes) puis la PR #82.
+2. **Immediate Action**: inspecter les revues distantes de la PR #82 (`gh pr view 82 --comments`, `gh pr checks 82`) ; taguer CodeRabbit si une nouvelle analyse est nécessaire (`gh pr comment 82 --body "@coderabbitai full review"`), sans jamais relancer Greptile (webhook payant automatique).
+3. **Verification Command**: `gh pr checks 82` puis `npm run build && npm run lint:fast && npm run test:unit`.
