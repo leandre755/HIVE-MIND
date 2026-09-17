@@ -278,13 +278,13 @@ export default {
     try {
       switch (operation) {
         case 'documentSymbol':
-          return handleDocumentSymbol(absolutePath, file_path);
+          return await handleDocumentSymbol(absolutePath, file_path);
         case 'goToDefinition':
-          return handleGoToDefinition(absolutePath, file_path, symbol_name, search_paths);
+          return await handleGoToDefinition(absolutePath, file_path, symbol_name, search_paths);
         case 'findReferences':
-          return handleFindReferences(absolutePath, symbol_name, search_paths);
+          return await handleFindReferences(absolutePath, symbol_name, search_paths);
         case 'hover':
-          return handleHover(absolutePath, file_path, symbol_name);
+          return await handleHover(absolutePath, file_path, symbol_name);
         default:
           return { success: false, message: `Unsupported LSP operation: ${operation}.` };
       }

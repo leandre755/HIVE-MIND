@@ -21,6 +21,12 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
+function compareByCodeUnit(a, b) {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 const EXCLUDED_DIRECTORIES = new Set([
   'node_modules',
   '.git',
@@ -230,7 +236,7 @@ if (circles.length > 0) {
   const uniqueCircles = [];
   const seen = new Set();
   for (const circle of circles) {
-    const key = [...circle].sort().join('|');
+    const key = [...circle].sort(compareByCodeUnit).join('|');
     if (!seen.has(key)) {
       seen.add(key);
       uniqueCircles.push(circle);
@@ -294,7 +300,7 @@ for (const [layerName, files] of layers) {
 
   markdown += `### 📁 ${layerName}\n\n`;
 
-  for (const filePath of files.sort()) {
+  for (const filePath of files.sort(compareByCodeUnit)) {
     const details = fileDetails.get(filePath);
     const exportList = details.exports.map((e) => `\`${e.name}\` (${e.type})`).join(', ');
 
