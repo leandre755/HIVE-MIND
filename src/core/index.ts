@@ -2,7 +2,7 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import { readFileSync, promises as fsPromises } from 'fs';
+import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 
 import { fileURLToPath } from 'url';
@@ -3794,53 +3794,6 @@ ${textToCompress}`,
       {},
       (event.data as Record<string, string>).sourceChannel,
     );
-  }
-
-  /**
-   * Gère l'arrêt d'urgence du bot (.shutdown)
-   * Format: .shutdown [duration] (ex: .shutdown 2h)
-   */
-  async _handleShutdown(message: MessageData): Promise<void> {
-    const { adminService } = this;
-    const { sender, chatId, text } = message;
-
-    if (!(await adminService.isGlobalAdmin(sender))) {
-      console.log(`[Security] Tentative de shutdown non autorisée par ${sender}`);
-      return;
-    }
-
-    console.log(`[Security] Shutdown demandé par ${sender}`);
-
-    const args = text.split(' ');
-    const durationStr = args[1];
-    let shutdownUntil: number | null = null;
-
-    if (durationStr) {
-      const match = durationStr.match(/^(\d+)([hm])$/);
-      if (match) {
-        const amount = parseInt(match[1]);
-        const unit = match[2];
-        const ms = amount * (unit === 'h' ? 3600000 : 60000);
-        shutdownUntil = Date.now() + ms;
-      }
-    }
-
-    const goodbye = shutdownUntil
-      ? `😴 Je fais une sieste de ${durationStr}. À tout à l'heure !`
-      : '👋 Arrêt du système demandé. Au revoir !';
-
-    await this.transport.sendText(chatId, goodbye);
-
-    if (shutdownUntil) {
-      await fsPromises.writeFile(join(__dirname, '..', '.shutdown_lock'), shutdownUntil.toString());
-    }
-
-    setTimeout(() => {
-      hiveWakeSystem.stop();
-      mailboxWatcher.stop();
-      console.log('🛑 Arrêt du processus.');
-      process.exit(0);
-    }, 2000);
   }
 
   private _matchFactPattern(
