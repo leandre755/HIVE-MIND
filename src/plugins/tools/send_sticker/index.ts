@@ -109,7 +109,9 @@ async function scanStickers(): Promise<void> {
     }
   }
 
-  tagCloud = Array.from(uniqueTags).sort().join(', ');
+  tagCloud = Array.from(uniqueTags)
+    .sort((a, b) => a.localeCompare(b))
+    .join(', ');
   console.log(
     `[send_sticker] 📦 Catalog loaded: ${catalog.size} stickers, ${uniqueTags.size} unique tags`,
   );

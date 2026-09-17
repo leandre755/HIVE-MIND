@@ -3804,7 +3804,7 @@ ${textToCompress}`,
     const { adminService } = this;
     const { sender, chatId, text } = message;
 
-    if (!adminService.isGlobalAdmin(sender)) {
+    if (!(await adminService.isGlobalAdmin(sender))) {
       console.log(`[Security] Tentative de shutdown non autorisée par ${sender}`);
       return;
     }
