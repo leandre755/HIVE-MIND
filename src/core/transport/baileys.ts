@@ -409,6 +409,9 @@ class BaileysTransport extends EventEmitter {
           console.error('Echec reconnexion:', msg);
         });
       }, delayMs);
+      if (this.reconnectTimer && typeof this.reconnectTimer.unref === 'function') {
+        this.reconnectTimer.unref();
+      }
     } else {
       console.log('[Baileys] Déconnexion définitive (loggedOut)');
     }
