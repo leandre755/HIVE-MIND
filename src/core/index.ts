@@ -795,14 +795,21 @@ export class BotCore {
           await goalsService.markInProgress(goal.id);
 
           setTimeout(async () => {
-            await this._onMessage({
-              isGroup: goal.target_chat_id ? goal.target_chat_id.endsWith('@g.us') : false,
-              chatId: goal.target_chat_id,
-              text: `SYSTEM_GOAL_TRIGGER: L'objectif "${goal.title}" a été déclenché par un événement (Reçu message de ${senderName}).\nConsigne: ${goal.description}\nPriorité: ${goal.priority}`,
-              senderName: 'SYSTEM_EVENT_LISTENER',
-              sender: 'system@internal',
-              isSystem: true,
-            } as MessageData);
+            try {
+              await this._onMessage({
+                isGroup: goal.target_chat_id ? goal.target_chat_id.endsWith('@g.us') : false,
+                chatId: goal.target_chat_id,
+                text: `SYSTEM_GOAL_TRIGGER: L'objectif "${goal.title}" a été déclenché par un événement (Reçu message de ${senderName}).\nConsigne: ${goal.description}\nPriorité: ${goal.priority}`,
+                senderName: 'SYSTEM_EVENT_LISTENER',
+                sender: 'system@internal',
+                isSystem: true,
+              } as MessageData);
+            } catch (err: unknown) {
+              console.error(
+                '[EventTrigger] Erreur exécution onMessage:',
+                err instanceof Error ? err.message : String(err),
+              );
+            }
           }, 500);
         }
       }
