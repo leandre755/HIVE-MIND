@@ -810,7 +810,7 @@ export class BotCore {
                 err instanceof Error ? err.message : String(err),
               );
             }
-          }, 500);
+          }, 500).unref();
         }
       }
     } catch (e: unknown) {
