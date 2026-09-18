@@ -48,6 +48,7 @@ export class ActionMemory {
   private readonly keyPrefix = 'action:';
   private readonly defaultTTL = 3600; // 1 hour
   private initialized = false;
+  private cleanupIntervalId?: ReturnType<typeof setInterval>;
 
   constructor() {
     this.startOrphanCleanup();
@@ -58,6 +59,16 @@ export class ActionMemory {
    */
   public init(): void {
     this.initialized = true;
+  }
+
+  /**
+   * Disposes of the service resources.
+   */
+  public dispose(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = undefined;
+    }
   }
 
   /**
@@ -149,7 +160,7 @@ export class ActionMemory {
    * @private
    */
   private startOrphanCleanup(): void {
-    setInterval(
+    this.cleanupIntervalId = setInterval(
       async () => {
         // We don't block cleanup even if not "initialized" as long as clients are ready
         try {
@@ -163,6 +174,9 @@ export class ActionMemory {
       },
       60 * 60 * 1000,
     );
+    if (this.cleanupIntervalId && typeof this.cleanupIntervalId.unref === 'function') {
+      this.cleanupIntervalId.unref();
+    }
   }
 
   private async _cleanupRedisOrphans(): Promise<void> {
