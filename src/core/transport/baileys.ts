@@ -187,6 +187,7 @@ class BaileysTransport extends EventEmitter {
   state: AuthenticationState | null;
   saveCreds: (() => Promise<void>) | null;
   reconnectAttempts: number;
+  reconnectTimer: NodeJS.Timeout | null;
   audioHandler: AudioHandler;
   antiDeleteHandler: AntiDeleteHandler;
 
@@ -203,6 +204,7 @@ class BaileysTransport extends EventEmitter {
     this.state = null;
     this.saveCreds = null;
     this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
     this.audioHandler = new AudioHandler(this, this.logger);
     this.antiDeleteHandler = new AntiDeleteHandler(this, this.logger);
   }
@@ -261,6 +263,11 @@ class BaileysTransport extends EventEmitter {
    * appelant ne consommait la valeur (`this.sock` reste accessible sur l'instance).
    */
   async connect(sessionPath: string = 'session'): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     // Guard: Prevent multiple simultaneous connection attempts
     if (this.isConnecting) {
       console.log('[Baileys] Connexion déjà en cours, ignoré.');
@@ -392,7 +399,11 @@ class BaileysTransport extends EventEmitter {
       const delayMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
       this.reconnectAttempts += 1;
       console.log(`Reconnexion dans ${delayMs / 1000}s...`);
-      setTimeout(() => {
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+      }
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
         this.connect(sessionPath).catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.error('Echec reconnexion:', msg);
@@ -1439,6 +1450,11 @@ class BaileysTransport extends EventEmitter {
    * Termine proprement la connexion WhatsApp
    */
   async disconnect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (!this.sock) return;
 
     console.log('[Baileys] 🔌 Déconnexion demandée...');
