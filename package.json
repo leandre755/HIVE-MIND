@@ -22,7 +22,7 @@
     "audit:group": "tsx src/scripts/audit-group.ts",
     "fix:usernames": "tsx src/scripts/fix-missing-usernames.ts",
     "test": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --forceExit",
-    "test:unit": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit",
+    "test:unit": "CI=true NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit",
     "test:integration": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/integration",
     "test:e2e": "NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/e2e",
     "postinstall": "npx playwright install chromium"
