@@ -1,22 +1,13 @@
-<!-- BLOC 1 : Hero statique paysage (1280×640, 16:9, border-radius 8px) -->
-<p align="center">
-  <img src="https://files.catbox.moe/b3i12u.png" alt="HIVE-MIND — Le Harnais Omni-Source pour Agents LLM"
-       width="100%" style="border-radius: 8px;" />
-</p>
-
-<!-- BLOC 2 : Titre + Logo transparent (No-BG) -->
 <h1 align="center">
   <img src="https://files.catbox.moe/nb2j9r.png" alt="Logo HIVE-MIND" width="92"
        style="vertical-align: middle; margin-right: 12px; border-radius: 8px;" />
   HIVE-MIND
 </h1>
 
-<!-- BLOC 3 : Sélecteur de langue -->
 <p align="center">
   🌐 <b><a href="README.md">English</a></b> | <b><a href="README.fr.md">Français</a></b>
 </p>
 
-<!-- BLOC 4 : Badges de navigation (primaire #00B4D8, secondaire #8B5CF6, flat-square, flèche →) -->
 <p align="center">
   <a href="#architecture">
     <img src="https://img.shields.io/badge/Architecture-→-00B4D8?style=flat-square" alt="Architecture" />
@@ -38,7 +29,6 @@
   </a>
 </p>
 
-<!-- BLOC 5 : Badges de métadonnées (labelColor #0D1117) -->
 <p align="center">
   <img src="https://img.shields.io/badge/Version-1.0.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript Strict" />
@@ -63,10 +53,7 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
 
-<p align="center">
-  <img src="https://files.catbox.moe/9vv02n.svg" alt="Architecture Harnais Cinq Couches HIVE-MIND"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Source Excalidraw :** [`documentation/diagrams/architecture.excalidraw`](documentation/diagrams/architecture.excalidraw) — *Importable directement dans [excalidraw.com](https://excalidraw.com)*
 
 | Couche | Rôle | Composants Clés |
 | :--- | :--- | :--- |
@@ -80,12 +67,9 @@ HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionn
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capacités
 
-Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/). La planche ci-dessous est éditoriale — cyan &amp; violet sur `#0D1117`, rayon 12px, géométrie 16:9 équilibrée.
+Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
 
-<p align="center">
-  <img src="https://files.catbox.moe/t9rbq9.svg" alt="Planche 26 sous-systèmes HIVE-MIND"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Source Excalidraw :** [`documentation/diagrams/capabilities.excalidraw`](documentation/diagrams/capabilities.excalidraw) — *Importable directement dans [excalidraw.com](https://excalidraw.com)*
 
 <details>
 <summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Carte des domaines — déplier SS-01 à SS-26</b></summary>
@@ -104,12 +88,9 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Comment Ça Marche
 
-Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel. Le diagramme ci-dessous est un paysage compact (1280×560) exporté depuis Excalidraw — zéro Mermaid brut dans le markdown.
+Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.
 
-<p align="center">
-  <img src="https://files.catbox.moe/dujxs9.svg" alt="HIVE-MIND Comment Ça Marche — boucle ReAct"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Source Excalidraw :** [`documentation/diagrams/workflow.excalidraw`](documentation/diagrams/workflow.excalidraw) — *Importable directement dans [excalidraw.com](https://excalidraw.com)*
 
 | Étape | Action du Harnais | Code Clé |
 | :--- | :--- | :--- |
@@ -230,6 +211,7 @@ hive-mind/
 │   ├── supabase/         # migrations SQL, fonctions pgvector match_*
 │   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
 ├── documentation/        # 97 docs Diátaxis (core/providers/transport/memory/runtime/plugins)
+├── docs/diagrams/        # diagrammes sources Excalidraw architecture, workflow et capacités
 ├── src/tests/
 │   ├── unit/             # 77 suites — core/providers/runtime/services (834 tests)
 │   ├── integration/      # 5 suites, 34 tests
@@ -255,14 +237,15 @@ hive-mind/
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démonstration Live
 
-Les médias animés sont réservés à la preuve d’exécution concrète. Ci-dessous le teaser éditorial (GIF, 1280×480, 24 frames) — le hero reste statique par design.
-
-<p align="center">
-  <img src="https://files.catbox.moe/g6t6vt.gif" alt="HIVE-MIND harnais — teaser terminal"
-       width="100%" style="border-radius: 8px;" />
-</p>
-
-> Boucle teaser : `npm start` → harnais démarre → transports connectés → ReAct ×10 → mémoire persiste → WS stream vers TUI. Remplacez par votre propre capture pour la preuve de travail.
+```text
+[HIVE-MIND] 🚀 Booting experimental agent daemon (v1.0.0)...
+[Container]  ⚡ Initialized 26 subsystems · ServiceContainer instability I=0.00
+[Transport]  🌐 Connected transports: WhatsApp (Baileys) · Discord · Telegram · CLI · TUI (:5001)
+[Memory]     🧠 Memory hierarchy online: Redis L1 (4.2ms) · Supabase pgvector L2
+[SmartLayer] 🔄 8 provider families registered · Zero-429 sliding window circuit breakers active
+[ReAct]      ⚡ Message received → FairnessQueue DRR → Context Hydration (Ebbinghaus) → Planning
+[PTC VM]     📦 Sandboxed execution in node:vm · 0 security anomalies · Output streamed to TUI
+```
 
 ---
 
@@ -282,4 +265,4 @@ Divulgation privée uniquement — jamais via les issues publiques. Voir [`SECUR
     Éditorial premium — cyan <code>#00B4D8</code> · violet <code>#8B5CF6</code> sur <code>#0D1117</code> · icônes vectorielles Lucide<br/>
     Apache-2.0 &nbsp;·&nbsp; leandre755 &nbsp;·&nbsp; 2026
   </sub>
-</p>
+</p>\n

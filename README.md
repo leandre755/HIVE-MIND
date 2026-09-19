@@ -1,22 +1,13 @@
-<!-- BLOCK 1: Static Landscape Hero (1280x640, 16:9, border-radius 8px) -->
-<p align="center">
-  <img src="https://files.catbox.moe/b3i12u.png" alt="HIVE-MIND — The Omni-Source Harness for LLM Agents"
-       width="100%" style="border-radius: 8px;" />
-</p>
-
-<!-- BLOCK 2: Title + Transparent Logo (No-BG) -->
 <h1 align="center">
   <img src="https://files.catbox.moe/nb2j9r.png" alt="HIVE-MIND Logo" width="92"
        style="vertical-align: middle; margin-right: 12px; border-radius: 8px;" />
   HIVE-MIND
 </h1>
 
-<!-- BLOCK 3: Language Switcher -->
 <p align="center">
   🌐 <b><a href="README.md">English</a></b> | <b><a href="README.fr.md">Français</a></b>
 </p>
 
-<!-- BLOCK 4: Navigation Badges (primary #00B4D8, secondary #8B5CF6, flat-square, arrow →) -->
 <p align="center">
   <a href="#architecture">
     <img src="https://img.shields.io/badge/Architecture-→-00B4D8?style=flat-square" alt="Architecture" />
@@ -38,7 +29,6 @@
   </a>
 </p>
 
-<!-- BLOCK 5: Metadata Badges (labelColor #0D1117) -->
 <p align="center">
   <img src="https://img.shields.io/badge/Version-1.0.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript Strict" />
@@ -63,10 +53,7 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`ARCHITECTURE.md`](ARCHITECTURE.md) with Martin instability metrics.
 
-<p align="center">
-  <img src="https://files.catbox.moe/9vv02n.svg" alt="HIVE-MIND Five-Layer Harness Architecture"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Excalidraw Source:** [`documentation/diagrams/architecture.excalidraw`](documentation/diagrams/architecture.excalidraw) — *Importable directly into [excalidraw.com](https://excalidraw.com)*
 
 | Layer | Role | Core Components |
 | :--- | :--- | :--- |
@@ -80,12 +67,9 @@ HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
 
-Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/). The board below is editorial — cyan &amp; purple on `#0D1117`, 12px radius, balanced 16:9 geometry.
+Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/).
 
-<p align="center">
-  <img src="https://files.catbox.moe/t9rbq9.svg" alt="HIVE-MIND 26 Subsystems Board"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Excalidraw Source:** [`documentation/diagrams/capabilities.excalidraw`](documentation/diagrams/capabilities.excalidraw) — *Importable directly into [excalidraw.com](https://excalidraw.com)*
 
 <details>
 <summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
@@ -104,12 +88,9 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
 
-From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters. The diagram below is a compact landscape (1280×560) exported from Excalidraw — zero raw Mermaid in markdown.
+From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters.
 
-<p align="center">
-  <img src="https://files.catbox.moe/dujxs9.svg" alt="HIVE-MIND How It Works — ReAct loop"
-       width="100%" style="border-radius: 12px;" />
-</p>
+> **Excalidraw Source:** [`documentation/diagrams/workflow.excalidraw`](documentation/diagrams/workflow.excalidraw) — *Importable directly into [excalidraw.com](https://excalidraw.com)*
 
 | Step | Harness Action | Key Code |
 | :--- | :--- | :--- |
@@ -230,6 +211,7 @@ hive-mind/
 │   ├── supabase/         # SQL migrations, pgvector match_* functions
 │   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
 ├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
+├── documentation/diagrams/# Excalidraw architecture, workflow and capabilities source diagrams
 ├── src/tests/
 │   ├── unit/             # 77 suites — core/providers/runtime/services (834 tests)
 │   ├── integration/      # 5 suites, 34 tests
@@ -255,14 +237,15 @@ hive-mind/
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
 
-Animated media is reserved for concrete proof of execution. Below is the editorial teaser (GIF, 1280×480, 24 frames) — the static hero stays static by design.
-
-<p align="center">
-  <img src="https://files.catbox.moe/g6t6vt.gif" alt="HIVE-MIND harness — terminal teaser"
-       width="100%" style="border-radius: 8px;" />
-</p>
-
-> Teaser loop: `npm start` → harness boots → transports connect → ReAct ×10 → memory persists → WS streams to TUI. Replace with your own screen capture for proof of work.
+```text
+[HIVE-MIND] 🚀 Booting experimental agent daemon (v1.0.0)...
+[Container]  ⚡ Initialized 26 subsystems · ServiceContainer instability I=0.00
+[Transport]  🌐 Connected transports: WhatsApp (Baileys) · Discord · Telegram · CLI · TUI (:5001)
+[Memory]     🧠 Memory hierarchy online: Redis L1 (4.2ms) · Supabase pgvector L2
+[SmartLayer] 🔄 8 provider families registered · Zero-429 sliding window circuit breakers active
+[ReAct]      ⚡ Message received → FairnessQueue DRR → Context Hydration (Ebbinghaus) → Planning
+[PTC VM]     📦 Sandboxed execution in node:vm · 0 security anomalies · Output streamed to TUI
+```
 
 ---
 
@@ -282,4 +265,4 @@ Private disclosure only — never via public issues. See [`SECURITY.md`](SECURIT
     Editorial premium — cyan <code>#00B4D8</code> · purple <code>#8B5CF6</code> on <code>#0D1117</code> · Lucide vector icons<br/>
     Apache-2.0 &nbsp;·&nbsp; leandre755 &nbsp;·&nbsp; 2026
   </sub>
-</p>
+</p>\n
