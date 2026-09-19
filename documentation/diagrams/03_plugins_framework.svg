@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 1458 978" width="1458" height="978">
+<defs>
+<marker id="mk-arrow_core_dev_tools" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1b5e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arrow_dev_tools_web" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1b5e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arrow_core_tools" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1b5e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arrow_tools_whatsapp" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1b5e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arrow_whatsapp_system" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1b5e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="16" y="16" width="1458" height="978" fill="white"/>
+<rect x="40" y="40" width="440" height="140" rx="8" fill="#ffffff" stroke="#1b5e20" stroke-width="2" opacity="1"/>
+<text x="55.0" y="69.0" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#1e293b" text-anchor="start" opacity="1">LEGEND &amp; CONVENTIONS - HIVE-MIND PLUGINS FRAMEWORK</text>
+<text x="55.0" y="87.2" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#1e293b" text-anchor="start" opacity="1">• Layer: Modular Plugin Infrastructure (src/plugins/)</text>
+<text x="55.0" y="105.4" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#1e293b" text-anchor="start" opacity="1">• Container Box: Plugin domain boundaries (#e8f5e9)</text>
+<text x="55.0" y="123.6" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#1e293b" text-anchor="start" opacity="1">• [DEV]: Monospace specifications with exact codebase file paths</text>
+<text x="55.0" y="141.8" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#1e293b" text-anchor="start" opacity="1">• [METIER]: Functional non-developer domain overview</text>
+<rect x="40" y="220" width="450" height="320" rx="8" fill="#e8f5e9" stroke="#1b5e20" stroke-width="2" opacity="1"/>
+<text x="55.0" y="251.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">1. Plugin Core &amp; Base Extensions</text>
+<text x="55.0" y="278.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Core Plugin Loader &amp; Base Files:</text>
+<text x="55.0" y="294.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/loader.ts</text>
+<text x="55.0" y="311.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/admin/index.ts</text>
+<text x="55.0" y="328.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/goals/index.ts</text>
+<text x="55.0" y="345.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/mcp_tools/index.ts</text>
+<text x="55.0" y="362.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/memory/index.ts</text>
+<text x="55.0" y="379.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/sys_interaction/index.ts</text>
+<text x="55.0" y="396.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/system/index.ts</text>
+<text x="55.0" y="453.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Ingestion dynamique des plugins, intégration système de base, gestion des outils MCP, extension de la mémoire et commandes d'administration.</text>
+<rect x="520" y="220" width="450" height="380" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" opacity="1"/>
+<text x="535.0" y="251.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">2. Developer Tools &amp; Environment Plugins</text>
+<text x="535.0" y="278.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Dev Tools Extensions Files:</text>
+<text x="535.0" y="294.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/index.ts</text>
+<text x="535.0" y="311.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/ASTTools.ts</text>
+<text x="535.0" y="328.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/BashTool.ts</text>
+<text x="535.0" y="345.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/BrowserTools.ts</text>
+<text x="535.0" y="362.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/FileEditTool.ts</text>
+<text x="535.0" y="379.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/FileState.ts</text>
+<text x="535.0" y="396.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/LSPTool.ts</text>
+<text x="535.0" y="413.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/PersistentShell.ts</text>
+<text x="535.0" y="430.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/SearchTools.ts</text>
+<text x="535.0" y="447.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/SpawnSubAgentTool.ts</text>
+<text x="535.0" y="463.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/dev_tools/SystemScratchpadTool.ts</text>
+<text x="535.0" y="518.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Boîte à outils développeur: terminal Bash persistant, analyseur AST/LSP, navigateur headless, recherche et délégation aux sous-agents.</text>
+<rect x="1000" y="220" width="450" height="300" rx="8" fill="#e8f5e9" stroke="#388e3c" stroke-width="2" opacity="1"/>
+<text x="1015.0" y="251.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">3. Web Search &amp; Deep Research Engine</text>
+<text x="1015.0" y="278.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Web &amp; Research Plugin Files:</text>
+<text x="1015.0" y="294.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/crawlfire_web/index.ts</text>
+<text x="1015.0" y="311.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/deep_research/index.ts</text>
+<text x="1015.0" y="328.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/deep_research/research_agent.ts</text>
+<text x="1015.0" y="345.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/duckduck_search/index.ts</text>
+<text x="1015.0" y="362.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/google_ai_search/index.ts</text>
+<text x="1015.0" y="379.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/web/wikipedia/index.ts</text>
+<text x="1015.0" y="423.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Module d'exploration web: recherche Google AI, DuckDuckGo, Wikipedia, crawling intelligent et agent de recherche synthétique autonome.</text>
+<rect x="40" y="630" width="450" height="340" rx="8" fill="#e8f5e9" stroke="#43a047" stroke-width="2" opacity="1"/>
+<text x="55.0" y="661.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">4. Productivity &amp; Automation Tools</text>
+<text x="55.0" y="688.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Productivity Tools Files:</text>
+<text x="55.0" y="704.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/daily_pulse/index.ts</text>
+<text x="55.0" y="721.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/daily_pulse/journal_generator.ts</text>
+<text x="55.0" y="738.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/send_email/index.ts</text>
+<text x="55.0" y="755.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/send_sticker/index.ts</text>
+<text x="55.0" y="772.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/shopping/index.ts</text>
+<text x="55.0" y="789.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/shopping/shopping_agent.ts</text>
+<text x="55.0" y="806.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/translate/index.ts</text>
+<text x="55.0" y="823.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/tools/visual_reporter/index.ts</text>
+<text x="55.0" y="883.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Automatisation utilisateur: journal quotidien (Daily Pulse), rapports visuels, envoi d'emails, assistant shopping et service de traduction.</text>
+<rect x="520" y="630" width="450" height="290" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" opacity="1"/>
+<text x="535.0" y="661.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">5. WhatsApp Integration &amp; Group Manager</text>
+<text x="535.0" y="688.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] WhatsApp Extension Files:</text>
+<text x="535.0" y="704.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/whatsapp/group_manager/index.ts</text>
+<text x="535.0" y="721.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/whatsapp/group_manager/actions.ts</text>
+<text x="535.0" y="738.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/whatsapp/group_manager/database.ts</text>
+<text x="535.0" y="755.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/whatsapp/group_manager/processor.ts</text>
+<text x="535.0" y="772.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/whatsapp/sticker/index.ts</text>
+<text x="535.0" y="818.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Passerelle WhatsApp: gestion autonome des groupes, persistance en base de données, traitement des messages et générateur de stickers.</text>
+<rect x="1000" y="630" width="450" height="240" rx="8" fill="#e8f5e9" stroke="#1b5e20" stroke-width="2" opacity="1"/>
+<text x="1015.0" y="661.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">6. System Event Manager &amp; Media Speech (TTS)</text>
+<text x="1015.0" y="688.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Media &amp; System Event Plugin Files:</text>
+<text x="1015.0" y="704.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/media/tts/index.ts</text>
+<text x="1015.0" y="721.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/system/event_manager/index.ts</text>
+<text x="1015.0" y="773.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Orchestration événementielle inter-plugins et conversion de texte en parole (TTS - Text to Speech).</text>
+<path d="M 490 380 L 520 380" fill="none" stroke="#1b5e20" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arrow_core_dev_tools)"/>
+<path d="M 970 380 L 1000 380" fill="none" stroke="#1b5e20" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arrow_dev_tools_web)"/>
+<path d="M 265 540 L 265 630" fill="none" stroke="#1b5e20" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arrow_core_tools)"/>
+<path d="M 490 770 L 520 770" fill="none" stroke="#1b5e20" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arrow_tools_whatsapp)"/>
+<path d="M 970 770 L 1000 770" fill="none" stroke="#1b5e20" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arrow_whatsapp_system)"/>
+</svg>
