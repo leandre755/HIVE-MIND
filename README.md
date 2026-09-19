@@ -2,11 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png">
     <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png">
-    <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png">
     <img alt="HIVE-MIND Banner" src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png" border="0" />
-  </picture>
   </picture>
 </p>
 
@@ -43,7 +39,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Version-1.0.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
-  <img src="https://img.shields.io/badge/TypeScript-6.0.2-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript 6.0.2" />
+  <img src="https://img.shields.io/badge/TypeScript-7.0.2-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript 7.0.2" />
   <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
   <img src="https://img.shields.io/badge/Rust-1.81+-0D1117?style=flat-square&labelColor=0D1117&color=DEA584&logo=rust&logoColor=white" alt="Rust 1.81+" />
   <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
@@ -66,9 +62,9 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/architecture-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/architecture-light.svg">
-    <img alt="HIVE-MIND Architecture" src="documentation/diagrams/architecture-dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/architecture-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/architecture-light.svg">
+    <img alt="HIVE-MIND Architecture" src="./documentation/diagrams/architecture-dark.svg" width="100%">
   </picture>
 </p>
 
@@ -94,9 +90,9 @@ Soon.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/capabilities-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/capabilities-light.svg">
-    <img alt="HIVE-MIND Capabilities" src="documentation/diagrams/capabilities-dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/capabilities-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/capabilities-light.svg">
+    <img alt="HIVE-MIND Capabilities" src="./documentation/diagrams/capabilities-dark.svg" width="100%">
   </picture>
 </p>
 
@@ -121,9 +117,9 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/workflow-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/workflow-light.svg">
-    <img alt="HIVE-MIND Workflow" src="documentation/diagrams/workflow-dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/workflow-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/workflow-light.svg">
+    <img alt="HIVE-MIND Workflow" src="./documentation/diagrams/workflow-dark.svg" width="100%">
   </picture>
 </p>
 
@@ -233,29 +229,13 @@ npm run build && npm run lint:fast && npm run test:unit
 
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Project Structure
 
-```text
-hive-mind/
-├── src/
-│   ├── bin/              # daemon entry — hive-mind.ts
-│   ├── cli/              # startupMenu, whatsappAuthHelper, authSessionManager
-│   ├── config/           # Zod schemas, pricing, keyResolver, blueprints
-│   ├── core/             # BotCore, ServiceContainer, FairnessQueue, transports
-│   ├── persona/          # system prompts + lessons_learned.md
-│   ├── plugins/          # modular tools (manifest Zod-validated)
-│   ├── providers/        # Layer0 ExecutionLayer + Layer1 SmartLayer + families
-│   ├── scheduler/        # node-cron + dbMonitoring
-│   ├── services/         # memory L1/L2, agentic Planner/SubAgent, PTC VM, runtime
-│   ├── supabase/         # SQL migrations, pgvector match_* functions
-│   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
-├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
-├── documentation/diagrams/# Excalidraw architecture, workflow and capabilities source diagrams
-├── src/tests/
-│   ├── unit/             # 77 suites — core/providers/runtime/services (834 tests)
-│   ├── integration/      # 5 suites, 34 tests
-│   └── e2e/              # harness + WebSocket cross-process
-├── assets/               # static visual assets & brand artifacts
-└── .githooks/            # security & commit integrity verification hooks
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png">
+    <img alt="Project Structure" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
+  </picture>
+</p>
 
 ---
 
@@ -263,7 +243,7 @@ hive-mind/
 
 | Command | Purpose | Gate |
 | :--- | :--- | :--- |
-| `npm run build` | TypeScript 6.0.2 `tsc --noEmit` | 0 errors on 334 files |
+| `npm run build` | TypeScript 7.0.2 `tsc --noEmit` | 0 errors on 334 files |
 | `npm run lint:fast` | Oxlint, 96 rules, 4 threads | 0 warnings |
 | `npm run lint:arch` | dependency-cruiser boundaries | 0 violations |
 | `npm run test:unit` | Jest, 77 suites | 834 / 834 passing |
