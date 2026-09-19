@@ -65,8 +65,6 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`ARCHITECTURE.md`](ARCHITECTURE.md) with Martin instability metrics.
 
-> **Excalidraw Source:** [`documentation/diagrams/architecture.excalidraw`](documentation/diagrams/architecture.excalidraw) — _Importable directly into [excalidraw.com](https://excalidraw.com)_
-
 | Layer             | Role                         | Core Components                                                                            |
 | :---------------- | :--------------------------- | :----------------------------------------------------------------------------------------- |
 | **Transport**     | Unified ingress / egress     | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001                            |
@@ -91,8 +89,6 @@ Soon.
 
 Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/).
 
-> **Excalidraw Source:** [`documentation/diagrams/capabilities.excalidraw`](documentation/diagrams/capabilities.excalidraw) — _Importable directly into [excalidraw.com](https://excalidraw.com)_
-
 <details>
 <summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
 
@@ -115,8 +111,6 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 </p>
 
 From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters.
-
-> **Excalidraw Source:** [`documentation/diagrams/workflow.excalidraw`](documentation/diagrams/workflow.excalidraw) — _Importable directly into [excalidraw.com](https://excalidraw.com)_
 
 | Step | Harness Action    | Key Code                                                                            |
 | :--- | :---------------- | :---------------------------------------------------------------------------------- |

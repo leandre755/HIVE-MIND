@@ -65,8 +65,6 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
 
-> **Source Excalidraw :** [`documentation/diagrams/architecture.excalidraw`](documentation/diagrams/architecture.excalidraw) — _Importable directement dans [excalidraw.com](https://excalidraw.com)_
-
 | Couche            | Rôle                              | Composants Clés                                                                               |
 | :---------------- | :-------------------------------- | :-------------------------------------------------------------------------------------------- |
 | **Transport**     | Entrée / sortie unifiée           | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001                               |
@@ -91,8 +89,6 @@ Soon.
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
 
-> **Source Excalidraw :** [`documentation/diagrams/capabilities.excalidraw`](documentation/diagrams/capabilities.excalidraw) — _Importable directement dans [excalidraw.com](https://excalidraw.com)_
-
 <details>
 <summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Carte des domaines — déplier SS-01 à SS-26</b></summary>
 
@@ -115,8 +111,6 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 </p>
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.
-
-> **Source Excalidraw :** [`documentation/diagrams/workflow.excalidraw`](documentation/diagrams/workflow.excalidraw) — _Importable directement dans [excalidraw.com](https://excalidraw.com)_
 
 | Étape | Action du Harnais         | Code Clé                                                                            |
 | :---- | :------------------------ | :---------------------------------------------------------------------------------- |
