@@ -1,9 +1,6 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png">
-    <img alt="Bannière HIVE-MIND" src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png" border="0" />
-  </picture>
+  <img src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png#gh-dark-mode-only" alt="Bannière HIVE-MIND" border="0" />
+  <img src="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png#gh-light-mode-only" alt="Bannière HIVE-MIND" border="0" />
 </p>
 
 <h1 align="center">
@@ -43,7 +40,6 @@
   <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
   <img src="https://img.shields.io/badge/Rust-1.81+-0D1117?style=flat-square&labelColor=0D1117&color=DEA584&logo=rust&logoColor=white" alt="Rust 1.81+" />
   <img src="https://img.shields.io/badge/Licence-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/Rust-1.98+-0D1117?style=flat-square&labelColor=0D1117&color=DEA584&logo=rust&logoColor=white" alt="Rust 1.98+" />
 </p>
 
 ---
@@ -61,11 +57,8 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:boxes.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Architecture
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/architecture-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/architecture-light.svg">
-    <img alt="Architecture HIVE-MIND" src="./documentation/diagrams/architecture-dark.svg" width="100%">
-  </picture>
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-dark.svg#gh-dark-mode-only" alt="Architecture HIVE-MIND" width="100%" />
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-light.svg#gh-light-mode-only" alt="Architecture HIVE-MIND" width="100%" />
 </p>
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
@@ -89,11 +82,8 @@ Soon.
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Capacités
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/capabilities-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/capabilities-light.svg">
-    <img alt="Capacités HIVE-MIND" src="./documentation/diagrams/capabilities-dark.svg" width="100%">
-  </picture>
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-dark.svg#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-light.svg#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
 </p>
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
@@ -116,11 +106,8 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:workflow.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Comment Ça Marche
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./documentation/diagrams/workflow-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./documentation/diagrams/workflow-light.svg">
-    <img alt="Workflow HIVE-MIND" src="./documentation/diagrams/workflow-dark.svg" width="100%">
-  </picture>
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-dark.svg#gh-dark-mode-only" alt="Workflow HIVE-MIND" width="100%" />
+  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-light.svg#gh-light-mode-only" alt="Workflow HIVE-MIND" width="100%" />
 </p>
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.
@@ -230,11 +217,8 @@ npm run build && npm run lint:fast && npm run test:unit
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Structure du Projet
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png">
-    <img alt="Structure du Projet" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
-  </picture>
+  <img src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png#gh-dark-mode-only" alt="Structure du Projet" width="100%" style="border-radius: 10px;" />
+  <img src="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png#gh-light-mode-only" alt="Structure du Projet" width="100%" style="border-radius: 10px;" />
 </p>
 
 ---
