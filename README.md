@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png" alt="banner-readme-tall-condensed-drone-transparent" border="0" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png">
+    <img src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png" alt="HIVE-MIND Banner" border="0" />
+  </picture>
 </p>
 
 <h1 align="center">
