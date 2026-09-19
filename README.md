@@ -1,12 +1,12 @@
-<!-- markdownlint-disable-file MD041 --> <!-- markdownlint-disable-file MD041 --> <!-- markdownlint-disable-file MD041 --> <!-- BLOCK 1: Static Landscape Hero (1280x640, 16:9, border-radius 8px) -->
+<!-- BLOCK 1: Static Landscape Hero (1280x640, 16:9, border-radius 8px) -->
 <p align="center">
   <img src="https://files.catbox.moe/b3i12u.png" alt="HIVE-MIND — The Omni-Source Harness for LLM Agents"
        width="100%" style="border-radius: 8px;" />
 </p>
 
-<!-- BLOCK 2: Title + Transparent Logo (512x512 No-BG) -->
+<!-- BLOCK 2: Title + Transparent Logo (No-BG) -->
 <h1 align="center">
-  <img src="https://files.catbox.moe/uq7jny.png" alt="HIVE-MIND Logo" width="92"
+  <img src="https://files.catbox.moe/nb2j9r.png" alt="HIVE-MIND Logo" width="92"
        style="vertical-align: middle; margin-right: 12px; border-radius: 8px;" />
   HIVE-MIND
 </h1>
@@ -16,25 +16,25 @@
   🌐 <b><a href="README.md">English</a></b> | <b><a href="README.fr.md">Français</a></b>
 </p>
 
-<!-- BLOCK 4: Navigation Badges (primary #F59E0B, flat-square, arrow →) -->
+<!-- BLOCK 4: Navigation Badges (primary #00B4D8, secondary #8B5CF6, flat-square, arrow →) -->
 <p align="center">
   <a href="#architecture">
-    <img src="https://img.shields.io/badge/Architecture-→-F59E0B?style=flat-square" alt="Architecture" />
+    <img src="https://img.shields.io/badge/Architecture-→-00B4D8?style=flat-square" alt="Architecture" />
   </a>
   <a href="#capabilities">
-    <img src="https://img.shields.io/badge/Capabilities-→-F59E0B?style=flat-square" alt="Capabilities" />
+    <img src="https://img.shields.io/badge/Capabilities-→-00B4D8?style=flat-square" alt="Capabilities" />
   </a>
   <a href="#how-it-works">
-    <img src="https://img.shields.io/badge/Workflow-→-F59E0B?style=flat-square" alt="Workflow" />
+    <img src="https://img.shields.io/badge/Workflow-→-00B4D8?style=flat-square" alt="Workflow" />
   </a>
   <a href="#providers">
-    <img src="https://img.shields.io/badge/Providers-→-F59E0B?style=flat-square" alt="Providers" />
+    <img src="https://img.shields.io/badge/Providers-→-00B4D8?style=flat-square" alt="Providers" />
   </a>
   <a href="#quick-start">
-    <img src="https://img.shields.io/badge/Quick_Start-→-F97316?style=flat-square" alt="Quick Start" />
+    <img src="https://img.shields.io/badge/Quick_Start-→-8B5CF6?style=flat-square" alt="Quick Start" />
   </a>
   <a href="#live-demonstration">
-    <img src="https://img.shields.io/badge/Demo-→-F97316?style=flat-square" alt="Demo" />
+    <img src="https://img.shields.io/badge/Demo-→-8B5CF6?style=flat-square" alt="Demo" />
   </a>
 </p>
 
@@ -44,7 +44,7 @@
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript Strict" />
   <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
   <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/Harness-Experimental-0D1117?style=flat-square&labelColor=0D1117&color=F59E0B" alt="Experimental Harness" />
+  <img src="https://img.shields.io/badge/Harness-Experimental-0D1117?style=flat-square&labelColor=0D1117&color=00B4D8" alt="Experimental Harness" />
 </p>
 
 ---
@@ -59,12 +59,12 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f3d7_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/boxes.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
 
 HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`ARCHITECTURE.md`](ARCHITECTURE.md) with Martin instability metrics.
 
 <p align="center">
-  <img src="https://files.catbox.moe/zhthbm.svg" alt="HIVE-MIND Five-Layer Harness"
+  <img src="https://files.catbox.moe/9vv02n.svg" alt="HIVE-MIND Five-Layer Harness Architecture"
        width="100%" style="border-radius: 12px;" />
 </p>
 
@@ -72,42 +72,42 @@ HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer
 | :--- | :--- | :--- |
 | **Transport** | Unified ingress / egress | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001 |
 | **Orchestration** | ReAct loop, IoC, scheduling | BotCore, ServiceContainer, FairnessQueue, BlueprintManager, Planner, PTC VM |
-| **Runtime** | Safety & cost governance | VIGIL, Ralph, ConstraintManifold, ContextWindowService |
-| **Cognitive** | Hierarchical memory | Redis L1 <50ms, Supabase pgvector L2, MAPLE, HNSW |
+| **Runtime** | Safety &amp; cost governance | VIGIL, Ralph, ConstraintManifold, ContextWindowService |
+| **Cognitive** | Hierarchical memory | Redis L1 &lt;50ms, Supabase pgvector L2, MAPLE, HNSW |
 | **Smart Router** | Model routing | Layer 1 SmartLayer (quota rotation, circuit breakers), Layer 0 ExecutionLayer (8 adapters) |
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
 
-Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/). The board below is editorial — amber on `#0D1117`, 12px radius, balanced 16:9 geometry.
+Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/). The board below is editorial — cyan &amp; purple on `#0D1117`, 12px radius, balanced 16:9 geometry.
 
 <p align="center">
-  <img src="https://files.catbox.moe/5gutop.svg" alt="HIVE-MIND 26 Subsystems Board"
+  <img src="https://files.catbox.moe/t9rbq9.svg" alt="HIVE-MIND 26 Subsystems Board"
        width="100%" style="border-radius: 12px;" />
 </p>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e9_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
 
 | Domain | Subsystems | Responsibility |
 | :--- | :--- | :--- |
-| **01 Core & Concurrency** | SS-01 → SS-09 | ServiceContainer (I=0.00), FairnessQueue DRR, SwarmDispatcher, BlueprintManager, EventBus, Planner DAG, SubAgentEngine, PTC VM, PermissionManager |
+| **01 Core &amp; Concurrency** | SS-01 → SS-09 | ServiceContainer (I=0.00), FairnessQueue DRR, SwarmDispatcher, BlueprintManager, EventBus, Planner DAG, SubAgentEngine, PTC VM, PermissionManager |
 | **02 Model Intelligence** | SS-10 → SS-14 | ExecutionLayer, ParamConverter pivot↔wire, SmartLayer, OAuth PKCE, Voice (Live/STT/TTS) |
-| **03 Gateways & IPC** | SS-15 → SS-17 | Universal TransportInterface, TuiServer WS IPC, CLI Auth Wizard |
-| **04 Memory & Cognition** | SS-18 → SS-20 | Multi-Tier Memory L1/L2, MAPLE Ebbinghaus, Local HNSW Media DB |
+| **03 Gateways &amp; IPC** | SS-15 → SS-17 | Universal TransportInterface, TuiServer WS IPC, CLI Auth Wizard |
+| **04 Memory &amp; Cognition** | SS-18 → SS-20 | Multi-Tier Memory L1/L2, MAPLE Ebbinghaus, Local HNSW Media DB |
 | **05 Runtime Safety** | SS-21 → SS-26 | VIGIL + Ralph, Tiered Context, Hash-Anchored Edit (FNV-1a Myers), AST Tree-Sitter, Plugin Pipeline, SafeFs |
 
 </details>
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
 
-From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters. The diagram below is a compact landscape (1280×520) exported from hand-crafted SVG — zero raw Mermaid in markdown.
+From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters. The diagram below is a compact landscape (1280×560) exported from Excalidraw — zero raw Mermaid in markdown.
 
 <p align="center">
-  <img src="https://files.catbox.moe/aa8urv.svg" alt="HIVE-MIND How It Works — ReAct loop"
+  <img src="https://files.catbox.moe/dujxs9.svg" alt="HIVE-MIND How It Works — ReAct loop"
        width="100%" style="border-radius: 12px;" />
 </p>
 
@@ -121,27 +121,30 @@ From a normalized `NormalizedMessage` to a delivered answer, the harness execute
 | 6 | Execute tools | `PTC ProgrammaticExecutor.ts` in `vm` + Acorn validation |
 | 7 | Guard | `VIGIL` pre-action + `Ralph` post-audit + `λ=(cost/budget)^4` |
 | 8 | Persist | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW) |
+| 9 | Deliver | `Transport.sendResponse()` to source channel |
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f916_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Providers
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cpu.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Providers
 
-The two-layer Smart Router speaks **8 provider families** through a unified pivot. Layer 1 rotates keys and tiers with sliding-window circuit breakers; Layer 0 adapts `GenerationParams` to each wire protocol.
+The two-layer Smart Router coordinates **8 native adapter families** and **22+ dynamic endpoints** via a decoupled pivot. Layer 1 executes resilient stateful dispatch (6-window circuit breakers, P50 latency scoring, zero-429 rotation, SSE stream lock); Layer 0 manages stateless wire transformation (`ProtocolFamily` $\times$ `HeaderFamily`, reasoning budgets, typed errors).
 
-| Provider | Protocol Family | Strength |
-| :--- | :--- | :--- |
-| **Google Gemini** | Native Gemini | Multimodal, 2M context, Live audio |
-| **Anthropic Claude** | Anthropic | Extended thinking, tool use |
-| **OpenAI** | OpenAI-compatible | GPT-4o, o3, vision |
-| **Groq** | OpenAI-compatible | 300+ tok/s |
-| **Cohere** | Cohere native | Command R+, RAG |
-| **Cloudflare AI** | Workers AI | Edge inference |
-| **HuggingFace** | HF Inference | Open-source |
-| **Codex / Gemini CLI** | OAuth PKCE | Personal free-tier via headless CLI |
+| Provider / Family | Implementation | Wire Protocol | Key Capabilities | Technical Features |
+| :--- | :--- | :--- | :--- | :--- |
+| **OpenAI** | Native (`openai.ts`) | `openai-compatible` (`/v1/chat/completions`) | Chat, Tool Calling, Vision, Reasoning Effort | Native `max_completion_tokens` and `reasoning_effort` handling, embeddings |
+| **Google Gemini** | Native (`gemini.ts`) | `gemini-native` (`generateContent`) | Multimodal (Text, Image, Audio), Thinking Budget | Multipart structure, `thought_signature` preservation, `systemInstruction` |
+| **Anthropic Claude** | Native (`anthropic.ts`) | `anthropic-compatible` (`/v1/messages`) | Extended Thinking, Tool Calling, Prompt Caching | Root `system` extraction, `input_schema` map, thinking budget bounds check |
+| **Groq Cloud** | Native (`groq.ts`) | `openai-compatible` (`/openai/v1`) | Ultra-fast LPU, Tool Calling, Server Tools | Groq Compound `executed_tools`, `usage_breakdown`, header versioning |
+| **Cohere** | Native (`cohere.ts`) | `cohere-v2` (`/v2/chat`) | Structured Content, Tool Calling | Top-level `system` separation, typed content chunks, usage normalization |
+| **Cloudflare AI** | Native (`cloudflare.ts`) | `cloudflare-v1` (`/ai/v1/chat/completions`) | Serverless Inference &amp; Tool Calling | Composite key `account_id:api_token`, `{ result }` unwrapping, array errors |
+| **Hugging Face** | Native (`huggingface.ts`) | `openai-compatible` (`router.huggingface.co`) | Open-Source Hub Models | Official SDK routing wrapper, autonomous credentials init, 429 handler |
+| **Modal** | Native (`modal.ts`) | `openai-compatible` (`{appUrl}/v1`) | Custom GPU Serverless Containers | Dynamic base URL from model ID, 120s extended timeout for cold starts |
+| **OAuth Specializations** | Headless (`codex.ts`, `antigravity.ts`) | Direct SSE / Cloud Code REST API | OAuth2 PKCE / Local OAuth Session | Token refresh (&lt;300s), Clearcut telemetry simulation, TLS impersonation |
+| **Dynamic Providers** | Generic (`GenericAdapter.ts`) | `openai-compatible` / `standard-token` | 22+ Ecosystem Providers (Mistral, NIM, etc.) | Tool ID 9-char sanitization, `reasoning_content` relay, passthrough options |
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4e1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Channels & Transports
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/radio.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Channels &amp; Transports
 
 | Channel | Status | Transport File | Notes |
 | :--- | :--- | :--- | :--- |
@@ -153,12 +156,12 @@ The two-layer Smart Router speaks **8 provider families** through a unified pivo
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Quick Start
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Quick Start
 
 > **Note** — HIVE-MIND is an **experimental research harness**, not a product. Interfaces are unstable and may change without notice.
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f680_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Clone & Install (Node 22+ required)</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Clone &amp; Install (Node 22+ required)</b></summary>
 
 ```bash
 # Clone the harness
@@ -172,7 +175,7 @@ npm install
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configure Environment</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/key.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configure Environment</b></summary>
 
 ```bash
 # Copy the template and fill at least one LLM key + Supabase + Redis
@@ -183,7 +186,7 @@ nano .env
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2699_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Launch the Harness</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/terminal.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Launch the Harness</b></summary>
 
 ```bash
 # Interactive startup menu — channel auth + provider selection
@@ -196,13 +199,13 @@ npm run dev
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Verify (build + lint + tests)</b></summary>
+<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/check-circle-2.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Verify (build + lint + tests)</b></summary>
 
 ```bash
-# 73 suites — 595 unit tests
+# 77 suites — 834 unit tests
 npm run test:unit
 
-# Full local gate
+# Full local verification gate
 npm run build && npm run lint:fast && npm run test:unit
 ```
 
@@ -210,7 +213,7 @@ npm run build && npm run lint:fast && npm run test:unit
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f4c1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Project Structure
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/folder-tree.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Project Structure
 
 ```text
 hive-mind/
@@ -228,29 +231,29 @@ hive-mind/
 │   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
 ├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
 ├── src/tests/
-│   ├── unit/             # 73 suites — core/providers/runtime/services
+│   ├── unit/             # 77 suites — core/providers/runtime/services (834 tests)
 │   ├── integration/      # 5 suites, 34 tests
 │   └── e2e/              # harness + WebSocket cross-process
-├── .GCC/                 # Git-Context-Controller session state
-└── .gouvernance/         # review-policy, accompanied-agent, governance
+├── assets/               # static visual assets & brand artifacts
+└── .githooks/            # security & commit integrity verification hooks
 ```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/2705_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield-check.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
 
 | Command | Purpose | Gate |
 | :--- | :--- | :--- |
-| `npm run build` | TypeScript strict `tsc --noEmit` | 0 errors on 330 files |
+| `npm run build` | TypeScript strict `tsc --noEmit` | 0 errors on 334 files |
 | `npm run lint:fast` | Oxlint, 96 rules, 4 threads | 0 warnings |
 | `npm run lint:arch` | dependency-cruiser boundaries | 0 violations |
-| `npm run test:unit` | Jest, 73 suites | 595 / 595 passing |
+| `npm run test:unit` | Jest, 77 suites | 834 / 834 passing |
 | `npm run test:integration` | 5 suites | 34 / 34 passing |
 | `npm audit` | High/Moderate CVEs + GPL-2.0 deny | 0 vulnerabilities |
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f9e0_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
 
 Animated media is reserved for concrete proof of execution. Below is the editorial teaser (GIF, 1280×480, 24 frames) — the static hero stays static by design.
 
@@ -263,25 +266,7 @@ Animated media is reserved for concrete proof of execution. Below is the editori
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f91d_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Contributing
-
-All non-trivial work ships through **Pull Requests only**. An agent never approves its own code.
-
-- Read [`AGENTS.md`](AGENTS.md) — mandatory rules for every agent and human
-- Read [`ARCHITECTURE.md`](ARCHITECTURE.md) — layer blueprint and 26 SS boundaries
-- Read [`.gouvernance/review-policy.md`](.gouvernance/review-policy.md) — Strict Review, dual-layer defense, acceptance gates
-
-```bash
-# Branch naming — Conventional Commits enforced at pre-commit
-git checkout -b feat/my-feature
-git checkout -b fix/issue-description
-
-# PR budget: ≤1000 lines warning, 2500 hard limit (docs/assets excluded)
-```
-
----
-
-## <img src="https://cdn.jsdelivr.net/gh/withxat/fluentui-emoji-unicode@webp/assets/1f6e1_3d.webp" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Security
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Security
 
 Private disclosure only — never via public issues. See [`SECURITY.md`](SECURITY.md).
 
@@ -294,7 +279,7 @@ Private disclosure only — never via public issues. See [`SECURITY.md`](SECURIT
 <p align="center">
   <sub>
     HIVE-MIND is an experimental research harness — the scaffolding is the artifact.<br/>
-    Editorial premium — amber <code>#F59E0B</code> · orange <code>#F97316</code> on <code>#0D1117</code> · Fluent 3D icons<br/>
+    Editorial premium — cyan <code>#00B4D8</code> · purple <code>#8B5CF6</code> on <code>#0D1117</code> · Lucide vector icons<br/>
     Apache-2.0 &nbsp;·&nbsp; leandre755 &nbsp;·&nbsp; 2026
   </sub>
 </p>
