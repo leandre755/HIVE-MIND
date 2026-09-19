@@ -3,8 +3,8 @@
 </p>
 
 <h1 align="center">
-  <img src="https://i.ibb.co/xS8bN32X/concept-d-drone.jpg" alt="concept-d-drone" width="92"
-       style="vertical-align: middle; margin-right: 12px; border-radius: 8px;" border="0" />
+  <img src="https://i.ibb.co/MykL5LDX/concept-d-drone.png" alt="concept-d-drone" width="92"
+       style="vertical-align: middle; margin-right: 12px;" border="0" />
   HIVE-MIND
 </h1>
 
