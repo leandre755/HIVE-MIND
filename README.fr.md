@@ -57,8 +57,8 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:boxes.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Architecture
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-dark.svg#gh-dark-mode-only" alt="Architecture HIVE-MIND" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-light.svg#gh-light-mode-only" alt="Architecture HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/0qzfn6.png#gh-dark-mode-only" alt="Architecture HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/d8fpip.png#gh-light-mode-only" alt="Architecture HIVE-MIND" width="100%" />
 </p>
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
@@ -82,8 +82,8 @@ Soon.
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Capacités
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-dark.svg#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-light.svg#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/u9ih47.png#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/u1zqz0.png#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
 </p>
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
@@ -106,8 +106,8 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:workflow.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Comment Ça Marche
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-dark.svg#gh-dark-mode-only" alt="Workflow HIVE-MIND" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-light.svg#gh-light-mode-only" alt="Workflow HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/u12g5w.png#gh-dark-mode-only" alt="Workflow HIVE-MIND" width="100%" />
+  <img src="https://files.catbox.moe/83bk41.png#gh-light-mode-only" alt="Workflow HIVE-MIND" width="100%" />
 </p>
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.

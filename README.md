@@ -57,8 +57,8 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:boxes.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Architecture
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-dark.svg#gh-dark-mode-only" alt="HIVE-MIND Architecture" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/architecture-light.svg#gh-light-mode-only" alt="HIVE-MIND Architecture" width="100%" />
+  <img src="https://files.catbox.moe/0qzfn6.png#gh-dark-mode-only" alt="HIVE-MIND Architecture" width="100%" />
+  <img src="https://files.catbox.moe/d8fpip.png#gh-light-mode-only" alt="HIVE-MIND Architecture" width="100%" />
 </p>
 
 HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`ARCHITECTURE.md`](ARCHITECTURE.md) with Martin instability metrics.
@@ -82,8 +82,8 @@ Soon.
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Capabilities
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-dark.svg#gh-dark-mode-only" alt="HIVE-MIND Capabilities" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/capabilities-light.svg#gh-light-mode-only" alt="HIVE-MIND Capabilities" width="100%" />
+  <img src="https://files.catbox.moe/u9ih47.png#gh-dark-mode-only" alt="HIVE-MIND Capabilities" width="100%" />
+  <img src="https://files.catbox.moe/u1zqz0.png#gh-light-mode-only" alt="HIVE-MIND Capabilities" width="100%" />
 </p>
 
 Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/).
@@ -106,8 +106,8 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:workflow.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> How It Works
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-dark.svg#gh-dark-mode-only" alt="HIVE-MIND Workflow" width="100%" />
-  <img src="https://gist.githubusercontent.com/personnal-agent/f2077d054bb41ffe0b9fa4bc450bf0b7/raw/workflow-light.svg#gh-light-mode-only" alt="HIVE-MIND Workflow" width="100%" />
+  <img src="https://files.catbox.moe/u12g5w.png#gh-dark-mode-only" alt="HIVE-MIND Workflow" width="100%" />
+  <img src="https://files.catbox.moe/83bk41.png#gh-light-mode-only" alt="HIVE-MIND Workflow" width="100%" />
 </p>
 
 From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters.
