@@ -88,3 +88,6 @@ LITTERATURE/
 Thumbs.db
 /assets/
 *.excalidraw
+assets/
+*.excalidraw
+documentation/diagrams/
