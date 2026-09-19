@@ -16,15 +16,15 @@ jobs:
     steps:
     - uses: actions/first-interaction@a1db7729b356323c7988c20ed6f0d33fe31297be # v1.3.0
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        issue-message: "Thank you for opening your first issue in this project! 👋
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        issue_message: "Thank you for opening your first issue in this project! 👋
 
 To help us investigate or discuss your request efficiently, please make sure you have provided:
 - A clear description of the bug or feature request.
 - Reproduction steps, environment details, or error logs (if applicable).
 
 Our maintainers will review this as soon as possible. Thank you for taking the time to help improve the project!"
-        pr-message: "Thanks for opening your first Pull Request in this repository! 🎉
+        pr_message: "Thanks for opening your first Pull Request in this repository! 🎉
 
 We appreciate your contribution. Before a maintainer reviews your code, please ensure you have:
 - [ ] Followed the contribution guidelines (`CONTRIBUTING.md`).
