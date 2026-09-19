@@ -22,7 +22,7 @@ const jestConfig = {
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   testMatch: ['**/tests/**/*.test.ts'],
-  testPathIgnorePatterns: ['/node_modules/', '/\\.claude/worktrees/'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/\\.claude/worktrees/'],
 };
 
 export default jestConfig;
