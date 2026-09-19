@@ -53,12 +53,12 @@ const getRedisUrl = (): string => {
 const redis = createClient({
   url: getRedisUrl(),
   socket: {
-    connectTimeout: 15000, // 15s (Augmenté pour les Cold Starts Redis Cloud)
+    connectTimeout: process.env.NODE_ENV === 'test' ? 1000 : 15000, // 15s (Augmenté pour les Cold Starts Redis Cloud)
     keepAlive: true, // Ping TCP pour éviter la coupure silencieuse
     keepAliveInitialDelay: 10000, // 10s
     tls: false, // Explicitement désactivé pour le port 10xxx standard
     reconnectStrategy: (retries) => {
-      if (process.env.APP_ENV === 'local' || retries > 1) {
+      if (process.env.APP_ENV === 'local' || process.env.NODE_ENV === 'test' || retries > 1) {
         // Abandonner immédiatement en local pour basculer sur le mock in-memory
         return new Error('Redis : Abandon de connexion en mode local');
       }
@@ -93,11 +93,16 @@ const ensureConnected = async (): Promise<void> => {
     connectionPromise = redis
       .connect()
       .then(() => {})
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         console.warn(
           '[Redis] ⚠️ Connexion impossible. Basculement transparent en mode Mock In-Memory pour ce cycle local:',
           extractErrorMessage(err),
         );
+        try {
+          await redis.disconnect();
+        } catch {
+          /* ignore */
+        }
         switchToMock(redis);
         connectionPromise = Promise.resolve();
       });
