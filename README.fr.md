@@ -245,32 +245,10 @@ hive-mind/
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Démonstration Live
 
-```text
-[HIVE-MIND] 🚀 Booting experimental agent daemon (v1.0.0)...
-[Container]  ⚡ Initialized 26 subsystems · ServiceContainer instability I=0.00
-[Transport]  🌐 Connected transports: WhatsApp (Baileys) · Discord · Telegram · CLI · TUI (:5001)
-[Memory]     🧠 Memory hierarchy online: Redis L1 (4.2ms) · Supabase pgvector L2
-[SmartLayer] 🔄 8 provider families registered · Zero-429 sliding window circuit breakers active
-[ReAct]      ⚡ Message received → FairnessQueue DRR → Context Hydration (Ebbinghaus) → Planning
-[PTC VM]     📦 Sandboxed execution in node:vm · 0 security anomalies · Output streamed to TUI
-```
+Soon.
 
 ---
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Sécurité
 
-Divulgation privée uniquement — jamais via les issues publiques. Voir [`SECURITY.md`](SECURITY.md).
-
-- Chaque accès fichiers passe par [`src/utils/safeFs.ts`](src/utils/safeFs.ts) (`resolveWithinRoot` anti-traversal)
-- Les secrets sont scannés à chaque commit et push via `gitleaks` (staged + historique complet), `ALLOW_CONFIG_EDIT=1` pour les fichiers protégés
-- `ALLOW_CONFIG_EDIT=1 git commit` est la seule voie autorisée pour `package.json`, `.githooks/` etc. — `--no-verify` reste interdit
-
----
-
-<p align="center">
-  <sub>
-    HIVE-MIND est un harnais de recherche expérimental — l’échafaudage est l’artefact.<br/>
-    Éditorial premium — cyan <code>#00B4D8</code> · violet <code>#8B5CF6</code> sur <code>#0D1117</code> · icônes vectorielles Lucide<br/>
-    Apache-2.0 &nbsp;·&nbsp; leandre755 &nbsp;·&nbsp; 2026
-  </sub>
-</p>\n
+Voir [`SECURITY.md`](SECURITY.md).
