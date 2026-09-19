@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 1408 1888" width="1408" height="1888">
+<defs>
+<marker id="mk-arr_m1" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arr_m2" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arr_m3" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arr_m4" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arr_m5" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-arr_m6" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="16" y="16" width="1408" height="1888" fill="white"/>
+<rect x="40" y="40" width="360" height="160" rx="8" fill="#e3f2fd" stroke="#424242" stroke-width="2" opacity="1"/>
+<text x="55.0" y="71.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">LÉGENDE DU SCHÉMA MASTER</text>
+<text x="55.0" y="98.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Standard Excalidraw v2 - Spécifications techniques &amp; Fichiers</text>
+<text x="55.0" y="128.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Vue d'ensemble de l'architecture HIVE-MIND, déploiements,</text>
+<text x="55.0" y="144.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">bus de communication principal et documentation.</text>
+<rect x="440" y="40" width="440" height="160" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="455.0" y="71.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">System Entrypoint &amp; CLI Daemon</text>
+<text x="455.0" y="98.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Entrypoint principal: src/bin/hive-mind.ts</text>
+<text x="455.0" y="128.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Point d'entrée exécutable pour démarrer le bot,</text>
+<text x="455.0" y="144.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">la CLI d'administration, le flush Redis et le shutdown.</text>
+<rect x="920" y="40" width="440" height="160" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="935.0" y="71.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Deployment &amp; Environment Configs</text>
+<text x="935.0" y="98.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Configs de build Railway/Nix/Git:</text>
+<text x="935.0" y="114.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">nixpacks.toml railpack.json git_credential.json</text>
+<text x="935.0" y="138.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Configurations pour les déploiements cloud Railway/Nix</text>
+<text x="935.0" y="154.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">et l'authentification Git du conteneur.</text>
+<rect x="440" y="240" width="920" height="160" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="455.0" y="271.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Global Event &amp; Communication Bus (EventBus)</text>
+<text x="455.0" y="298.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Bus événementiel centralisé reliant Core, Transports &amp; Services</text>
+<text x="455.0" y="338.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Canal de communication pub/sub assurant le routage des messages</text>
+<text x="455.0" y="354.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">et la coordination asynchrone entre tous les sous-systèmes.</text>
+<rect x="40" y="440" width="420" height="220" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="55.0" y="471.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Project Specifications &amp; Guidelines</text>
+<text x="55.0" y="498.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Specs &amp; directives principales:</text>
+<text x="55.0" y="514.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">README.md PROJECT.md AGENTS.md ORIGINAL_REQUEST.md explain.md idee.md</text>
+<text x="55.0" y="568.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Guide général du projet, architecture globale,</text>
+<text x="55.0" y="584.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">règles pour les agents IA et roadmap d'idées.</text>
+<rect x="480" y="440" width="420" height="220" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="495.0" y="471.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Codebase Health &amp; System Audits</text>
+<text x="495.0" y="498.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Rapports de santé &amp; audits:</text>
+<text x="495.0" y="514.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">CODEBASE_HEALTH.md CODEBASE_HEALTH_REPORT.md</text>
+<text x="495.0" y="531.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">architecture_audit.md massif_audit.md</text>
+<text x="495.0" y="578.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Diagnostics de santé du code, suivi de la dette technique,</text>
+<text x="495.0" y="594.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">audits d'architecture et revues d'intégrité.</text>
+<rect x="920" y="440" width="440" height="220" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="935.0" y="471.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Jules Automated Review System</text>
+<text x="935.0" y="498.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Spécifications Agent Jules &amp; Auto-Review:</text>
+<text x="935.0" y="514.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">JULES.md guide_auto_review_jules.md</text>
+<text x="935.0" y="558.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Règles et automatisation des revues de code effectuées</text>
+<text x="935.0" y="574.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">par l'agent autonome Jules sur le dépôt.</text>
+<rect x="440" y="700" width="920" height="220" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="455.0" y="731.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Technical Implementation &amp; Modules</text>
+<text x="455.0" y="758.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Documentation technique approfondie:</text>
+<text x="455.0" y="774.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/antigravity_implementation.md</text>
+<text x="455.0" y="791.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/audit_gemini_google_tui.md</text>
+<text x="455.0" y="808.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/00_index.md</text>
+<text x="455.0" y="838.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Spécifications techniques pour l'intégration Antigravity,</text>
+<text x="455.0" y="854.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">l'audit du TUI Gemini Google et l'index de la documentation.</text>
+<path d="M 660 200 L 660 240" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m1)"/>
+<path d="M 920 120 L 880 120" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m2)"/>
+<path d="M 440 320 L 250 440" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m3)"/>
+<path d="M 690 400 L 690 440" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m4)"/>
+<path d="M 1140 400 L 1140 440" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m5)"/>
+<path d="M 900 660 L 900 700" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_m6)"/>
+<rect x="40" y="960" width="440" height="920" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="55.0" y="991.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Documentation Repository (docs/)</text>
+<text x="55.0" y="1018.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Directives, architectures et itérations dans docs/:</text>
+<text x="55.0" y="1034.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/antigravity_implementation.md</text>
+<text x="55.0" y="1051.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/api/minimax.md</text>
+<text x="55.0" y="1068.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/02_omni_channel_agent.md</text>
+<text x="55.0" y="1085.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/API_DATA_FLOW.md</text>
+<text x="55.0" y="1102.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/ARCHITECTURE.md</text>
+<text x="55.0" y="1119.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/ARCHITECTURE_AUDIT.md</text>
+<text x="55.0" y="1136.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/ARCHITECTURE_LOGIC_AUDIT.md</text>
+<text x="55.0" y="1153.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/HIVE_MIND_CONCEPT.md</text>
+<text x="55.0" y="1170.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/architecture/blueprint.md</text>
+<text x="55.0" y="1187.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/audit_gemini_google_tui.md</text>
+<text x="55.0" y="1203.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/decisions/2026-04-20-typescript-migration.md</text>
+<text x="55.0" y="1220.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/excalidraw/cat1_core_engine_governance.excalidraw.md</text>
+<text x="55.0" y="1237.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/guides/Prompt.md</text>
+<text x="55.0" y="1254.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/guides/TESTS.md</text>
+<text x="55.0" y="1271.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/guides/guide-choisir-llm-harnais-agentique.md</text>
+<text x="55.0" y="1288.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_audit_cli_commands.md</text>
+<text x="55.0" y="1305.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_audit_env_vars_global.md</text>
+<text x="55.0" y="1322.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_bug_fix_env_keys.md</text>
+<text x="55.0" y="1339.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_flow_diagram_v1.md</text>
+<text x="55.0" y="1356.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_security_audit_router.md</text>
+<text x="55.0" y="1372.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_session_journal_production_readiness.md</text>
+<text x="55.0" y="1389.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_session_retrospective.md</text>
+<text x="55.0" y="1406.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_test_journal.md</text>
+<text x="55.0" y="1423.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_verification_finale.md</text>
+<text x="55.0" y="1440.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-20_walkthrough.md</text>
+<text x="55.0" y="1457.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_baileys_transport_and_agentic_loop_stabilization.md</text>
+<text x="55.0" y="1474.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_correction_plan_agent_silence.md</text>
+<text x="55.0" y="1491.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_deep_agentic_audit.md</text>
+<text x="55.0" y="1508.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_implementation_plan_phase3.md</text>
+<text x="55.0" y="1525.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_migration_duckduckgo_search.md</text>
+<text x="55.0" y="1541.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_optimization_service_models.md</text>
+<text x="55.0" y="1558.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_trace_agent_silence_fix.md</text>
+<text x="55.0" y="1575.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_trace_phase1_planner_security.md</text>
+<text x="55.0" y="1592.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_trace_phase2_context_management.md</text>
+<text x="55.0" y="1609.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_trace_phase3_resilience.md</text>
+<text x="55.0" y="1626.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-21_voice-system-fixes.md</text>
+<text x="55.0" y="1643.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-22_audit_technique_exhaustif.md</text>
+<text x="55.0" y="1660.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-22_implementation_plan_autonomous_triggers.md</text>
+<text x="55.0" y="1677.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-22_walkthrough_autonomous_triggers.md</text>
+<text x="55.0" y="1694.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-25_rapport_developpeur_utilisateur_iteration3.md</text>
+<text x="55.0" y="1710.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-01-25_sfd_omni_reflex.md</text>
+<text x="55.0" y="1727.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/iterations/2026-02-01_swarm_dispatcher_architecture.md</text>
+<text x="55.0" y="1744.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/monitoring_ops/MAJ.md</text>
+<text x="55.0" y="1761.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/monitoring_ops/SMART_ROUTER_V2.md</text>
+<text x="55.0" y="1778.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/monitoring_ops/audit.md</text>
+<text x="55.0" y="1795.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/monitoring_ops/documentation_providers_secrets.md</text>
+<text x="55.0" y="1812.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/monitoring_ops/mock.md</text>
+<text x="55.0" y="1829.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/recherche/gemini-tts-docs.md</text>
+<text x="55.0" y="1846.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/recherche/vocal_Baileys.md</text>
+<text x="55.0" y="1863.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/specifications/BAILEYS_CAPABILITIES.md</text>
+<text x="55.0" y="1879.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">docs/specifications/rapport-besoins-hive-mind.md</text>
+<text x="55.0" y="1823.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Base documentaire complète du projet HIVE-MIND (51 fichiers),</text>
+<text x="55.0" y="1839.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">incluant les spécifications, audits et historiques d'itérations.</text>
+<rect x="500" y="960" width="440" height="350" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="515.0" y="991.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">System Documentation (documentation/)</text>
+<text x="515.0" y="1018.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Index, explications et guides dans documentation/:</text>
+<text x="515.0" y="1034.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/00_index.md</text>
+<text x="515.0" y="1051.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/01_architecture_generale.md</text>
+<text x="515.0" y="1068.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/02_orchestrateur_react.md</text>
+<text x="515.0" y="1085.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/03_transport_smart_router.md</text>
+<text x="515.0" y="1102.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/04_securite_runtime.md</text>
+<text x="515.0" y="1119.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/05_memoire_cognitive.md</text>
+<text x="515.0" y="1136.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/06_tui_plugins.md</text>
+<text x="515.0" y="1153.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/explanations/distribution_hive_mind.md</text>
+<text x="515.0" y="1170.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/how-to/ajouter_modele_ia.md</text>
+<text x="515.0" y="1187.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/how-to/guide-choisir-llm-harnais-agentique.docx</text>
+<text x="515.0" y="1203.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/how-to/personnaliser_persona.md</text>
+<text x="515.0" y="1220.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/reference/admin_cli.md</text>
+<text x="515.0" y="1237.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/reference/commandes_capacites.md</text>
+<text x="515.0" y="1254.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/reference/mises_a_jour_plugins.md</text>
+<text x="515.0" y="1271.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentation/reference/rapport-besoins-hive-mind.docx</text>
+<text x="515.0" y="1268.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Guide explicatif structuré de l'architecture générale,</text>
+<text x="515.0" y="1284.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">du routeur intelligent et des références d'administration CLI.</text>
+<rect x="500" y="1330" width="440" height="340" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="515.0" y="1361.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">TUI Interface Documentation (documentations/)</text>
+<text x="515.0" y="1388.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Spécifications TUI Ink &amp; WebSocket dans documentations/:</text>
+<text x="515.0" y="1404.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/explanation/app-container-design.md</text>
+<text x="515.0" y="1421.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/explanation/index.md</text>
+<text x="515.0" y="1438.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/explanation/ink-rendering-tty.md</text>
+<text x="515.0" y="1455.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/explanation/websocket-architecture.md</text>
+<text x="515.0" y="1472.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/howto/add-slash-command.md</text>
+<text x="515.0" y="1489.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/howto/customize-theme.md</text>
+<text x="515.0" y="1506.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/howto/index.md</text>
+<text x="515.0" y="1523.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/index.md</text>
+<text x="515.0" y="1540.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/reference/contexts-hooks.md</text>
+<text x="515.0" y="1557.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/reference/core-connection.md</text>
+<text x="515.0" y="1573.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/reference/directory-structure.md</text>
+<text x="515.0" y="1590.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/reference/index.md</text>
+<text x="515.0" y="1607.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/reference/main-components.md</text>
+<text x="515.0" y="1624.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">documentations/tui/tutorials/get-started.md</text>
+<text x="515.0" y="1628.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Documentation dédiée à l'interface graphique TUI Ink React,</text>
+<text x="515.0" y="1644.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">aux connexions WebSocket et aux tutoriels d'intégration.</text>
+<rect x="960" y="960" width="440" height="320" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
+<text x="975.0" y="991.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Antigravity Skills Framework (skills/)</text>
+<text x="975.0" y="1018.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Compétences et thèmes dans skills/:</text>
+<text x="975.0" y="1034.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/LICENSE.txt</text>
+<text x="975.0" y="1051.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/SKILL.md</text>
+<text x="975.0" y="1068.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/theme-showcase.pdf</text>
+<text x="975.0" y="1085.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/arctic-frost.md</text>
+<text x="975.0" y="1102.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/botanical-garden.md</text>
+<text x="975.0" y="1119.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/desert-rose.md</text>
+<text x="975.0" y="1136.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/forest-canopy.md</text>
+<text x="975.0" y="1153.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/golden-hour.md</text>
+<text x="975.0" y="1170.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/midnight-galaxy.md</text>
+<text x="975.0" y="1187.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/modern-minimalist.md</text>
+<text x="975.0" y="1203.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/ocean-depths.md</text>
+<text x="975.0" y="1220.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/sunset-boulevard.md</text>
+<text x="975.0" y="1237.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">skills/theme-factory/themes/tech-innovation.md</text>
+<text x="975.0" y="1238.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Module d'extension Antigravity pour le générateur de thèmes</text>
+<text x="975.0" y="1254.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">visuels et la personnalisation des rapports.</text>
+</svg>

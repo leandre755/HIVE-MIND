@@ -20,6 +20,9 @@
   <a href="#architecture">
     <img src="https://img.shields.io/badge/Architecture-→-00B4D8?style=flat-square" alt="Architecture" />
   </a>
+  <a href="#live-demonstration">
+    <img src="https://img.shields.io/badge/Demo-→-00B4D8?style=flat-square" alt="Demo" />
+  </a>
   <a href="#capabilities">
     <img src="https://img.shields.io/badge/Capabilities-→-00B4D8?style=flat-square" alt="Capabilities" />
   </a>
@@ -32,9 +35,6 @@
   <a href="#quick-start">
     <img src="https://img.shields.io/badge/Quick_Start-→-8B5CF6?style=flat-square" alt="Quick Start" />
   </a>
-  <a href="#live-demonstration">
-    <img src="https://img.shields.io/badge/Demo-→-8B5CF6?style=flat-square" alt="Demo" />
-  </a>
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@
   <img src="https://img.shields.io/badge/TypeScript-Strict-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript Strict" />
   <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
   <img src="https://img.shields.io/badge/License-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/Harness-Experimental-0D1117?style=flat-square&labelColor=0D1117&color=00B4D8" alt="Experimental Harness" />
+  <img src="https://img.shields.io/badge/Rust-1.98+-0D1117?style=flat-square&labelColor=0D1117&color=DEA584&logo=rust&logoColor=white" alt="Rust 1.98+" />
 </p>
 
 ---
@@ -59,6 +59,10 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/boxes.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
 
+<p align="center">
+  <img src="documentation/diagrams/architecture.svg" alt="HIVE-MIND Architecture" width="100%" style="border-radius: 10px;" />
+</p>
+
 HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer talks only to its immediate neighbours, no skips. The decomposition into 26 subsystems is formally audited in [`ARCHITECTURE.md`](ARCHITECTURE.md) with Martin instability metrics.
 
 > **Excalidraw Source:** [`documentation/diagrams/architecture.excalidraw`](documentation/diagrams/architecture.excalidraw) — _Importable directly into [excalidraw.com](https://excalidraw.com)_
@@ -73,7 +77,17 @@ HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer
 
 ---
 
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
+
+Soon.
+
+---
+
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
+
+<p align="center">
+  <img src="documentation/diagrams/capabilities.svg" alt="HIVE-MIND Capabilities" width="100%" style="border-radius: 10px;" />
+</p>
 
 Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/).
 
@@ -95,6 +109,10 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 ---
 
 ## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
+
+<p align="center">
+  <img src="documentation/diagrams/workflow.svg" alt="HIVE-MIND Workflow" width="100%" style="border-radius: 10px;" />
+</p>
 
 From a normalized `NormalizedMessage` to a delivered answer, the harness executes a closed loop: queue fairly, hydrate selectively, route intelligently, think with tools, validate both pre- and post-action, then persist only what matters.
 
@@ -240,12 +258,6 @@ hive-mind/
 | `npm run test:unit`        | Jest, 77 suites                   | 834 / 834 passing     |
 | `npm run test:integration` | 5 suites                          | 34 / 34 passing       |
 | `npm audit`                | High/Moderate CVEs + GPL-2.0 deny | 0 vulnerabilities     |
-
----
-
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
-
-Soon.
 
 ---
 
