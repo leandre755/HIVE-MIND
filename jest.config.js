@@ -4,6 +4,7 @@ const jestConfig = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   maxWorkers: 2,
+  forceExit: true,
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
