@@ -57,7 +57,7 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/boxes.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
+## <img src="https://api.iconify.design/lucide:boxes.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Architecture
 
 <p align="center">
   <img src="documentation/diagrams/architecture.svg" alt="HIVE-MIND Architecture" width="100%" style="border-radius: 10px;" />
@@ -75,13 +75,13 @@ HIVE-MIND is a **strict five-layer harness** with one-way dependency: each layer
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
+## <img src="https://api.iconify.design/lucide:sparkles.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Live Demonstration
 
 Soon.
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
+## <img src="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Capabilities
 
 <p align="center">
   <img src="documentation/diagrams/capabilities.svg" alt="HIVE-MIND Capabilities" width="100%" style="border-radius: 10px;" />
@@ -90,7 +90,7 @@ Soon.
 Twenty-six subsystems, each **extractable, independently testable and documented** with its own Diátaxis page in [`documentation/`](documentation/).
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/puzzle.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
+<summary><b><img src="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> Domain map — expand for SS-01 to SS-26</b></summary>
 
 | Domain                        | Subsystems    | Responsibility                                                                                                                                    |
 | :---------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -104,7 +104,7 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
+## <img src="https://api.iconify.design/lucide:workflow.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> How It Works
 
 <p align="center">
   <img src="documentation/diagrams/workflow.svg" alt="HIVE-MIND Workflow" width="100%" style="border-radius: 10px;" />
@@ -126,7 +126,7 @@ From a normalized `NormalizedMessage` to a delivered answer, the harness execute
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cpu.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Providers
+## <img src="https://api.iconify.design/lucide:cpu.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Providers
 
 The two-layer Smart Router coordinates **8 native adapter families** and **22+ dynamic endpoints** via a decoupled pivot. Layer 1 executes resilient stateful dispatch (6-window circuit breakers, P50 latency scoring, zero-429 rotation, SSE stream lock); Layer 0 manages stateless wire transformation (`ProtocolFamily` $\times$ `HeaderFamily`, reasoning budgets, typed errors).
 
@@ -145,7 +145,7 @@ The two-layer Smart Router coordinates **8 native adapter families** and **22+ d
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/radio.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Channels &amp; Transports
+## <img src="https://api.iconify.design/lucide:radio.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Channels &amp; Transports
 
 | Channel        | Status                                                                  | Transport File          | Notes                                                                           |
 | :------------- | :---------------------------------------------------------------------- | :---------------------- | :------------------------------------------------------------------------------ |
@@ -157,12 +157,12 @@ The two-layer Smart Router coordinates **8 native adapter families** and **22+ d
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Quick Start
+## <img src="https://api.iconify.design/lucide:rocket.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Quick Start
 
 > **Note** — HIVE-MIND is an **experimental research harness**, not a product. Interfaces are unstable and may change without notice.
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Clone &amp; Install (Node 22+ required)</b></summary>
+<summary><b><img src="https://api.iconify.design/lucide:rocket.svg?color=%23f0f6fc" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 1 — Clone &amp; Install (Node 22+ required)</b></summary>
 
 ```bash
 # Clone the harness
@@ -176,7 +176,7 @@ npm install
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/key.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configure Environment</b></summary>
+<summary><b><img src="https://api.iconify.design/lucide:key.svg?color=%23f0f6fc" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 2 — Configure Environment</b></summary>
 
 ```bash
 # Copy the template and fill at least one LLM key + Supabase + Redis
@@ -187,7 +187,7 @@ nano .env
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/terminal.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Launch the Harness</b></summary>
+<summary><b><img src="https://api.iconify.design/lucide:terminal.svg?color=%23f0f6fc" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 3 — Launch the Harness</b></summary>
 
 ```bash
 # Interactive startup menu — channel auth + provider selection
@@ -200,7 +200,7 @@ npm run dev
 </details>
 
 <details>
-<summary><b><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/check-circle-2.svg" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Verify (build + lint + tests)</b></summary>
+<summary><b><img src="https://api.iconify.design/lucide:check-circle-2.svg?color=%23f0f6fc" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /> 4 — Verify (build + lint + tests)</b></summary>
 
 ```bash
 # 77 suites — 834 unit tests
@@ -214,7 +214,7 @@ npm run build && npm run lint:fast && npm run test:unit
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/folder-tree.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Project Structure
+## <img src="https://api.iconify.design/lucide:folder-tree.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Project Structure
 
 ```text
 hive-mind/
@@ -242,7 +242,7 @@ hive-mind/
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield-check.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
+## <img src="https://api.iconify.design/lucide:shield-check.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Validation
 
 | Command                    | Purpose                           | Gate                  |
 | :------------------------- | :-------------------------------- | :-------------------- |
@@ -255,6 +255,6 @@ hive-mind/
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Security
+## <img src="https://api.iconify.design/lucide:lock.svg?color=%23f0f6fc" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /> Security
 
 See [`SECURITY.md`](SECURITY.md).
