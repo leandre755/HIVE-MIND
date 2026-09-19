@@ -61,9 +61,9 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/bel860.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/2xqch2.png">
-    <img alt="HIVE-MIND Architecture" src="https://files.catbox.moe/bel860.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3.svg">
+    <img alt="HIVE-MIND Architecture" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg" width="100%">
   </picture>
 </p>
 
@@ -89,9 +89,9 @@ Soon.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/0j8nud.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/aqx5m1.png">
-    <img alt="HIVE-MIND Capabilities" src="https://files.catbox.moe/0j8nud.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2.svg">
+    <img alt="HIVE-MIND Capabilities" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg" width="100%">
   </picture>
 </p>
 
@@ -116,9 +116,9 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/smbotj.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/5y2yq9.png">
-    <img alt="HIVE-MIND Workflow" src="https://files.catbox.moe/smbotj.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1.svg">
+    <img alt="HIVE-MIND Workflow" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg" width="100%">
   </picture>
 </p>
 
