@@ -1,6 +1,9 @@
 <p align="center">
-  <img src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png#gh-dark-mode-only" alt="Bannière HIVE-MIND" border="0" />
-  <img src="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png#gh-light-mode-only" alt="Bannière HIVE-MIND" border="0" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/1JwwQ5ry/banner-readme-tall-condensed-bold-drone-light.png">
+    <img alt="Bannière HIVE-MIND" src="https://i.ibb.co/27t7qsBT/banner-readme-tall-condensed-drone-transparent.png" border="0" />
+  </picture>
 </p>
 
 <h1 align="center">
@@ -57,8 +60,11 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:boxes.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:boxes.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Architecture
 
 <p align="center">
-  <img src="https://files.catbox.moe/0qzfn6.png#gh-dark-mode-only" alt="Architecture HIVE-MIND" width="100%" />
-  <img src="https://files.catbox.moe/d8fpip.png#gh-light-mode-only" alt="Architecture HIVE-MIND" width="100%" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/0qzfn6.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/d8fpip.png">
+    <img alt="Architecture HIVE-MIND" src="https://files.catbox.moe/0qzfn6.png" width="100%">
+  </picture>
 </p>
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
@@ -82,8 +88,8 @@ Soon.
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Capacités
 
 <p align="center">
-  <img src="https://files.catbox.moe/u9ih47.png#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
-  <img src="https://files.catbox.moe/u1zqz0.png#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <img src="#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <img src="#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
 </p>
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
@@ -106,8 +112,11 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:workflow.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:workflow.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Comment Ça Marche
 
 <p align="center">
-  <img src="https://files.catbox.moe/u12g5w.png#gh-dark-mode-only" alt="Workflow HIVE-MIND" width="100%" />
-  <img src="https://files.catbox.moe/83bk41.png#gh-light-mode-only" alt="Workflow HIVE-MIND" width="100%" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/u12g5w.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/83bk41.png">
+    <img alt="Workflow HIVE-MIND" src="https://files.catbox.moe/u12g5w.png" width="100%">
+  </picture>
 </p>
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.
@@ -217,8 +226,11 @@ npm run build && npm run lint:fast && npm run test:unit
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:folder-tree.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Structure du Projet
 
 <p align="center">
-  <img src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png#gh-dark-mode-only" alt="Structure du Projet" width="100%" style="border-radius: 10px;" />
-  <img src="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png#gh-light-mode-only" alt="Structure du Projet" width="100%" style="border-radius: 10px;" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png">
+    <img alt="Structure du Projet" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
+  </picture>
 </p>
 
 ---
