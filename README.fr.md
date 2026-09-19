@@ -61,9 +61,9 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/0qzfn6.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/d8fpip.png">
-    <img alt="Architecture HIVE-MIND" src="https://files.catbox.moe/0qzfn6.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/bel860.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/2xqch2.png">
+    <img alt="Architecture HIVE-MIND" src="https://files.catbox.moe/bel860.png" width="100%">
   </picture>
 </p>
 
@@ -88,8 +88,11 @@ Soon.
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Capacités
 
 <p align="center">
-  <img src="#gh-dark-mode-only" alt="Capacités HIVE-MIND" width="100%" />
-  <img src="#gh-light-mode-only" alt="Capacités HIVE-MIND" width="100%" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/0j8nud.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/aqx5m1.png">
+    <img alt="Capacités HIVE-MIND" src="https://files.catbox.moe/0j8nud.png" width="100%">
+  </picture>
 </p>
 
 Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et documenté** avec sa page Diátaxis dans [`documentation/`](documentation/).
@@ -113,9 +116,9 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/u12g5w.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/83bk41.png">
-    <img alt="Workflow HIVE-MIND" src="https://files.catbox.moe/u12g5w.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://files.catbox.moe/smbotj.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://files.catbox.moe/5y2yq9.png">
+    <img alt="Workflow HIVE-MIND" src="https://files.catbox.moe/smbotj.png" width="100%">
   </picture>
 </p>
 
