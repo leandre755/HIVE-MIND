@@ -27,7 +27,8 @@ const PROMPT_OPTIONS = {
 function waitWithInterruption(timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
-      setTimeout(() => resolve(false), timeoutMs);
+      const t = setTimeout(() => resolve(false), timeoutMs);
+      if (t.unref) t.unref();
       return;
     }
 

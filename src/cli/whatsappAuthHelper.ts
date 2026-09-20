@@ -133,14 +133,14 @@ function handleConnectionClose(
   // et l'authentification tourne jusqu'au timeout ("impossible de se connecter").
   if (isRegistered) {
     console.log('🔄 Finalisation de la session authentifiée...');
-    setTimeout(onReconnect, 1500);
+    onReconnect();
     return;
   }
 
   // Reconnexions intermédiaires transitoires pendant l'attente de saisie du code.
   if (pairingRequested) {
     console.log('🔄 Reconnexion intermédiaire au réseau WhatsApp...');
-    setTimeout(onReconnect, 1500);
+    onReconnect();
     return;
   }
 
@@ -215,12 +215,14 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
     return await new Promise<boolean>((resolvePromise) => {
       let isFinished = false;
       let activeSocket: WASocket | null = null;
+      let reconnectTimer: NodeJS.Timeout | null = null;
       const pairingState = { requested: false };
 
       const finish = (result: boolean) => {
         if (isFinished) return;
         isFinished = true;
         clearTimeout(globalTimer);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
 
         if (activeSocket) {
           try {
@@ -278,7 +280,9 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
           pairingState,
           isFinishedLive: () => isFinished,
           finish,
-          reconnect: startSock,
+          reconnect: () => {
+            reconnectTimer = setTimeout(startSock, 1500);
+          },
         };
 
         sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {
