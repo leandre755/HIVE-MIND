@@ -256,7 +256,10 @@ describe('BaileysTransport - connect() error handling', () => {
   });
 
   it("devrait clearer reconnectTimer s'il existe pendant un handleDisconnect avec shouldReconnect", () => {
-    baileysTransport.reconnectTimer = setTimeout(() => {}, 10000) as unknown as NodeJS.Timeout;
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const oldTimer = setTimeout(() => {}, 10000) as unknown as NodeJS.Timeout;
+    baileysTransport.reconnectTimer = oldTimer;
+
     const mockDisconnect: { error?: Error; date: Date } = { date: new Date() };
     const mockConnectionUpdate = {
       connection: 'close',
@@ -273,7 +276,12 @@ describe('BaileysTransport - connect() error handling', () => {
         _handleConnectionUpdate: (...args: unknown[]) => void;
       }
     )._handleConnectionUpdate(mockConnectionUpdate, 'session');
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(oldTimer);
     expect(baileysTransport.reconnectTimer).not.toBeNull();
+    expect(baileysTransport.reconnectTimer).not.toBe(oldTimer);
+
+    clearTimeoutSpy.mockRestore();
   });
 
   it('devrait gerer une exception dans disconnect() et reset isDisconnecting', async () => {
