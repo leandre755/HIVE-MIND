@@ -106,16 +106,17 @@ describe('readFileInRange', () => {
     expect(result.lineCount).toBe(5);
   });
 
-  it('should trigger abort', async () => {
+  it('should reject when signal is already aborted', async () => {
     const filePath = path.join(testDir, 'streaming_abort_2.txt');
     const lines = Array.from({ length: 5000 }, (_, i) => `line ${i}`);
     safeWriteFileSync(filePath, lines.join('\n'), 'utf8');
 
     const ac = new AbortController();
-    const p = readFileInRange(filePath, 1000, 5000, undefined, ac.signal);
     const abortReason = new Error('Abort manually');
     ac.abort(abortReason);
-    await expect(p).rejects.toThrow('Abort manually');
+    await expect(readFileInRange(filePath, 1000, 5000, undefined, ac.signal)).rejects.toThrow(
+      'Abort manually',
+    );
     expect(ac.signal.aborted).toBe(true);
   });
 });
