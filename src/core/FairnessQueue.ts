@@ -13,12 +13,14 @@ interface QueueEvent {
 
 export class FairnessQueue {
   queues: Map<string, QueueEvent[]>;
+  premiumCounts: Map<string, number>;
   chatIds: string[];
   currentIndex: number;
 
   constructor() {
     // Map<chatId, Array<Event>>
     this.queues = new Map();
+    this.premiumCounts = new Map();
     // Liste circulaire des chatIds actifs
     this.chatIds = [];
     // Index courant pour le Round-Robin
@@ -34,16 +36,20 @@ export class FairnessQueue {
   enqueue(chatId: string, event: QueueEvent, isPremium: boolean = false) {
     if (!this.queues.has(chatId)) {
       this.queues.set(chatId, []);
+      this.premiumCounts.set(chatId, 0);
       this.chatIds.push(chatId);
     }
 
     const queue = this.queues.get(chatId);
     if (!queue) return; // Invariant: set above, but TypeScript requires the guard
 
-    // Les événements premium (Admin) sont ajoutés au DÉBUT de leur file
-    // et on pourrait même implémenter une file prioritaire séparée si besoin
+    // Les événements premium (Admin) sont ajoutés au DÉBUT de leur file,
+    // mais après les autres événements premium pour préserver le FIFO
     if (isPremium) {
-      queue.unshift(event);
+      const pCount = this.premiumCounts.get(chatId) || 0;
+      queue.splice(pCount, 0, event);
+      this.premiumCounts.set(chatId, pCount + 1);
+
       // On s'assure que ce chat est le prochain servi
       const idx = this.chatIds.indexOf(chatId);
       if (idx !== -1) this.currentIndex = idx;
@@ -88,6 +94,13 @@ export class FairnessQueue {
     }
 
     const event = queue.shift() as QueueEvent;
+
+    // Si on vient de retirer un événement premium, on décrémente le compteur
+    const pCount = this.premiumCounts.get(chatId) || 0;
+    if (pCount > 0) {
+      this.premiumCounts.set(chatId, pCount - 1);
+    }
+
     if (queue.length === 0) {
       this.removeChatFromRotation(chatId);
     } else {
@@ -98,6 +111,7 @@ export class FairnessQueue {
 
   private removeChatFromRotation(chatId: string) {
     this.queues.delete(chatId);
+    this.premiumCounts.delete(chatId);
     const idx = this.chatIds.indexOf(chatId);
     if (idx !== -1) {
       this.chatIds.splice(idx, 1);

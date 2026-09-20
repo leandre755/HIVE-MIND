@@ -79,8 +79,15 @@ export class ServiceContainer {
   private services: Map<string, ServiceEntry> = new Map();
   private initialized: boolean = false;
   private mode: 'full' | 'minimal' = 'full';
+  private initPromise: Promise<void> | null = null;
 
   public async init(options: ContainerInitOptions = { mode: 'full' }): Promise<void> {
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = this._doInit(options);
+    return this.initPromise;
+  }
+
+  private async _doInit(options: ContainerInitOptions): Promise<void> {
     if (this.initialized) return;
     this.mode = options.mode;
 

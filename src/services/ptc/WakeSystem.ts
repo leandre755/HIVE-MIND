@@ -104,6 +104,8 @@ export class HiveWakeSystem extends EventEmitter {
     this.heartbeatInterval = setInterval(() => {
       this.tick().catch((err) => console.error('[WakeSystem] Heartbeat tick failed:', err));
     }, this.heartbeatIntervalMs);
+    /* istanbul ignore next */
+    this.heartbeatInterval?.unref?.();
     console.log(`[WakeSystem] ✅ Heartbeat démarré (intervalle: ${this.heartbeatIntervalMs}ms)`);
   }
 

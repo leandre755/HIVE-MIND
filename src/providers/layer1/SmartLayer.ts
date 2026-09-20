@@ -133,29 +133,33 @@ export class SmartLayer {
       if (!this.healthRegistry.tryAcquireHalfOpenProbe(modelId)) continue;
 
       const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
-      const creds = await this.credentialProvider.getKey(family, modelId);
-      if (!creds?.apiKey) {
-        this.healthRegistry.releaseHalfOpenProbe(modelId);
-        continue;
-      }
 
-      attemptsCount++;
       try {
-        return await this.executeAttempt(
-          modelId,
-          request,
-          options,
-          recipe,
-          creds,
-          family,
-          attemptsCount,
-        );
-      } catch (error: unknown) {
-        lastError = error;
-        this.healthRegistry.recordFailure(modelId, error, family);
-        if (error instanceof RateLimitError) {
-          await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
+        const creds = await this.credentialProvider.getKey(family, modelId);
+        if (!creds?.apiKey) {
+          continue;
         }
+
+        attemptsCount++;
+        try {
+          return await this.executeAttempt(
+            modelId,
+            request,
+            options,
+            recipe,
+            creds,
+            family,
+            attemptsCount,
+          );
+        } catch (error: unknown) {
+          lastError = error;
+          this.healthRegistry.recordFailure(modelId, error, family);
+          if (error instanceof RateLimitError) {
+            await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
+          }
+        }
+      } finally {
+        this.healthRegistry.releaseHalfOpenProbe(modelId);
       }
     }
 
@@ -172,7 +176,7 @@ export class SmartLayer {
     request: SmartExecutionRequest,
     creds: CredentialResolution,
     family: string,
-    familyConfig: unknown,
+    familyConfig: Record<string, unknown> | undefined,
   ): AsyncIterable<
     StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
   > {
@@ -185,9 +189,9 @@ export class SmartLayer {
     });
 
     yield {
-      content: result.content,
-      thought: result.thought,
-      toolCalls: result.toolCalls,
+      content: result.content ?? undefined,
+      thought: result.thought ?? undefined,
+      toolCalls: result.toolCalls ?? undefined,
       done: true,
       usedModel: modelId,
       usedProvider: family,
@@ -281,21 +285,29 @@ export class SmartLayer {
       if (!this.healthRegistry.tryAcquireHalfOpenProbe(modelId)) continue;
 
       const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
-      const creds = await this.credentialProvider.getKey(family, modelId);
-      if (!creds?.apiKey) {
-        this.healthRegistry.releaseHalfOpenProbe(modelId);
-        continue;
-      }
 
-      attemptsCount++;
       try {
-        yield* this.streamAttempt(modelId, request, options, recipe, creds, family);
-        return;
-      } catch (error: unknown) {
-        if (typeof error === 'object' && error !== null && Reflect.get(error, '__streamStarted')) {
-          throw error;
+        const creds = await this.credentialProvider.getKey(family, modelId);
+        if (!creds?.apiKey) {
+          continue;
         }
-        lastError = error;
+
+        attemptsCount++;
+        try {
+          yield* this.streamAttempt(modelId, request, options, recipe, creds, family);
+          return;
+        } catch (error: unknown) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            Reflect.get(error, '__streamStarted')
+          ) {
+            throw error;
+          }
+          lastError = error;
+        }
+      } finally {
+        this.healthRegistry.releaseHalfOpenProbe(modelId);
       }
     }
 

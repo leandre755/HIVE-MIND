@@ -72,6 +72,8 @@ export const adminService = {
     refreshIntervalId = setInterval(() => {
       this.refresh().catch(console.error);
     }, REFRESH_INTERVAL);
+    /* istanbul ignore next */
+    refreshIntervalId?.unref?.();
   },
 
   destroy() {

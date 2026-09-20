@@ -122,6 +122,11 @@ class PersistentShell extends EventEmitter {
         }
       }, timeoutMs);
 
+      // istanbul ignore next
+      if (timeout && typeof timeout.unref === 'function') {
+        timeout.unref();
+      }
+
       this.executionPromise = {
         resolve: (val) => {
           clearTimeout(timeout);
@@ -144,6 +149,11 @@ class PersistentShell extends EventEmitter {
    * Terminates the shell
    */
   shutdown() {
+    if (this.executionPromise) {
+      this.executionPromise.reject(new Error('Shell was shut down'));
+      this.executionPromise = null;
+      this.isExecuting = false;
+    }
     this.shell?.kill();
     this.shell = null;
   }

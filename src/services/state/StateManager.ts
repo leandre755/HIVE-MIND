@@ -86,8 +86,8 @@ export const StateManager = {
     // 1. Lecture Cache
     let userData: Record<string, string> | null = (await redis?.hGetAll(cacheKey)) ?? null;
 
-    // 2. Cache Miss: Lecture DB + Hydratation
-    if (!userData || Object.keys(userData).length === 0) {
+    // 2. Cache Miss ou Cache Partiel (seulement interaction_count): Lecture DB + Hydratation
+    if (!userData || !userData.created_at) {
       // Verrouillage pour éviter "Thundering Herd" si 50 messages arrivent en même temps
       const lockId = await userLock.acquireWait(uuid);
       if (!lockId) {
@@ -98,11 +98,13 @@ export const StateManager = {
       try {
         // Double check après lock
         userData = (await redis?.hGetAll(cacheKey)) ?? null;
-        if (!userData || Object.keys(userData).length === 0) {
+        if (!userData || !userData.created_at) {
           if (supabase) {
             const { data } = await supabase.from('users').select('*').eq('id', uuid).single();
             if (data) {
-              userData = this._flattenForRedis(data);
+              const flattenedDbData = this._flattenForRedis(data);
+              // Préserver les valeurs fraîchement incrémentées (interaction_count, last_seen) qui sont déjà dans le cache partiel
+              userData = { ...flattenedDbData, ...userData };
               await redis?.hSet(cacheKey, userData);
               await redis?.expire(cacheKey, 86400); // 24h
             }

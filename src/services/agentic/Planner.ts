@@ -1038,13 +1038,18 @@ Plan:`;
 
     try {
       const finalResult = await this._executeStepWithRetry(step, context, executionLog, plan);
-      if (finalResult && !executionLog.failed.includes(step.id)) {
-        finalResult.retries = 0;
-        executionLog.results[step.id] = finalResult;
+      if (!executionLog.failed.includes(step.id)) {
+        if (finalResult) {
+          finalResult.retries = 0;
+          executionLog.results[step.id] = finalResult;
+        }
+        executionLog.completed.push(step.id);
+        await actionMemory.updateStep(context.chatId, `✅ Étape ${step.id}: ${step.action}`);
+        console.log(`[Planner] ✅ Étape ${step.id} terminée`);
+      } else {
+        // Déjà marquée comme échouée dans _executeStepWithRetry (ex: MAX_RETRIES atteint)
+        console.log(`[Planner] ❌ Étape ${step.id} terminée avec échec.`);
       }
-      executionLog.completed.push(step.id);
-      await actionMemory.updateStep(context.chatId, `✅ Étape ${step.id}: ${step.action}`);
-      console.log(`[Planner] ✅ Étape ${step.id} terminée`);
     } catch (error: unknown) {
       console.error('[Planner] ❌ Échec étape %s:', step.id, extractErrorMessage(error));
       executionLog.failed.push(step.id);

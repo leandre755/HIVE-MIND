@@ -180,7 +180,9 @@ export class DatabaseMonitor {
         }
       },
       60 * 60 * 1000,
-    ); // Toutes les heures
+    );
+    /* istanbul ignore next */
+    this.hourlyIntervalId?.unref?.();
 
     // Vérification complète tous les jours à 6h
     this.dailyIntervalId = setInterval(async () => {
