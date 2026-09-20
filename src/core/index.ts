@@ -805,19 +805,13 @@ export class BotCore {
                 isSystem: true,
               } as MessageData);
             } catch (err: unknown) {
-              console.error(
-                '[EventTrigger] Erreur exécution onMessage:',
-                err instanceof Error ? err.message : String(err),
-              );
+              console.error('[EventTrigger] Erreur exécution onMessage:', err);
             }
           }, 500).unref();
         }
       }
     } catch (e: unknown) {
-      console.error(
-        '[EventTrigger] Erreur vérification:',
-        e instanceof Error ? e.message : String(e),
-      );
+      console.error('[EventTrigger] Erreur vérification:', e);
     }
   }
 
