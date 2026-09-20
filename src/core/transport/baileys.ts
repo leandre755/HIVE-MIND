@@ -397,7 +397,7 @@ class BaileysTransport extends EventEmitter {
           const msg = err instanceof Error ? err.message : String(err);
           console.error('Echec reconnexion:', msg);
         });
-      }, delayMs);
+      }, delayMs).unref();
     } else {
       console.log('[Baileys] Déconnexion définitive (loggedOut)');
     }
