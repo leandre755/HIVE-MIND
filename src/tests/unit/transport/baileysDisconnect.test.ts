@@ -13,13 +13,13 @@ jest.unstable_mockModule('../../../utils/logger.js', () => ({
 
 interface MockSock extends EventEmitter {
   ev: EventEmitter;
-  end: jest.Mock;
-  sendPresenceUpdate: jest.Mock;
+  end: jest.Mock<(_error?: Error) => void>;
+  sendPresenceUpdate: jest.Mock<() => Promise<void>>;
 }
 
 describe('BaileysTransport - Intentional Disconnect', () => {
   let baileysTransport: unknown;
-  let removeSpy: jest.SpyInstance;
+  let removeSpy: jest.SpiedFunction<() => void>;
 
   beforeEach(async () => {
     jest.useFakeTimers();
@@ -58,7 +58,7 @@ describe('BaileysTransport - Intentional Disconnect', () => {
     mockSock.sendPresenceUpdate = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
     (baileysTransport as { sock: MockSock }).sock = mockSock;
-    (baileysTransport as { saveCreds: jest.Mock }).saveCreds = jest
+    (baileysTransport as { saveCreds: unknown }).saveCreds = jest
       .fn<() => Promise<void>>()
       .mockResolvedValue(undefined);
 
