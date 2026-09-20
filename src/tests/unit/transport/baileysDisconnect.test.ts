@@ -1,3 +1,25 @@
+jest.unstable_mockModule('@whiskeysockets/baileys', () => ({
+  makeWASocket: jest.fn(() => ({
+    ev: { on: jest.fn(), removeAllListeners: jest.fn() },
+    end: jest.fn(),
+    sendPresenceUpdate: jest.fn().mockResolvedValue(undefined),
+  })),
+  useMultiFileAuthState: jest.fn().mockResolvedValue({
+    state: { creds: { registered: true } },
+    saveCreds: jest.fn(),
+  }),
+  fetchLatestBaileysVersion: jest.fn().mockResolvedValue({ version: [1, 2, 3] }),
+  DisconnectReason: {
+    connectionClosed: 428,
+    connectionLost: 408,
+    loggedOut: 401,
+    restartRequired: 515,
+  },
+  delay: jest.fn(),
+  downloadMediaMessage: jest.fn(),
+  isRealMessage: jest.fn(),
+  proto: { WebMessageInfo: {} },
+}));
 import { jest } from '@jest/globals';
 import EventEmitter from 'events';
 
@@ -27,7 +49,6 @@ interface IBaileysTransport {
   connect: (sessionPath: string) => Promise<void>;
   _handleConnectionUpdate: (u: unknown, s: string) => void;
   _removeRegisteredListeners: () => void;
-  _cleanupPreviousSocket: () => Promise<void>;
 }
 
 describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
@@ -175,5 +196,33 @@ describe('BaileysTransport - connect() error handling', () => {
 
     // Vérifier que la variable a bien été reset
     expect(baileysTransport.isConnecting).toBe(false);
+  });
+
+  it("devrait throw si la session n'est pas enregistrée", async () => {
+    jest.spyOn(baileysTransport, '_cleanupPreviousSocket').mockResolvedValue(undefined);
+
+    const { useMultiFileAuthState } = await import('@whiskeysockets/baileys');
+    (useMultiFileAuthState as jest.Mock).mockResolvedValueOnce({
+      state: { creds: { registered: false } },
+      saveCreds: jest.fn(),
+    });
+
+    await expect(baileysTransport.connect('session')).rejects.toThrow(
+      'Aucune session WhatsApp valide',
+    );
+
+    expect(baileysTransport.isConnecting).toBe(false);
+  });
+
+  it('devrait réussir à se connecter (happy path pour la couverture)', async () => {
+    jest.spyOn(baileysTransport, '_cleanupPreviousSocket').mockResolvedValue(undefined);
+    jest.spyOn(baileysTransport, '_setupMessageListeners').mockImplementation(() => {});
+    jest.spyOn(baileysTransport, '_setupContactSync').mockImplementation(() => {});
+    jest.spyOn(baileysTransport, '_setupGroupParticipantsListener').mockImplementation(() => {});
+
+    await baileysTransport.connect('session');
+
+    expect(baileysTransport.isConnecting).toBe(true);
+    expect(baileysTransport.sock).toBeDefined();
   });
 });
