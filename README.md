@@ -61,9 +61,9 @@ The mechanism is selective wiring, not context stuffing. A sandboxed PTC VM that
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3.svg">
-    <img alt="HIVE-MIND Architecture" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/architecture.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/architecture.svg">
+    <img alt="HIVE-MIND Architecture" src="documentation/diagrams/architecture.svg" width="100%">
   </picture>
 </p>
 
@@ -89,9 +89,9 @@ Soon.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2.svg">
-    <img alt="HIVE-MIND Capabilities" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/capabilities.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/capabilities.svg">
+    <img alt="HIVE-MIND Capabilities" src="documentation/diagrams/capabilities.svg" width="100%">
   </picture>
 </p>
 
@@ -116,9 +116,9 @@ Twenty-six subsystems, each **extractable, independently testable and documented
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1.svg">
-    <img alt="HIVE-MIND Workflow" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/workflow.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/workflow.svg">
+    <img alt="HIVE-MIND Workflow" src="documentation/diagrams/workflow.svg" width="100%">
   </picture>
 </p>
 
@@ -134,7 +134,7 @@ From a normalized `NormalizedMessage` to a delivered answer, the harness execute
 | 6 | Execute tools | `PTC ProgrammaticExecutor.ts` in `vm` + Acorn validation |
 | 7 | Guard | `VIGIL` pre-action + `Ralph` post-audit + `λ=(cost/budget)^4` |
 | 8 | Persist | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW) |
-| 9 | Deliver | `Transport.sendResponse()` to source channel |
+| 9 | Deliver | `Transport.sendUniversalResponse()` to source channel |
 
 ---
 

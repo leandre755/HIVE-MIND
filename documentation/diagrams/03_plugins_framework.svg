@@ -24,7 +24,9 @@
 <text x="55.0" y="362.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/memory/index.ts</text>
 <text x="55.0" y="379.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/sys_interaction/index.ts</text>
 <text x="55.0" y="396.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">src/plugins/base/system/index.ts</text>
-<text x="55.0" y="453.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Ingestion dynamique des plugins, intégration système de base, gestion des outils MCP, extension de la mémoire et commandes d'administration.</text>
+<text x="55.0" y="433.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">[METIER] Ingestion dynamique des plugins,</text>
+<text x="55.0" y="453.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">intégration système de base, gestion des outils</text>
+<text x="55.0" y="473.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1b5e20" text-anchor="start" opacity="1">MCP, extension de la mémoire et commandes d'administration.</text>
 <rect x="520" y="220" width="450" height="380" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" opacity="1"/>
 <text x="535.0" y="251.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#1b5e20" text-anchor="start" opacity="1">2. Developer Tools &amp; Environment Plugins</text>
 <text x="535.0" y="278.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#212121" text-anchor="start" opacity="1">[DEV] Dev Tools Extensions Files:</text>

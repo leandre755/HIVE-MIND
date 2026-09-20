@@ -49,7 +49,7 @@
 <text x="532.0" y="303.2" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#94A3B8" text-anchor="start" opacity="1">pgvector L2 Semantic</text>
 <rect x="280" y="240" width="200" height="90" rx="8" fill="#161B22" stroke="#00B4D8" stroke-width="2" opacity="1"/>
 <text x="292.0" y="263.2" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#00B4D8" text-anchor="start" opacity="1">9. Channel Delivery</text>
-<text x="292.0" y="287.6" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#94A3B8" text-anchor="start" opacity="1">Transport.sendResponse()</text>
+<text x="292.0" y="287.6" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#94A3B8" text-anchor="start" opacity="1">Transport.sendUniversalResponse()</text>
 <text x="292.0" y="303.2" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#94A3B8" text-anchor="start" opacity="1">Streaming / WS IPC</text>
 <path d="M 240 125 L 280 125" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-a_1_2)"/>
 <path d="M 480 125 L 520 125" fill="none" stroke="#818CF8" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-a_2_3)"/>

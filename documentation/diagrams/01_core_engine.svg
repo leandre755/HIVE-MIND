@@ -85,12 +85,12 @@
 <text x="455.0" y="1338.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Sauvegarde des messages supprimés et conversion/transcription</text>
 <text x="455.0" y="1354.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">des notes vocales entrantes.</text>
 <rect x="940" y="1210" width="460" height="180" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" opacity="1"/>
-<text x="955.0" y="1241.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Ink CLI UI &amp; React Terminal Interface</text>
-<text x="955.0" y="1268.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Interface CLI interactive en React Ink:</text>
-<text x="955.0" y="1284.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">src/core/transport/ink/App.tsx</text>
-<text x="955.0" y="1301.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">src/core/transport/ink/InkCLIAdapter.tsx</text>
-<text x="955.0" y="1338.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Interface utilisateur terminal réactive (Ink) pour piloter</text>
-<text x="955.0" y="1354.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">le bot en mode CLI interactif.</text>
+<text x="955.0" y="1241.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#000000" text-anchor="start" opacity="1">Standalone TUI Server Boundary</text>
+<text x="955.0" y="1268.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[DEV] Serveur WebSocket (IPC) pour le TUI headless:</text>
+<text x="955.0" y="1284.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">src/core/transport/TuiServerTransport.ts</text>
+<text x="955.0" y="1301.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">tui/HiveTransport.ts (dans le dépôt TUI)</text>
+<text x="955.0" y="1338.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">[METIER] Expose une IPC loopback authentifiée pour la</text>
+<text x="955.0" y="1354.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#000000" text-anchor="start" opacity="1">communication avec le dépôt TUI autonome.</text>
 <path d="M 900 130 L 940 130" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_c1_c2)"/>
 <path d="M 670 220 L 670 260" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_c1_c3)"/>
 <path d="M 900 350 L 940 350" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-arr_c3_c4)"/>

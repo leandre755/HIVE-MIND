@@ -61,9 +61,9 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3.svg">
-    <img alt="Architecture HIVE-MIND" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/3_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/architecture.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/architecture.svg">
+    <img alt="Architecture HIVE-MIND" src="documentation/diagrams/architecture.svg" width="100%">
   </picture>
 </p>
 
@@ -89,9 +89,9 @@ Bientôt.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2.svg">
-    <img alt="Capacités HIVE-MIND" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/2_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/capabilities.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/capabilities.svg">
+    <img alt="Capacités HIVE-MIND" src="documentation/diagrams/capabilities.svg" width="100%">
   </picture>
 </p>
 
@@ -116,9 +116,9 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1.svg">
-    <img alt="Workflow HIVE-MIND" src="https://gist.githubusercontent.com/personnal-agent/d1e41f637008a6b5146e444ff1a94a8b/raw/1_dark.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/workflow.svg">
+    <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/workflow.svg">
+    <img alt="Workflow HIVE-MIND" src="documentation/diagrams/workflow.svg" width="100%">
   </picture>
 </p>
 
@@ -134,7 +134,7 @@ Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fe
 | 6 | Exécuter les outils | `PTC ProgrammaticExecutor.ts` en `vm` + validation Acorn |
 | 7 | Garde-fou | `VIGIL` pré-action + `Ralph` post-audit + `λ=(cost/budget)^4` |
 | 8 | Persister | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW) |
-| 9 | Livrer | `Transport.sendResponse()` vers le canal source |
+| 9 | Livrer | `Transport.sendUniversalResponse()` vers le canal source |
 
 ---
 
