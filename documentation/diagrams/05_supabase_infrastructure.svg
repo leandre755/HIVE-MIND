@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 3488 1128" width="3488" height="1128">
+<defs>
+<marker id="mk-d05_arr1" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#e11d48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-d05_arr2" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#e11d48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-d05_arr3" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#e11d48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-d05_arr4" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#e11d48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="mk-d05_arr5" markerWidth="18" markerHeight="14" refX="14" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1,2 L 14,7 L 1,12" fill="none" stroke="#e11d48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="16" y="16" width="3488" height="1128" fill="white"/>
+<rect x="40" y="40" width="350" height="170" rx="0" fill="#f8fafc" stroke="#334155" stroke-width="2" opacity="1"/>
+<text x="55.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">LEGEND &amp; CONVENTIONS - SUPABASE &amp; TEST SUITE</text>
+<text x="55.0" y="84.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• Layer: Supabase Database, CLI Scripts &amp; Test Harness</text>
+<text x="55.0" y="101.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• Container Box: #ffebee (Light Pink / Crimson)</text>
+<text x="55.0" y="118.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• [DEV]: Monospace specifications with exact codebase file paths</text>
+<text x="55.0" y="135.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• [METIER]: Functional non-developer domain overview</text>
+<rect x="420" y="40" width="580" height="155" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="435.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">1. Supabase Core Schema &amp; Memory Migration</text>
+<text x="435.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="435.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/supabase/supabase_setup.sql</text>
+<text x="435.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/supabase/migrations/20260519130000_cma_boost_memory.sql</text>
+<text x="435.0" y="154.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="435.0" y="170.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">DDL SQL de configuration initiale de Supabase et migration pour l'optimisation de la mémoire et des embeddings sémantiques.</text>
+<rect x="420" y="225" width="580" height="285" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="435.0" y="253.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">2. Infrastructure Diagnostics &amp; Maintenance</text>
+<text x="435.0" y="280.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="435.0" y="296.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/audit-group.ts</text>
+<text x="435.0" y="313.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/check-redis.ts</text>
+<text x="435.0" y="330.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/health-check.ts</text>
+<text x="435.0" y="347.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/ping_bot.ts</text>
+<text x="435.0" y="364.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/ping_bot_user.ts</text>
+<text x="435.0" y="381.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/repair-session.ts</text>
+<text x="435.0" y="398.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/repair-test-sessions.ts</text>
+<text x="435.0" y="415.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/fix-missing-usernames.ts</text>
+<text x="435.0" y="432.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/debug-wa-metadata.js</text>
+<text x="435.0" y="449.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/tools_output.txt</text>
+<text x="435.0" y="475.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="435.0" y="491.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Scripts de diagnostic système (Redis, Supabase), vérification de santé, audit de groupes et réparation de sessions utilisateur.</text>
+<rect x="420" y="540" width="580" height="250" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="435.0" y="568.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">3. Legacy CLI &amp; Data Ingestion Scripts</text>
+<text x="435.0" y="595.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="435.0" y="611.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/cli-legacy/cli.ts</text>
+<text x="435.0" y="628.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/cli-legacy/transport-cli.ts</text>
+<text x="435.0" y="645.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/generate-blueprint.js</text>
+<text x="435.0" y="662.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/ingest_docs.js</text>
+<text x="435.0" y="679.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/rename_gm.js</text>
+<text x="435.0" y="696.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/update_gemma.cjs</text>
+<text x="435.0" y="713.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/run_cli_battery.ts</text>
+<text x="435.0" y="730.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_10_10.js</text>
+<text x="435.0" y="756.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="435.0" y="772.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Outils CLI legacy, génération de blueprints déclaratifs, ingestion documentaire et scripts de gestion de modèles.</text>
+<rect x="1040" y="40" width="580" height="305" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="1055.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">4. Battery Test Suite Runner</text>
+<text x="1055.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="1055.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/runner.ts</text>
+<text x="1055.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_1.ts</text>
+<text x="1055.0" y="145.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_2.ts</text>
+<text x="1055.0" y="162.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_3.ts</text>
+<text x="1055.0" y="179.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_4.ts</text>
+<text x="1055.0" y="196.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_5.ts</text>
+<text x="1055.0" y="213.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_6.ts</text>
+<text x="1055.0" y="230.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_7.ts</text>
+<text x="1055.0" y="247.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_8.ts</text>
+<text x="1055.0" y="264.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_9.ts</text>
+<text x="1055.0" y="280.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_battery/test_10.ts</text>
+<text x="1055.0" y="307.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="1055.0" y="323.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Harnais d'exécution séquentielle pour la batterie de tests d'intégration automatisés du bot (scénarios 1 à 10).</text>
+<rect x="1040" y="365" width="580" height="320" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="1055.0" y="393.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">5. Standalone Adapter &amp; E2E Scripts</text>
+<text x="1055.0" y="420.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="1055.0" y="436.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test-config.js</text>
+<text x="1055.0" y="453.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_cli_e2e.ts</text>
+<text x="1055.0" y="470.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_codex_adapter.ts</text>
+<text x="1055.0" y="487.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_codex_connection.ts</text>
+<text x="1055.0" y="504.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_email.ts</text>
+<text x="1055.0" y="521.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_fixes.ts</text>
+<text x="1055.0" y="538.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_fixes2.ts</text>
+<text x="1055.0" y="555.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_full_page_screenshot.ts</text>
+<text x="1055.0" y="572.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_models.js</text>
+<text x="1055.0" y="589.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_plugins_e2e.ts</text>
+<text x="1055.0" y="605.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_remaining_e2e.ts</text>
+<text x="1055.0" y="622.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_wa_e2e.ts</text>
+<text x="1055.0" y="649.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="1055.0" y="665.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Tests scripts autonomes pour les adaptateurs LLM (Codex), WhatsApp, e-mails, capture d'écran et validation E2E.</text>
+<rect x="1040" y="705" width="580" height="155" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="1055.0" y="733.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">6. Bot End-to-End Integration Suite</text>
+<text x="1055.0" y="760.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="1055.0" y="776.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/e2e/bot.e2e.test.ts</text>
+<text x="1055.0" y="793.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/e2e/harness.test.ts</text>
+<text x="1055.0" y="819.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="1055.0" y="835.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Tests de bout en bout simulant le comportement complet du bot et son environnement de test conteneurisé.</text>
+<rect x="1660" y="40" width="580" height="200" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="1675.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">7. Integration &amp; Router Tests</text>
+<text x="1675.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="1675.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/integration/core.test.ts</text>
+<text x="1675.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/integration/services.test.ts</text>
+<text x="1675.0" y="145.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/integration/tui_websocket.test.ts</text>
+<text x="1675.0" y="162.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/scratch-ajv.ts</text>
+<text x="1675.0" y="179.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/smart_router_v2.test.ts</text>
+<text x="1675.0" y="205.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="1675.0" y="221.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Validation de l'intégration des services noyau, du routeur intelligent v2, du serveur WebSocket TUI et de la validation JSON Schema.</text>
+<rect x="1660" y="260" width="580" height="400" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="1675.0" y="288.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">8. Core &amp; Kernel Unit Tests</text>
+<text x="1675.0" y="315.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="1675.0" y="331.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/BrowserService.test.ts</text>
+<text x="1675.0" y="348.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/PermissionManager.test.ts</text>
+<text x="1675.0" y="365.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/blueprint/AgentBlueprint.test.ts</text>
+<text x="1675.0" y="382.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/config/keyResolver.test.ts</text>
+<text x="1675.0" y="399.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/config/models_config_policy.test.ts</text>
+<text x="1675.0" y="416.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/compactHistory.test.ts</text>
+<text x="1675.0" y="433.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/cotExtraction.test.ts</text>
+<text x="1675.0" y="450.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/eventBus.test.ts</text>
+<text x="1675.0" y="467.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/permissionManager.test.ts</text>
+<text x="1675.0" y="484.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/responseSanitizer.test.ts</text>
+<text x="1675.0" y="500.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/tieredContextLoader.test.ts</text>
+<text x="1675.0" y="517.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/core/toolValidator.test.ts</text>
+<text x="1675.0" y="534.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/mindos/DriverSystem.test.ts</text>
+<text x="1675.0" y="551.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/ptc/ProgrammaticExecutor.test.ts</text>
+<text x="1675.0" y="568.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/ptc/ToolBridge.test.ts</text>
+<text x="1675.0" y="585.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/runtime/ConstraintManifold.test.ts</text>
+<text x="1675.0" y="602.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/tui/windowTitle.test.ts</text>
+<text x="1675.0" y="629.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="1675.0" y="645.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Tests unitaires du noyau : gestionnaire de permissions, extraction CoT, bus d'événements, nettoyeur de réponses et exécution programmatique.</text>
+<rect x="2280" y="40" width="580" height="370" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2295.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">9. Business Services Unit Tests</text>
+<text x="2295.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2295.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/ClearcutSimulator.test.ts</text>
+<text x="2295.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/LearningEngine.test.ts</text>
+<text x="2295.0" y="145.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/MediaIndexer.test.ts</text>
+<text x="2295.0" y="162.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/MediaSearch.test.ts</text>
+<text x="2295.0" y="179.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/MemoryDecay.test.ts</text>
+<text x="2295.0" y="196.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/MultimodalEmbeddingService.test.ts</text>
+<text x="2295.0" y="213.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/Planner.test.ts</text>
+<text x="2295.0" y="230.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/RuntimeInfrastructure.test.ts</text>
+<text x="2295.0" y="247.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/SafeScriptValidator.test.ts</text>
+<text x="2295.0" y="264.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/SubAgentEngine.test.ts</text>
+<text x="2295.0" y="280.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/envResolver.test.ts</text>
+<text x="2295.0" y="297.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/eventSystem.test.ts</text>
+<text x="2295.0" y="314.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/identityMap.test.ts</text>
+<text x="2295.0" y="331.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/supabaseDb.test.ts</text>
+<text x="2295.0" y="348.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/services/userService.test.ts</text>
+<text x="2295.0" y="375.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2295.0" y="391.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Tests unitaires de la couche de services : moteur d'apprentissage, indexation média, embeddings multimodaux, mémoire et base Supabase.</text>
+<rect x="2280" y="430" width="580" height="350" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2295.0" y="458.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">10. Plugins &amp; Adapters Unit Tests</text>
+<text x="2295.0" y="485.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2295.0" y="501.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/LSPTool.test.ts</text>
+<text x="2295.0" y="518.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/SystemScratchpadTool.test.ts</text>
+<text x="2295.0" y="535.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/bashTool.test.ts</text>
+<text x="2295.0" y="552.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/browserTools.test.ts</text>
+<text x="2295.0" y="569.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/dailyPulsePlugin.test.ts</text>
+<text x="2295.0" y="586.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/sendEmailPlugin.test.ts</text>
+<text x="2295.0" y="603.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/sendStickerPlugin.test.ts</text>
+<text x="2295.0" y="620.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/shoppingPlugin.test.ts</text>
+<text x="2295.0" y="637.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/translatePlugin.test.ts</text>
+<text x="2295.0" y="654.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/plugins/visualReporterPlugin.test.ts</text>
+<text x="2295.0" y="670.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/providers/antigravity.test.ts</text>
+<text x="2295.0" y="687.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/providers/geminiCli.test.ts</text>
+<text x="2295.0" y="704.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/transport/handlers/antiDeleteHandler.test.ts</text>
+<text x="2295.0" y="721.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/transport/handlers/audioHandler.test.ts</text>
+<text x="2295.0" y="748.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2295.0" y="764.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Tests unitaires des extensions de fonctionnalités (LSP, Bash, Navigateur, Email, Stickers) et des adaptateurs de transport/providers.</text>
+<rect x="2280" y="800" width="580" height="320" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2295.0" y="828.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">11. Utilities &amp; Formatters Unit Tests</text>
+<text x="2295.0" y="855.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2295.0" y="871.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/ResponseFormatEnforcer.test.ts</text>
+<text x="2295.0" y="888.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/TlsImpersonator.test.ts</text>
+<text x="2295.0" y="905.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/audioConverter.test.ts</text>
+<text x="2295.0" y="922.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/collapseReadSearch.test.ts</text>
+<text x="2295.0" y="939.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/fileStateCache.test.ts</text>
+<text x="2295.0" y="956.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/fuzzyMatcher.test.ts</text>
+<text x="2295.0" y="973.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/helpers.test.ts</text>
+<text x="2295.0" y="990.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/jidHelper.test.ts</text>
+<text x="2295.0" y="1007.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/messageSplitter.test.ts</text>
+<text x="2295.0" y="1024.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/pidLock.test.ts</text>
+<text x="2295.0" y="1040.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/readFileInRange.test.ts</text>
+<text x="2295.0" y="1057.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/tests/unit/utils/toolExecution.test.ts</text>
+<text x="2295.0" y="1084.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2295.0" y="1100.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Validation unitaire des fonctions utilitaires : conversion audio, cache d'état de fichier, découpage de messages et exécution d'outils.</text>
+<path d="M 1000 120 L 1040 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr1)"/>
+<path d="M 1000 350 L 1040 350" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr2)"/>
+<path d="M 1620 120 L 1660 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr3)"/>
+<path d="M 2240 120 L 2280 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr4)"/>
+<rect x="2900" y="40" width="580" height="430" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2915.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">12. LLM as Judge Subsystem</text>
+<text x="2915.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2915.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/codestral.js</text>
+<text x="2915.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/gemini.js</text>
+<text x="2915.0" y="145.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/github.js</text>
+<text x="2915.0" y="162.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/groq.js</text>
+<text x="2915.0" y="179.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/mistral.js</text>
+<text x="2915.0" y="196.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/cli.mjs</text>
+<text x="2915.0" y="213.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/envResolver.js</text>
+<text x="2915.0" y="230.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/index.js</text>
+<text x="2915.0" y="247.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/loadEnv.js</text>
+<text x="2915.0" y="264.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/models_config.json</text>
+<text x="2915.0" y="280.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/router.js</text>
+<text x="2915.0" y="297.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/tests/envResolver.test.js</text>
+<text x="2915.0" y="314.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/tests/router.test.js</text>
+<text x="2915.0" y="331.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/usageTracker.js</text>
+<text x="2915.0" y="348.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/domain/auditorLogic.ts</text>
+<text x="2915.0" y="365.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/idee.md</text>
+<text x="2915.0" y="382.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/infra/fileScanner.ts</text>
+<text x="2915.0" y="399.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/infra/llmClient.ts</text>
+<text x="2915.0" y="416.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/types.ts</text>
+<text x="2915.0" y="433.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/ui/index.ts</text>
+<text x="2915.0" y="438.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2915.0" y="454.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Juge : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
+<rect x="2900" y="500" width="580" height="430" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2915.0" y="528.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">13. LLM as Validator Subsystem</text>
+<text x="2915.0" y="555.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2915.0" y="571.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/codestral.js</text>
+<text x="2915.0" y="588.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/gemini.js</text>
+<text x="2915.0" y="605.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/github.js</text>
+<text x="2915.0" y="622.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/groq.js</text>
+<text x="2915.0" y="639.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/mistral.js</text>
+<text x="2915.0" y="656.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/cli.mjs</text>
+<text x="2915.0" y="673.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/envResolver.js</text>
+<text x="2915.0" y="690.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/index.js</text>
+<text x="2915.0" y="707.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/loadEnv.js</text>
+<text x="2915.0" y="724.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/models_config.json</text>
+<text x="2915.0" y="740.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/router.js</text>
+<text x="2915.0" y="757.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/envResolver.test.js</text>
+<text x="2915.0" y="774.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/router.test.js</text>
+<text x="2915.0" y="791.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/usageTracker.js</text>
+<text x="2915.0" y="808.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/domain/auditorLogic.ts</text>
+<text x="2915.0" y="825.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/idee.md</text>
+<text x="2915.0" y="842.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/fileScanner.ts</text>
+<text x="2915.0" y="859.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/llmClient.ts</text>
+<text x="2915.0" y="876.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/types.ts</text>
+<text x="2915.0" y="893.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/ui/index.ts</text>
+<text x="2915.0" y="898.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2915.0" y="914.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Validateur : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
+<path d="M 2860 120 L 2900 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr5)"/>
+</svg>
