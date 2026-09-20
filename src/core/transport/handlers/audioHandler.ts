@@ -1,8 +1,7 @@
 import { downloadMediaMessage, type WAMessage, type proto } from '@whiskeysockets/baileys';
 import createPinoLogger from 'pino';
 import { join } from 'path';
-import { promises as fsPromises } from 'fs';
-import { resolveWithinRoot, safeWriteFile, safeUnlink } from '../../../utils/safeFs.js';
+import { resolveWithinRoot, safeWriteFile, safeUnlink, safeMkdir } from '../../../utils/safeFs.js';
 import { workingMemory } from '../../../services/workingMemory.js';
 import { botIdentity } from '../../../utils/botIdentity.js';
 import { config as globalConfig } from '../../../config/index.js';
@@ -186,7 +185,7 @@ export class AudioHandler {
     if (!container) return null;
 
     const tempDir = join(process.cwd(), 'temp', 'stt');
-    await fsPromises.mkdir(tempDir, { recursive: true });
+    await safeMkdir(tempDir, { recursive: true });
     const tempPath = resolveWithinRoot(tempDir, fileName);
 
     try {

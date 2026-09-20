@@ -214,7 +214,8 @@ CREATE TABLE IF NOT EXISTS public.entities (
   embedding vector(1024),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT entities_pkey PRIMARY KEY (id)
+  CONSTRAINT entities_pkey PRIMARY KEY (id),
+  CONSTRAINT entities_context_name_unique UNIQUE (context_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS public.relationships (
@@ -228,7 +229,8 @@ CREATE TABLE IF NOT EXISTS public.relationships (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT relationships_pkey PRIMARY KEY (id),
   CONSTRAINT relationships_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.entities(id) ON DELETE CASCADE,
-  CONSTRAINT relationships_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.entities(id) ON DELETE CASCADE
+  CONSTRAINT relationships_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.entities(id) ON DELETE CASCADE,
+  CONSTRAINT relationships_source_target_type_unique UNIQUE (source_id, target_id, relation_type)
 );
 
 CREATE TABLE IF NOT EXISTS public.agent_actions (
@@ -428,6 +430,40 @@ BEGIN
   FROM bot_tools
   WHERE bot_tools.embedding IS NOT NULL
   ORDER BY bot_tools.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+
+-- Function to match entities by embedding similarity
+CREATE OR REPLACE FUNCTION match_entities (
+  query_embedding vector(1024),
+  match_threshold float,
+  match_count int,
+  match_context_id uuid
+)
+RETURNS TABLE (
+  id uuid,
+  name text,
+  type text,
+  description text,
+  metadata jsonb,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    entities.id,
+    entities.name,
+    entities.type,
+    entities.description,
+    entities.metadata,
+    1 - (entities.embedding <=> query_embedding) AS similarity
+  FROM entities
+  WHERE entities.context_id = match_context_id
+    AND 1 - (entities.embedding <=> query_embedding) > match_threshold
+  ORDER BY entities.embedding <=> query_embedding
   LIMIT match_count;
 END;
 $$;

@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveApiKey } from '../config/keyResolver.js';

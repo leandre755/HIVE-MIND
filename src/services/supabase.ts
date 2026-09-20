@@ -2,7 +2,7 @@
 // Client Supabase pour la persistance cloud - Omni-Channel Ready
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import ws from 'ws';

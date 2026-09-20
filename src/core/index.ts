@@ -2,7 +2,7 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { dirname, join } from 'path';
 
 import { fileURLToPath } from 'url';

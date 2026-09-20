@@ -4,7 +4,10 @@
 // Unified Control Plane during LLM execution acting in a closed-loop.
 // ============================================================================
 
-import { readFileSync, existsSync } from 'fs';
+import {
+  safeReadFileSync as readFileSync,
+  safeExistsSync as existsSync,
+} from '../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { eventBus, BotEvents } from '../../core/events.js';

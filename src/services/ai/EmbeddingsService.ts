@@ -21,8 +21,8 @@ export class EmbeddingsService implements IEmbeddingsService {
 
   constructor(config: EmbeddingConfig) {
     this.config = config;
-    this.model = config.model || 'gemini-embedding-001';
-    this.dimensions = config.dimensions || 1024;
+    this.model = config.model || 'text-embedding-004';
+    this.dimensions = config.dimensions || 768; // text-embedding-004 default is 768
   }
 
   /**
@@ -60,14 +60,19 @@ export class EmbeddingsService implements IEmbeddingsService {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:embedContent?key=${apiKey}`;
 
+    const bodyPayload: Record<string, unknown> = {
+      model: `models/${this.model}`,
+      content: { parts: [{ text }] },
+    };
+
+    if (this.model === 'text-embedding-004') {
+      bodyPayload.outputDimensionality = this.dimensions;
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: `models/${this.model}`,
-        content: { parts: [{ text }] },
-        outputDimensionality: this.dimensions,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
     if (!response.ok) {

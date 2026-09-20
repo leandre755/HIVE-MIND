@@ -78,6 +78,42 @@ export class SmartLayer {
     return { targetName, sortedModels, recipe };
   }
 
+  private async executeAttempt(
+    modelId: string,
+    request: SmartExecutionRequest,
+    options: SmartExecutionOptions | undefined,
+    recipe: ReturnType<ServiceRegistry['getRecipe']>,
+    creds: CredentialResolution,
+    family: string,
+    attemptsCount: number,
+  ): Promise<SmartExecuteResult> {
+    const reqStartTime = Date.now();
+    let result: AdapterChatResult;
+
+    const { getModelConfig } = await import('../layer0/ModelRegistry.js');
+    const modelConfig = getModelConfig(modelId);
+
+    if (modelConfig.protocol_family === 'gemini-native') {
+      const { default: geminiAdapter } = await import('../adapters/gemini.js');
+      result = await geminiAdapter.chat(request.messages, {
+        model: modelId,
+        apiKey: creds.apiKey,
+        familyConfig: modelConfig.familyConfig,
+        wireParams: request.wireParams,
+      });
+    } else {
+      result = await this.executionLayer.execute(modelId, request, {
+        apiKey: creds.apiKey,
+        timeoutMs: recipe.timeoutMs,
+        signal: options?.signal,
+        effectiveMaxTokens: options?.effectiveMaxTokens,
+      });
+    }
+
+    this.healthRegistry.recordSuccess(modelId, Date.now() - reqStartTime, family);
+    return { result, usedModel: modelId, usedProvider: family, attemptsCount };
+  }
+
   public async execute(
     request: SmartExecutionRequest,
     options?: SmartExecutionOptions,
@@ -104,18 +140,16 @@ export class SmartLayer {
       }
 
       attemptsCount++;
-      const reqStartTime = Date.now();
-
       try {
-        const result = await this.executionLayer.execute(modelId, request, {
-          apiKey: creds.apiKey,
-          timeoutMs: recipe.timeoutMs,
-          signal: options?.signal,
-          effectiveMaxTokens: options?.effectiveMaxTokens,
-        });
-
-        this.healthRegistry.recordSuccess(modelId, Date.now() - reqStartTime, family);
-        return { result, usedModel: modelId, usedProvider: family, attemptsCount };
+        return await this.executeAttempt(
+          modelId,
+          request,
+          options,
+          recipe,
+          creds,
+          family,
+          attemptsCount,
+        );
       } catch (error: unknown) {
         lastError = error;
         this.healthRegistry.recordFailure(modelId, error, family);
@@ -133,6 +167,57 @@ export class SmartLayer {
     );
   }
 
+  private async *streamGeminiFallback(
+    modelId: string,
+    request: SmartExecutionRequest,
+    creds: CredentialResolution,
+    family: string,
+    familyConfig: unknown,
+  ): AsyncIterable<
+    StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
+  > {
+    const { default: geminiAdapter } = await import('../adapters/gemini.js');
+    const result = await geminiAdapter.chat(request.messages, {
+      model: modelId,
+      apiKey: creds.apiKey,
+      familyConfig,
+      wireParams: request.wireParams,
+    });
+
+    yield {
+      content: result.content,
+      thought: result.thought,
+      toolCalls: result.toolCalls,
+      done: true,
+      usedModel: modelId,
+      usedProvider: family,
+      _started: true,
+    };
+  }
+
+  private async *streamExecutionLayerFallback(
+    modelId: string,
+    request: SmartExecutionRequest,
+    options: SmartExecutionOptions | undefined,
+    recipe: ReturnType<ServiceRegistry['getRecipe']>,
+    creds: CredentialResolution,
+    family: string,
+  ): AsyncIterable<
+    StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
+  > {
+    const stream = this.executionLayer.executeStream(modelId, request, {
+      apiKey: creds.apiKey,
+      timeoutMs: recipe.timeoutMs,
+      signal: options?.signal,
+      effectiveMaxTokens: options?.effectiveMaxTokens,
+    });
+
+    for await (const chunk of stream) {
+      const _started = !!(chunk.content || chunk.thought || chunk.toolCalls);
+      yield { ...chunk, usedModel: modelId, usedProvider: family, _started };
+    }
+  }
+
   private async *streamAttempt(
     modelId: string,
     request: SmartExecutionRequest,
@@ -145,18 +230,20 @@ export class SmartLayer {
     let streamStarted = false;
 
     try {
-      const stream = this.executionLayer.executeStream(modelId, request, {
-        apiKey: creds.apiKey,
-        timeoutMs: recipe.timeoutMs,
-        signal: options?.signal,
-        effectiveMaxTokens: options?.effectiveMaxTokens,
-      });
+      const { getModelConfig } = await import('../layer0/ModelRegistry.js');
+      const modelConfig = getModelConfig(modelId);
 
-      for await (const chunk of stream) {
-        if (!streamStarted && (chunk.content || chunk.thought || chunk.toolCalls)) {
+      const targetStream =
+        modelConfig.protocol_family === 'gemini-native'
+          ? this.streamGeminiFallback(modelId, request, creds, family, modelConfig.familyConfig)
+          : this.streamExecutionLayerFallback(modelId, request, options, recipe, creds, family);
+
+      for await (const chunk of targetStream) {
+        if (!streamStarted && chunk._started) {
           streamStarted = true;
         }
-        yield { ...chunk, usedModel: modelId, usedProvider: family };
+        delete chunk._started;
+        yield chunk;
       }
 
       this.healthRegistry.recordSuccess(modelId, Date.now() - reqStartTime, family);

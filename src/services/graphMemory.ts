@@ -3,7 +3,7 @@
 
 import { supabase } from './supabase.js';
 import { EmbeddingsService } from './ai/EmbeddingsService.js';
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveApiKey } from '../config/keyResolver.js';
@@ -24,7 +24,7 @@ interface EntityData {
 
 interface UpsertEntityResult {
   id: string;
-  chat_id: string;
+  context_id: string;
   name: string;
   type: string;
   description: string;
@@ -35,7 +35,7 @@ interface UpsertEntityResult {
 
 interface RelationshipResult {
   id: string;
-  chat_id: string;
+  context_id: string;
   source_id: string;
   target_id: string;
   relation_type: string;
@@ -83,7 +83,7 @@ export const graphMemory = {
         .from('entities')
         .upsert(
           {
-            chat_id: chatId,
+            context_id: chatId,
             name: entity.name,
             type: entity.type || 'Concept',
             description: entity.description,
@@ -91,7 +91,7 @@ export const graphMemory = {
             embedding: vector,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: 'chat_id,name' },
+          { onConflict: 'context_id,name' },
         )
         .select()
         .single();
@@ -117,14 +117,14 @@ export const graphMemory = {
       const { data: source } = await supabase
         .from('entities')
         .select('id')
-        .eq('chat_id', chatId)
+        .eq('context_id', chatId)
         .eq('name', sourceName)
         .single();
 
       const { data: target } = await supabase
         .from('entities')
         .select('id')
-        .eq('chat_id', chatId)
+        .eq('context_id', chatId)
         .eq('name', targetName)
         .single();
 
@@ -139,7 +139,7 @@ export const graphMemory = {
         .from('relationships')
         .upsert(
           {
-            chat_id: chatId,
+            context_id: chatId,
             source_id: (source as { id: string }).id,
             target_id: (target as { id: string }).id,
             relation_type: relationType,
@@ -168,7 +168,7 @@ export const graphMemory = {
           const textToEmbed = `${ent.name}: ${ent.description || ''}`;
           const vector = await embeddings?.embed(textToEmbed);
           return {
-            chat_id: chatId,
+            context_id: chatId,
             name: ent.name,
             type: ent.type || 'Concept',
             description: ent.description,
@@ -181,7 +181,7 @@ export const graphMemory = {
 
       const { data, error } = await supabase
         .from('entities')
-        .upsert(rows, { onConflict: 'chat_id,name' })
+        .upsert(rows, { onConflict: 'context_id,name' })
         .select('id, name');
 
       if (error) throw error;
@@ -210,7 +210,7 @@ export const graphMemory = {
       const { data: entities, error: fetchErr } = await supabase
         .from('entities')
         .select('id, name')
-        .eq('chat_id', chatId)
+        .eq('context_id', chatId)
         .in('name', Array.from(nameSet));
 
       if (fetchErr) throw fetchErr;
@@ -221,7 +221,7 @@ export const graphMemory = {
       const rows = relationships
         .filter((r) => nameToId.has(r.source) && nameToId.has(r.target))
         .map((r) => ({
-          chat_id: chatId,
+          context_id: chatId,
           source_id: nameToId.get(r.source)!,
           target_id: nameToId.get(r.target)!,
           relation_type: r.type,
