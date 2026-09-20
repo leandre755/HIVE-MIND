@@ -19,18 +19,7 @@ jest.unstable_mockModule('../../../services/goalsService.js', () => ({
 }));
 
 jest.unstable_mockModule('../../../core/transport/baileys.js', () => ({
-  baileysTransport: {
-    connect: jest.fn(async () => {}),
-    onMessage: jest.fn(),
-    onGroupEvent: jest.fn(),
-    setContainer: jest.fn(),
-    sendText: jest.fn(async () => ({})),
-    sendUniversalResponse: jest.fn(async () => ({})),
-    setPresence: jest.fn(async () => {}),
-    sendVoice: jest.fn(async () => ({})),
-    downloadMedia: jest.fn(async () => Buffer.from('')),
-    sock: { user: { id: '33612345678@s.whatsapp.net', lid: '33687654321@lid' } },
-  },
+  baileysTransport: { connect: jest.fn() },
 }));
 
 const { botCore } = await import('../../../core/index.js');
