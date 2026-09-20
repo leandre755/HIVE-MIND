@@ -41,7 +41,6 @@
   <img src="https://img.shields.io/badge/Version-1.0.0-0D1117?style=flat-square&labelColor=0D1117&color=3FB950" alt="Version" />
   <img src="https://img.shields.io/badge/TypeScript-7.0.2-0D1117?style=flat-square&labelColor=0D1117&color=3178C6&logo=typescript&logoColor=white" alt="TypeScript 7.0.2" />
   <img src="https://img.shields.io/badge/Node.js-22+-0D1117?style=flat-square&labelColor=0D1117&color=3FB950&logo=node.js&logoColor=white" alt="Node 22+" />
-  <img src="https://img.shields.io/badge/Rust-1.81+-0D1117?style=flat-square&labelColor=0D1117&color=DEA584&logo=rust&logoColor=white" alt="Rust 1.81+" />
   <img src="https://img.shields.io/badge/Licence-Apache--2.0-0D1117?style=flat-square&labelColor=0D1117&color=F0883E" alt="Apache 2.0" />
 </p>
 
@@ -69,13 +68,13 @@ Le mécanisme est le câblage sélectif, pas le bourrage de contexte. Une VM PTC
 
 HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionnelle : chaque couche ne parle qu’à ses voisines immédiates, aucun saut. La décomposition en 26 sous-systèmes est auditée formellement dans [`ARCHITECTURE.md`](ARCHITECTURE.md) avec les métriques d’instabilité de Martin.
 
-| Couche | Rôle | Composants Clés |
-| :--- | :--- | :--- |
-| **Transport** | Entrée / sortie unifiée | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001 |
-| **Orchestration** | Boucle ReAct, IoC, ordonnancement | BotCore, ServiceContainer, FairnessQueue, BlueprintManager, Planner, PTC VM |
-| **Runtime** | Sécurité &amp; gouvernance coût | VIGIL, Ralph, ConstraintManifold, ContextWindowService |
-| **Cognitif** | Mémoire hiérarchique | Redis L1 &lt;50ms, Supabase pgvector L2, MAPLE, HNSW |
-| **Smart Router** | Routage modèle | Layer 1 SmartLayer (rotation quota, circuit breakers), Layer 0 ExecutionLayer (8 adaptateurs) |
+| Couche            | Rôle                              | Composants Clés                                                                               |
+| :---------------- | :-------------------------------- | :-------------------------------------------------------------------------------------------- |
+| **Transport**     | Entrée / sortie unifiée           | WhatsApp (Baileys), Discord, Telegram, CLI, TUI WebSocket :5001                               |
+| **Orchestration** | Boucle ReAct, IoC, ordonnancement | BotCore, ServiceContainer, FairnessQueue, BlueprintManager, Planner, PTC VM                   |
+| **Runtime**       | Sécurité &amp; gouvernance coût   | VIGIL, Ralph, ConstraintManifold, ContextWindowService                                        |
+| **Cognitif**      | Mémoire hiérarchique              | Redis L1 &lt;50ms, Supabase pgvector L2, MAPLE, HNSW                                          |
+| **Smart Router**  | Routage modèle                    | Layer 1 SmartLayer (rotation quota, circuit breakers), Layer 0 ExecutionLayer (8 adaptateurs) |
 
 ---
 
@@ -100,13 +99,13 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 <details>
 <summary><b><picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:puzzle.svg?color=%231f2328" alt="" width="18" style="vertical-align: middle; margin-right: 6px;" /></picture> Carte des domaines — déplier SS-01 à SS-26</b></summary>
 
-| Domaine | Sous-Systèmes | Responsabilité |
-| :--- | :--- | :--- |
-| **01 Core &amp; Concurrence** | SS-01 → SS-09 | ServiceContainer (I=0.00), FairnessQueue DRR, SwarmDispatcher, BlueprintManager, EventBus, Planner DAG, SubAgentEngine, PTC VM, PermissionManager |
-| **02 Intelligence Modèle** | SS-10 → SS-14 | ExecutionLayer, ParamConverter pivot↔wire, SmartLayer, OAuth PKCE, Voix (Live/STT/TTS) |
-| **03 Gateways &amp; IPC** | SS-15 → SS-17 | TransportInterface universel, TuiServer WS IPC, Assistant Auth CLI |
-| **04 Mémoire &amp; Cognition** | SS-18 → SS-20 | Mémoire Multi-Tier L1/L2, MAPLE Ebbinghaus, DB HNSW multimodale |
-| **05 Runtime Safety** | SS-21 → SS-26 | VIGIL + Ralph, Tiered Context, Hash-Anchored Edit (FNV-1a Myers), AST Tree-Sitter, Plugin Pipeline, SafeFs |
+| Domaine                        | Sous-Systèmes | Responsabilité                                                                                                                                    |
+| :----------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **01 Core &amp; Concurrence**  | SS-01 → SS-09 | ServiceContainer (I=0.00), FairnessQueue DRR, SwarmDispatcher, BlueprintManager, EventBus, Planner DAG, SubAgentEngine, PTC VM, PermissionManager |
+| **02 Intelligence Modèle**     | SS-10 → SS-14 | ExecutionLayer, ParamConverter pivot↔wire, SmartLayer, OAuth PKCE, Voix (Live/STT/TTS)                                                            |
+| **03 Gateways &amp; IPC**      | SS-15 → SS-17 | TransportInterface universel, TuiServer WS IPC, Assistant Auth CLI                                                                                |
+| **04 Mémoire &amp; Cognition** | SS-18 → SS-20 | Mémoire Multi-Tier L1/L2, MAPLE Ebbinghaus, DB HNSW multimodale                                                                                   |
+| **05 Runtime Safety**          | SS-21 → SS-26 | VIGIL + Ralph, Tiered Context, Hash-Anchored Edit (FNV-1a Myers), AST Tree-Sitter, Plugin Pipeline, SafeFs                                        |
 
 </details>
 
@@ -124,17 +123,17 @@ Vingt-six sous-systèmes, chacun **extractible, testable indépendamment et docu
 
 Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fermée : ordonnancer équitablement, hydrater sélectivement, router intelligemment, penser avec des outils, valider avant et après l’action, puis ne persister que l’essentiel.
 
-| Étape | Action du Harnais | Code Clé |
-| :--- | :--- | :--- |
-| 1 | Normaliser l’entrée | `TransportInterface` → `NormalizedMessage` (`src/core/transport/`) |
-| 2 | Ordonnancer équitablement | `FairnessQueue.ts` DRR + files VIP |
-| 3 | Hydrater le contexte | `tieredContextLoader.ts` + `ContextWindowService.ts` avec Ebbinghaus `0.4·e^{-t/τ}` |
-| 4 | Router le modèle | `SmartLayer.ts` → `ExecutionLayer.ts` (8 adaptateurs, zéro-429) |
-| 5 | Boucle ReAct ×10 | `BotCore.ts` + `SubAgentEngine.ts` (fork/fresh) |
-| 6 | Exécuter les outils | `PTC ProgrammaticExecutor.ts` en `vm` + validation Acorn |
-| 7 | Garde-fou | `VIGIL` pré-action + `Ralph` post-audit + `λ=(cost/budget)^4` |
-| 8 | Persister | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW) |
-| 9 | Livrer | `Transport.sendUniversalResponse()` vers le canal source |
+| Étape | Action du Harnais         | Code Clé                                                                            |
+| :---- | :------------------------ | :---------------------------------------------------------------------------------- |
+| 1     | Normaliser l’entrée       | `TransportInterface` → `NormalizedMessage` (`src/core/transport/`)                  |
+| 2     | Ordonnancer équitablement | `FairnessQueue.ts` DRR + files VIP                                                  |
+| 3     | Hydrater le contexte      | `tieredContextLoader.ts` + `ContextWindowService.ts` avec Ebbinghaus `0.4·e^{-t/τ}` |
+| 4     | Router le modèle          | `SmartLayer.ts` → `ExecutionLayer.ts` (8 adaptateurs, zéro-429)                     |
+| 5     | Boucle ReAct ×10          | `BotCore.ts` + `SubAgentEngine.ts` (fork/fresh)                                     |
+| 6     | Exécuter les outils       | `PTC ProgrammaticExecutor.ts` en `vm` + validation Acorn                            |
+| 7     | Garde-fou                 | `VIGIL` pré-action + `Ralph` post-audit + `λ=(cost/budget)^4`                       |
+| 8     | Persister                 | `workingMemory.ts` (Redis) + `SemanticMemory.ts` (pgvector HNSW)                    |
+| 9     | Livrer                    | `Transport.sendUniversalResponse()` vers le canal source                            |
 
 ---
 
@@ -142,29 +141,29 @@ Du `NormalizedMessage` à la réponse livrée, le harnais exécute une boucle fe
 
 Le Smart Router bicouche orchestre **8 familles d'adaptateurs natifs** et **22+ endpoints dynamiques** via un pivot découplé. Layer 1 gère le routage résilient avec état (disjoncteurs 6 fenêtres glissantes, scoring P50, rotation zéro-429, verrou de stream SSE) ; Layer 0 pilote la transformation filaire sans état (`ProtocolFamily` $\times$ `HeaderFamily`, budgets de raisonnement, erreurs typées).
 
-| Fournisseur / Famille | Implémentation | Protocole Filaire | Capacités Clés | Spécificités Techniques |
-| :--- | :--- | :--- | :--- | :--- |
-| **OpenAI** | Natif (`openai.ts`) | `openai-compatible` (`/v1/chat/completions`) | Chat, Tool Calling, Vision, Effort Reasoning | Gestion native `max_completion_tokens` et `reasoning_effort`, embeddings |
-| **Google Gemini** | Natif (`gemini.ts`) | `gemini-native` (`generateContent`) | Multimodal (Texte, Image, Audio), Thinking Budget | Structure multipart, préservation `thought_signature`, `systemInstruction` |
-| **Anthropic Claude** | Natif (`anthropic.ts`) | `anthropic-compatible` (`/v1/messages`) | Raisonnement Étendu, Tool Calling, Prompt Caching | Extraction `system` racine, schéma `input_schema`, bornage budget raisonnement |
-| **Groq Cloud** | Natif (`groq.ts`) | `openai-compatible` (`/openai/v1`) | Inférence LPU Ultra-rapide, Tool Calling, Outils Serveur | Groq Compound `executed_tools`, `usage_breakdown`, versioning via en-tête |
-| **Cohere** | Natif (`cohere.ts`) | `cohere-v2` (`/v2/chat`) | Contenu Structuré, Tool Calling | Séparation message `system`, fragments typés, normalisation des tokens |
-| **Cloudflare AI** | Natif (`cloudflare.ts`) | `cloudflare-v1` (`/ai/v1/chat/completions`) | Inférence Serverless &amp; Tool Calling | Format clé composite `account_id:api_token`, désencapsulation `{ result }`, erreurs |
-| **Hugging Face** | Natif (`huggingface.ts`) | `openai-compatible` (`router.huggingface.co`) | Modèles Open-Source du Hub | Wrapper SDK officiel, initialisation autonome des clés, gestionnaire 429 |
-| **Modal** | Natif (`modal.ts`) | `openai-compatible` (`{appUrl}/v1`) | Conteneurs GPU Serverless Personnalisés | URL dynamique par ID modèle, timeout 120s pour absorption des cold-starts |
-| **Spécialisations OAuth** | Headless (`codex.ts`, `antigravity.ts`) | Flux SSE Direct / Cloud Code REST API | OAuth2 PKCE / Session OAuth Locale | Rafraîchissement (&lt;300s), télémétrie Clearcut simulée, impersonation TLS |
-| **Fournisseurs Dynamiques** | Générique (`GenericAdapter.ts`) | `openai-compatible` / `standard-token` | 22+ Fournisseurs de l'Écosystème (Mistral, NIM, etc.) | Assainissement 9-char des IDs d'outils, relais `reasoning_content`, passthrough |
+| Fournisseur / Famille       | Implémentation                          | Protocole Filaire                             | Capacités Clés                                           | Spécificités Techniques                                                             |
+| :-------------------------- | :-------------------------------------- | :-------------------------------------------- | :------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| **OpenAI**                  | Natif (`openai.ts`)                     | `openai-compatible` (`/v1/chat/completions`)  | Chat, Tool Calling, Vision, Effort Reasoning             | Gestion native `max_completion_tokens` et `reasoning_effort`, embeddings            |
+| **Google Gemini**           | Natif (`gemini.ts`)                     | `gemini-native` (`generateContent`)           | Multimodal (Texte, Image, Audio), Thinking Budget        | Structure multipart, préservation `thought_signature`, `systemInstruction`          |
+| **Anthropic Claude**        | Natif (`anthropic.ts`)                  | `anthropic-compatible` (`/v1/messages`)       | Raisonnement Étendu, Tool Calling, Prompt Caching        | Extraction `system` racine, schéma `input_schema`, bornage budget raisonnement      |
+| **Groq Cloud**              | Natif (`groq.ts`)                       | `openai-compatible` (`/openai/v1`)            | Inférence LPU Ultra-rapide, Tool Calling, Outils Serveur | Groq Compound `executed_tools`, `usage_breakdown`, versioning via en-tête           |
+| **Cohere**                  | Natif (`cohere.ts`)                     | `cohere-v2` (`/v2/chat`)                      | Contenu Structuré, Tool Calling                          | Séparation message `system`, fragments typés, normalisation des tokens              |
+| **Cloudflare AI**           | Natif (`cloudflare.ts`)                 | `cloudflare-v1` (`/ai/v1/chat/completions`)   | Inférence Serverless &amp; Tool Calling                  | Format clé composite `account_id:api_token`, désencapsulation `{ result }`, erreurs |
+| **Hugging Face**            | Natif (`huggingface.ts`)                | `openai-compatible` (`router.huggingface.co`) | Modèles Open-Source du Hub                               | Wrapper SDK officiel, initialisation autonome des clés, gestionnaire 429            |
+| **Modal**                   | Natif (`modal.ts`)                      | `openai-compatible` (`{appUrl}/v1`)           | Conteneurs GPU Serverless Personnalisés                  | URL dynamique par ID modèle, timeout 120s pour absorption des cold-starts           |
+| **Spécialisations OAuth**   | Headless (`codex.ts`, `antigravity.ts`) | Flux SSE Direct / Cloud Code REST API         | OAuth2 PKCE / Session OAuth Locale                       | Rafraîchissement (&lt;300s), télémétrie Clearcut simulée, impersonation TLS         |
+| **Fournisseurs Dynamiques** | Générique (`GenericProviderAdapter.ts`) | `openai-compatible` / `standard-token`        | 22+ Fournisseurs de l'Écosystème (Mistral, NIM, etc.)    | Assainissement 9-char des IDs d'outils, relais `reasoning_content`, passthrough     |
 
 ---
 
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:radio.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:radio.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:radio.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Canaux &amp; Transports
 
-| Canal | Statut | Fichier Transport | Notes |
-| :--- | :--- | :--- | :--- |
-| **WhatsApp** | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `baileys.ts` | Multi-appareil, média, stickers, voix |
-| **Discord** | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `discord.ts` | Guildes, DMs |
-| **Telegram** | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `telegram.ts` | Groupes, bots inline |
-| **CLI** | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `cli.ts` | UX interactif complet |
+| Canal           | Statut                                                                | Fichier Transport       | Notes                                                                              |
+| :-------------- | :-------------------------------------------------------------------- | :---------------------- | :--------------------------------------------------------------------------------- |
+| **WhatsApp**    | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `baileys.ts`            | Multi-appareil, média, stickers, voix                                              |
+| **Discord**     | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `discord.ts`            | Guildes, DMs                                                                       |
+| **Telegram**    | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `telegram.ts`           | Groupes, bots inline                                                               |
+| **CLI**         | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `cli.ts`                | UX interactif complet                                                              |
 | **Serveur TUI** | ![Actif](https://img.shields.io/badge/Actif-3FB950?style=flat-square) | `TuiServerTransport.ts` | WS loopback :5001 (défaut, auto-incrémenté si occupé ; voir `tui-connection.json`) |
 
 ---
@@ -271,14 +270,14 @@ hive-mind/
 
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:shield-check.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:shield-check.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:shield-check.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Validation
 
-| Commande | Objet | Porte |
-| :--- | :--- | :--- |
-| `npm run build` | `tsc --noEmit` strict | 0 erreur sur 334 fichiers |
-| `npm run lint:fast` | Oxlint, 96 règles, 4 threads | 0 warning |
-| `npm run lint:arch` | dependency-cruiser frontières | 0 violation |
-| `npm run test:unit` | Jest, 77 suites | 834 / 834 passants |
-| `npm run test:integration` | 5 suites | 34 / 34 passants |
-| `npm audit` | Audit des vulnérabilités CVE connues | 0 vulnérabilité |
+| Commande                   | Objet                                | Porte                     |
+| :------------------------- | :----------------------------------- | :------------------------ |
+| `npm run build`            | `tsc --noEmit` strict                | 0 erreur sur 334 fichiers |
+| `npm run lint:fast`        | Oxlint, 96 règles, 4 threads         | 0 warning                 |
+| `npm run lint:arch`        | dependency-cruiser frontières        | 0 violation               |
+| `npm run test:unit`        | Jest, 77 suites                      | 834 / 834 passants        |
+| `npm run test:integration` | 5 suites                             | 34 / 34 passants          |
+| `npm audit`                | Audit des vulnérabilités CVE connues | 0 vulnérabilité           |
 
 ---
 
