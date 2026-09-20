@@ -277,63 +277,69 @@ class BaileysTransport extends EventEmitter {
     }
     this.isConnecting = true;
 
-    // CLEANUP COMPLET : End previous socket to prevent listener accumulation
-    await this._cleanupPreviousSocket();
+    try {
+      // CLEANUP COMPLET : End previous socket to prevent listener accumulation
+      await this._cleanupPreviousSocket();
 
-    // Connexion silencieuse pour ne pas casser la barre de progression
-    safeMkdirSync(sessionPath, { recursive: true });
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+      // Connexion silencieuse pour ne pas casser la barre de progression
+      safeMkdirSync(sessionPath, { recursive: true });
+      const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
-    // L'authentification WhatsApp est désormais pilotée par le menu au démarrage
-    // (src/cli/startupMenu.ts) qui crée la session via whatsappAuthHelper. Si le
-    // transport est démarré sans session valide (menu skippé en headless/Railway
-    // ou Skip sans connexion), on échoue proprement au lieu d'afficher un QR code
-    // automatique que personne ne scannera en mode serveur.
-    if (!state.creds.registered) {
-      this.isConnecting = false;
-      throw new Error(
-        'Aucune session WhatsApp valide. Connectez-vous via le menu au démarrage (npm start) en TTY local, puis redémarrez.',
+      // L'authentification WhatsApp est désormais pilotée par le menu au démarrage
+      // (src/cli/startupMenu.ts) qui crée la session via whatsappAuthHelper. Si le
+      // transport est démarré sans session valide (menu skippé en headless/Railway
+      // ou Skip sans connexion), on échoue proprement au lieu d'afficher un QR code
+      // automatique que personne ne scannera en mode serveur.
+      if (!state.creds.registered) {
+        this.isConnecting = false;
+        throw new Error(
+          'Aucune session WhatsApp valide. Connectez-vous via le menu au démarrage (npm start) en TTY local, puis redémarrez.',
+        );
+      }
+
+      this.state = state;
+      this.saveCreds = saveCreds;
+
+      const { version } = await fetchLatestBaileysVersion();
+
+      if (this.isDisconnecting) {
+        console.log('[Baileys] Annulation de la connexion : déconnexion intentionnelle en cours.');
+        this.isConnecting = false;
+        return;
+      }
+
+      this.sock = makeWASocket({
+        auth: this.state,
+        logger: createPinoLogger({ level: 'silent' }),
+        printQRInTerminal: false,
+        browser: [config.bot_name || 'HIVE-MIND', 'Chrome', '1.0.0'],
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 10000,
+        emitOwnEvents: true,
+        markOnlineOnConnect: true,
+        retryRequestDelayMs: 5000,
+        version,
+        syncFullAppState: false,
+      } as Parameters<typeof makeWASocket>[0]);
+
+      // Sauvegarde automatique des credentials
+      this.sock.ev.on('creds.update', this.saveCreds);
+
+      // Gestion de la connexion
+      this.sock.ev.on('connection.update', (update: Record<string, unknown>) =>
+        this._handleConnectionUpdate(update, sessionPath),
       );
-    }
 
-    this.state = state;
-    this.saveCreds = saveCreds;
-
-    const { version } = await fetchLatestBaileysVersion();
-
-    if (this.isDisconnecting) {
-      console.log('[Baileys] Annulation de la connexion : déconnexion intentionnelle en cours.');
+      // Setup event listeners
+      this._setupMessageListeners();
+      this._setupContactSync();
+      this._setupGroupParticipantsListener();
+    } catch (error) {
+      // Prevent indefinite hangs if disconnect() is called after connect() throws
       this.isConnecting = false;
-      return;
+      throw error;
     }
-
-    this.sock = makeWASocket({
-      auth: this.state,
-      logger: createPinoLogger({ level: 'silent' }),
-      printQRInTerminal: false,
-      browser: [config.bot_name || 'HIVE-MIND', 'Chrome', '1.0.0'],
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 10000,
-      emitOwnEvents: true,
-      markOnlineOnConnect: true,
-      retryRequestDelayMs: 5000,
-      version,
-      syncFullAppState: false,
-    } as Parameters<typeof makeWASocket>[0]);
-
-    // Sauvegarde automatique des credentials
-    this.sock.ev.on('creds.update', this.saveCreds);
-
-    // Gestion de la connexion
-    this.sock.ev.on('connection.update', (update: Record<string, unknown>) =>
-      this._handleConnectionUpdate(update, sessionPath),
-    );
-
-    // Setup event listeners
-    this._setupMessageListeners();
-    this._setupContactSync();
-    this._setupGroupParticipantsListener();
   }
 
   /**

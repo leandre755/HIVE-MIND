@@ -27,6 +27,7 @@ interface IBaileysTransport {
   connect: (sessionPath: string) => Promise<void>;
   _handleConnectionUpdate: (u: unknown, s: string) => void;
   _removeRegisteredListeners: () => void;
+  _cleanupPreviousSocket: () => Promise<void>;
 }
 
 describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
@@ -145,5 +146,34 @@ describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
 
     await disconnectPromise;
     expect(baileysTransport.isDisconnecting).toBe(false);
+  });
+});
+
+describe('BaileysTransport - connect() error handling', () => {
+  let baileysTransport: IBaileysTransport;
+
+  beforeEach(async () => {
+    jest.resetModules();
+    // Reset env
+    const { default: bt } = await import('../../../core/transport/baileys.js');
+    baileysTransport = bt as unknown as IBaileysTransport;
+    baileysTransport.isConnecting = false;
+    baileysTransport.isDisconnecting = false;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('devrait reset isConnecting à false si une erreur se produit pendant connect()', async () => {
+    // Force une erreur en mockant _cleanupPreviousSocket
+    jest
+      .spyOn(baileysTransport, '_cleanupPreviousSocket')
+      .mockRejectedValue(new Error('Cleanup Failed'));
+
+    await expect(baileysTransport.connect('session')).rejects.toThrow('Cleanup Failed');
+
+    // Vérifier que la variable a bien été reset
+    expect(baileysTransport.isConnecting).toBe(false);
   });
 });
