@@ -214,9 +214,19 @@ export class GeminiLiveProvider {
         this._sendSetup(sessionConfig);
       });
 
-      this.ws.on('message', (data: Buffer) => {
+      const setupTimer = setTimeout(() => {
+        if (!setupReceived) {
+          reject(new Error('Setup timeout (15s)'));
+          this.disconnect().catch(() => {});
+        }
+      }, 15000);
+      /* istanbul ignore next */
+      setupTimer.unref();
+
+      this.ws.on('message', (data: WebSocket.Data) => {
         try {
-          const raw = data.toString();
+          // Gemini returns JSON via text frames or binary frames containing JSON text
+          const raw = data.toString('utf-8');
           const message: GeminiServerMessage = JSON.parse(raw) as GeminiServerMessage;
 
           // Debug: log every server message key for diagnostics
@@ -226,6 +236,7 @@ export class GeminiLiveProvider {
           // Intercept setupComplete to resolve connect()
           if (message.setupComplete && !setupReceived) {
             setupReceived = true;
+            clearTimeout(setupTimer);
             console.log('[GeminiLive] ✓ Setup confirmed — session prête');
             resolve();
             return;
@@ -241,6 +252,7 @@ export class GeminiLiveProvider {
       this.ws.on('error', (error: Error) => {
         console.error('[GeminiLive] ❌ WebSocket error:', error.message);
         this.isConnected = false;
+        clearTimeout(setupTimer);
         reject(error);
       });
 
@@ -258,19 +270,10 @@ export class GeminiLiveProvider {
 
         // Rejeter connect si pas encore setup
         if (!setupReceived) {
+          clearTimeout(setupTimer);
           reject(new Error(`WebSocket closed before setup (code=${code})`));
         }
       });
-
-      // Timeout de connexion + setup
-      setTimeout(() => {
-        if (!setupReceived) {
-          reject(new Error('Setup timeout (15s)'));
-          this.disconnect().catch(() => {
-            /* intentionally empty — best-effort cleanup */
-          });
-        }
-      }, 15000);
     });
   }
 
@@ -434,7 +437,11 @@ export class GeminiLiveProvider {
         },
       });
       // Petit délai artificiel
-      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 10);
+        /* istanbul ignore next */
+        timer.unref();
+      });
     }
 
     console.log(
@@ -457,6 +464,8 @@ export class GeminiLiveProvider {
           this._resetActivityTimeout = null;
           reject(new Error(`Response timeout (${timeoutMs}ms without activity)`));
         }, timeoutMs);
+        /* istanbul ignore next */
+        timeout.unref();
       };
 
       this._resetActivityTimeout = resetTimeout;

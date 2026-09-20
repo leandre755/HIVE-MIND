@@ -60,7 +60,8 @@ export const adminService = {
       const success = await this.refresh();
       if (!success) {
         console.log('[AdminService] Retry refresh in 5s...');
-        setTimeout(initialRefresh, 5000);
+        refreshIntervalId = setTimeout(initialRefresh, 5000);
+        refreshIntervalId.unref();
       }
     };
     await initialRefresh();
@@ -72,6 +73,7 @@ export const adminService = {
     refreshIntervalId = setInterval(() => {
       this.refresh().catch(console.error);
     }, REFRESH_INTERVAL);
+    refreshIntervalId.unref();
   },
 
   destroy() {
