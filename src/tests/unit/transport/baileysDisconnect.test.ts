@@ -63,13 +63,7 @@ describe('BaileysTransport - Intentional Disconnect', () => {
       .mockResolvedValue(undefined);
 
     // Act : appeler disconnect()
-    const disconnectPromise = (
-      baileysTransport as { disconnect: () => Promise<void> }
-    ).disconnect();
-
-    // Fast-forward any timers if needed
-    await jest.runAllTimersAsync();
-    await disconnectPromise;
+    await (baileysTransport as { disconnect: () => Promise<void> }).disconnect();
 
     // Assert
     expect((baileysTransport as { isDisconnecting: boolean }).isDisconnecting).toBe(false);
