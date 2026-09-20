@@ -49,8 +49,16 @@ describe('BaileysTransport - Intentional Disconnect', () => {
   it("ne devrait pas planifier de reconnexion lors d'une déconnexion intentionnelle", async () => {
     const mockSock = new EventEmitter() as MockSock;
     mockSock.ev = new EventEmitter();
+
+    // Simuler l'attachement de l'événement fait par connect()
+    mockSock.ev.on('connection.update', (update) => {
+      (
+        baileysTransport as { _handleConnectionUpdate: (u: unknown, s: string) => void }
+      )._handleConnectionUpdate(update, 'session');
+    });
+
     mockSock.end = jest.fn((_error: Error | undefined) => {
-      mockSock.emit('connection.update', {
+      mockSock.ev.emit('connection.update', {
         connection: 'close',
         lastDisconnect: { error: new Error('Stream Closed') },
       });
