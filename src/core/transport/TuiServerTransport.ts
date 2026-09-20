@@ -63,6 +63,7 @@ export class TuiServerTransport {
   private token = '';
   private configPath = join(process.cwd(), 'tui-connection.json');
   private authenticatedClients = new Set<WebSocket>();
+  private allClients = new Set<WebSocket>();
 
   // Liens vers les listeners pour pouvoir les désabonner proprement au shutdown
   private onMessageListener = (message: MessageData) => this.broadcast('message', message);
@@ -158,6 +159,7 @@ export class TuiServerTransport {
       console.log(`[TuiServerTransport] 📄 Configuration écrite dans ${this.configPath}`);
 
       this.wss.on('connection', (ws) => {
+        this.allClients.add(ws);
         let isAuthenticated = false;
 
         // Timeout pour s'authentifier
@@ -169,6 +171,8 @@ export class TuiServerTransport {
             ws.close(4401, 'Unauthorized timeout');
           }
         }, 3000);
+        // Unref pour ne pas bloquer l'arrêt du processus en cas de tests/shutdown
+        authTimeout.unref();
 
         ws.on('message', (data) => {
           try {
@@ -222,6 +226,7 @@ export class TuiServerTransport {
         ws.on('close', () => {
           clearTimeout(authTimeout);
           this.authenticatedClients.delete(ws);
+          this.allClients.delete(ws);
           console.log('[TuiServerTransport] 🔌 Client TUI déconnecté.');
         });
 
@@ -267,8 +272,8 @@ export class TuiServerTransport {
     hiveTransport.off('visual_response', this.onVisualResponseListener);
     hiveTransport.off('connection_status', this.onConnectionStatusListener);
 
-    // Fermer tous les clients connectés
-    for (const ws of this.authenticatedClients) {
+    // Fermer tous les clients connectés (authentifiés ou non)
+    for (const ws of this.allClients) {
       try {
         ws.close(1001, 'Server shutting down');
       } catch {
@@ -276,6 +281,7 @@ export class TuiServerTransport {
       }
     }
     this.authenticatedClients.clear();
+    this.allClients.clear();
 
     // Fermer le serveur
     if (this.wss) {

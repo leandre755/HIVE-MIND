@@ -2,7 +2,13 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import { readFileSync } from 'fs';
+import {
+  safeReadFileSync,
+  safeUnlinkSync,
+  safeUnlink,
+  safeMkdir,
+  safeWriteFile,
+} from '../utils/safeFs.js';
 import { dirname, join } from 'path';
 
 import { fileURLToPath } from 'url';
@@ -116,7 +122,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let persona: { name: string; traits?: string[]; interests?: string[]; role?: string };
 try {
-  persona = JSON.parse(readFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
+  persona = JSON.parse(safeReadFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
 } catch {
   persona = { name: 'Bot', traits: [], interests: [] };
 }
@@ -124,9 +130,12 @@ try {
 // Charger le prompt système
 let refusalPrompt: string;
 try {
-  readFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
+  safeReadFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
   // Charger le template de refus s'il existe
-  refusalPrompt = readFileSync(join(__dirname, '..', 'persona', 'prompts', 'refusal.md'), 'utf-8');
+  refusalPrompt = safeReadFileSync(
+    join(__dirname, '..', 'persona', 'prompts', 'refusal.md'),
+    'utf-8',
+  );
 } catch {
   refusalPrompt = 'You are {{name}}. Politely refuse because: {{reason}}.';
 }
@@ -1105,19 +1114,19 @@ export class BotCore {
     if (response?.audioFile) {
       try {
         const converter = await import('../services/audio/audioConverter.js');
-        const fs = await import('fs');
+
         const outputOgg = response.audioFile.replace('.pcm', '.ogg');
         await converter.convertPcmToOgg(response.audioFile, outputOgg);
         await this.transport.sendVoiceNote(chatId, outputOgg);
 
         setTimeout(() => {
           try {
-            fs.unlinkSync(response.audioFile!);
+            safeUnlinkSync(response.audioFile!);
           } catch {
             /* ignore */
           }
           try {
-            fs.unlinkSync(outputOgg);
+            safeUnlinkSync(outputOgg);
           } catch {
             /* ignore */
           }
@@ -1236,16 +1245,15 @@ export class BotCore {
         originalFileName = `fichier_${Date.now()}`;
       }
 
-      const fs = await import('fs');
       const path = await import('path');
 
       const downloadDir = path.join(process.cwd(), 'hm_storage', 'tmp_download');
-      await fs.promises.mkdir(downloadDir, { recursive: true });
+      await safeMkdir(downloadDir, { recursive: true });
 
       const safeFileName = path.basename(originalFileName).replace(/[^a-zA-Z0-9.\-_ ()]/g, '_');
       const filePath = path.join(downloadDir, safeFileName);
 
-      await fs.promises.writeFile(filePath, buffer);
+      await safeWriteFile(filePath, buffer);
       console.log(`[Core] ✅ Fichier téléchargé: ${filePath}`);
 
       getMediaIndexer()
@@ -1260,16 +1268,8 @@ export class BotCore {
 
       setTimeout(
         () => {
-          fs.unlink(filePath, (err) => {
-            if (err && err.code !== 'ENOENT') {
-              console.error(
-                '[Cleanup] Erreur lors de la suppression de %s:',
-                filePath,
-                err.message,
-              );
-            } else if (!err) {
-              console.log(`[Cleanup] 🧹 Fichier temporaire supprimé: ${filePath}`);
-            }
+          safeUnlink(filePath).catch((err: unknown) => {
+            console.error('[BotCore] Erreur suppression fichier temporaire:', err);
           });
         },
         10 * 60 * 1000,
