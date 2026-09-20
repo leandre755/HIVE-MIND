@@ -17,28 +17,36 @@ interface MockSock extends EventEmitter {
   sendPresenceUpdate: jest.Mock<() => Promise<void>>;
 }
 
-describe('BaileysTransport - Intentional Disconnect', () => {
-  let baileysTransport: unknown;
+interface IBaileysTransport {
+  isConnecting: boolean;
+  isDisconnecting: boolean;
+  reconnectTimer: NodeJS.Timeout | null;
+  sock: MockSock | null;
+  saveCreds: jest.Mock<() => Promise<void>> | null;
+  disconnect: () => Promise<void>;
+  connect: (sessionPath: string) => Promise<void>;
+  _handleConnectionUpdate: (u: unknown, s: string) => void;
+  _removeRegisteredListeners: () => void;
+}
+
+describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
+  let baileysTransport: IBaileysTransport;
   let removeSpy: jest.SpiedFunction<() => void>;
 
   beforeEach(async () => {
     jest.useFakeTimers();
 
     const { default: bt } = await import('../../../core/transport/baileys.js');
-    baileysTransport = bt;
-    (baileysTransport as { isConnecting: boolean }).isConnecting = false;
-    (baileysTransport as { isDisconnecting: boolean }).isDisconnecting = false;
+    baileysTransport = bt as unknown as IBaileysTransport;
+    baileysTransport.isConnecting = false;
+    baileysTransport.isDisconnecting = false;
 
-    // Reset du timer s'il existait d'un test précédent
-    if ((baileysTransport as { reconnectTimer: NodeJS.Timeout | null }).reconnectTimer) {
-      clearTimeout((baileysTransport as { reconnectTimer: NodeJS.Timeout | null }).reconnectTimer!);
-      (baileysTransport as { reconnectTimer: NodeJS.Timeout | null }).reconnectTimer = null;
+    if (baileysTransport.reconnectTimer) {
+      clearTimeout(baileysTransport.reconnectTimer);
+      baileysTransport.reconnectTimer = null;
     }
 
-    removeSpy = jest.spyOn(
-      baileysTransport as { _removeRegisteredListeners: () => void },
-      '_removeRegisteredListeners',
-    );
+    removeSpy = jest.spyOn(baileysTransport, '_removeRegisteredListeners');
   });
 
   afterEach(() => {
@@ -50,35 +58,73 @@ describe('BaileysTransport - Intentional Disconnect', () => {
     const mockSock = new EventEmitter() as MockSock;
     mockSock.ev = new EventEmitter();
 
-    // Simuler l'attachement de l'événement fait par connect()
-    mockSock.ev.on('connection.update', (update) => {
-      (
-        baileysTransport as { _handleConnectionUpdate: (u: unknown, s: string) => void }
-      )._handleConnectionUpdate(update, 'session');
-    });
-
-    mockSock.end = jest.fn((_error: Error | undefined) => {
-      mockSock.ev.emit('connection.update', {
-        connection: 'close',
-        lastDisconnect: { error: new Error('Stream Closed') },
-      });
-    });
+    mockSock.end = jest.fn((_error: Error | undefined) => {});
     mockSock.sendPresenceUpdate = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
-    (baileysTransport as { sock: MockSock }).sock = mockSock;
-    (baileysTransport as { saveCreds: unknown }).saveCreds = jest
-      .fn<() => Promise<void>>()
-      .mockResolvedValue(undefined);
+    baileysTransport.sock = mockSock;
+    baileysTransport.saveCreds = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
 
-    // Act : appeler disconnect()
-    await (baileysTransport as { disconnect: () => Promise<void> }).disconnect();
+    // Act
+    await baileysTransport.disconnect();
 
     // Assert
-    expect((baileysTransport as { isDisconnecting: boolean }).isDisconnecting).toBe(false);
+    expect(baileysTransport.isDisconnecting).toBe(false);
     expect(removeSpy).toHaveBeenCalled();
     expect(mockSock.end).toHaveBeenCalledWith(undefined);
-    expect(
-      (baileysTransport as { reconnectTimer: NodeJS.Timeout | null }).reconnectTimer,
-    ).toBeNull();
+    expect(baileysTransport.reconnectTimer).toBeNull();
+  });
+
+  it("devrait annuler le reconnectTimer actif lors d'un appel direct à disconnect()", async () => {
+    baileysTransport.sock = null;
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    baileysTransport.reconnectTimer = setTimeout(() => {}, 1000);
+
+    await baileysTransport.disconnect();
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(expect.any(Object));
+    expect(baileysTransport.reconnectTimer).toBeNull();
+    expect(baileysTransport.isDisconnecting).toBe(false);
+  });
+
+  it('ne devrait pas exécuter la logique de reconnexion dans _handleConnectionUpdate si isDisconnecting est vrai', () => {
+    baileysTransport.isDisconnecting = true;
+
+    baileysTransport._handleConnectionUpdate(
+      {
+        connection: 'close',
+        lastDisconnect: { error: new Error('Stream Closed') },
+      },
+      'session',
+    );
+
+    expect(baileysTransport.reconnectTimer).toBeNull();
+  });
+
+  it('devrait planifier une reconnexion avec setTimeout et unref() si la connexion est perdue', () => {
+    baileysTransport.isDisconnecting = false;
+
+    // Simuler une perte de connexion involontaire
+    baileysTransport._handleConnectionUpdate(
+      {
+        connection: 'close',
+        lastDisconnect: { error: new Error('Stream Closed') },
+      },
+      'session',
+    );
+
+    expect(baileysTransport.reconnectTimer).not.toBeNull();
+  });
+
+  it("devrait nettoyer un reconnectTimer existant lors d'un appel à connect()", async () => {
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    baileysTransport.reconnectTimer = setTimeout(() => {}, 1000);
+
+    // On simule que isConnecting est déjà true pour ne pas exécuter tout le connect
+    baileysTransport.isConnecting = true;
+
+    await baileysTransport.connect('session');
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(expect.any(Object));
+    expect(baileysTransport.reconnectTimer).toBeNull();
   });
 });
