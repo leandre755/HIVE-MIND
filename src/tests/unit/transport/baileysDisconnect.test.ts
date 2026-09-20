@@ -119,12 +119,31 @@ describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
     baileysTransport.reconnectTimer = setTimeout(() => {}, 1000);
 
-    // On simule que isConnecting est déjà true pour ne pas exécuter tout le connect
     baileysTransport.isConnecting = true;
 
     await baileysTransport.connect('session');
 
     expect(clearTimeoutSpy).toHaveBeenCalledWith(expect.any(Object));
     expect(baileysTransport.reconnectTimer).toBeNull();
+  });
+
+  it("devrait attendre que la connexion en cours soit terminée lors de l'appel à disconnect()", async () => {
+    baileysTransport.sock = null;
+    baileysTransport.isConnecting = true;
+
+    // Lancer la déconnexion en asynchrone
+    const disconnectPromise = baileysTransport.disconnect();
+
+    // Vérifier que isDisconnecting a été mis à jour
+    expect(baileysTransport.isDisconnecting).toBe(true);
+
+    // Résoudre l'attente : on simule que connect() a fini de setup et a aborté
+    baileysTransport.isConnecting = false;
+
+    // Avancer les timers pour sortir du Promise(resolve => setTimeout(100))
+    await jest.advanceTimersByTimeAsync(150);
+
+    await disconnectPromise;
+    expect(baileysTransport.isDisconnecting).toBe(false);
   });
 });

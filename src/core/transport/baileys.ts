@@ -301,6 +301,12 @@ class BaileysTransport extends EventEmitter {
 
     const { version } = await fetchLatestBaileysVersion();
 
+    if (this.isDisconnecting) {
+      console.log('[Baileys] Annulation de la connexion : déconnexion intentionnelle en cours.');
+      this.isConnecting = false;
+      return;
+    }
+
     this.sock = makeWASocket({
       auth: this.state,
       logger: createPinoLogger({ level: 'silent' }),
@@ -1464,6 +1470,13 @@ class BaileysTransport extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+
+    if (this.isConnecting) {
+      console.log('[Baileys] ⏳ Attente de la fin de la connexion en cours avant déconnexion...');
+      while (this.isConnecting && !this.sock) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
     }
 
     if (!this.sock) {
