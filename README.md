@@ -238,33 +238,6 @@ npm run build && npm run lint:fast && npm run lint:arch && npm run test:unit && 
   </picture>
 </p>
 
-<details open>
-<summary><b>Accessible Directory Tree</b></summary>
-
-```text
-hive-mind/
-├── src/
-│   ├── bin/              # daemon entry — hive-mind.ts
-│   ├── cli/              # startupMenu, whatsappAuthHelper, authSessionManager
-│   ├── config/           # Zod schemas, pricing, keyResolver, blueprints
-│   ├── core/             # BotCore, ServiceContainer, FairnessQueue, transports
-│   ├── persona/          # system prompts + lessons_learned.md
-│   ├── plugins/          # modular tools (manifest Zod-validated)
-│   ├── providers/        # Layer0 ExecutionLayer + Layer1 SmartLayer + families
-│   ├── scheduler/        # node-cron + dbMonitoring
-│   ├── services/         # memory L1/L2, agentic Planner/SubAgent, PTC VM, runtime
-│   ├── supabase/         # SQL migrations, pgvector match_* functions
-│   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
-├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
-├── src/tests/
-│   ├── unit/             # 77 suites — core/providers/runtime/services
-│   ├── integration/      # 5 suites, 34 tests
-│   └── e2e/              # harness + WebSocket cross-process
-├── .GCC/                 # Git-Context-Controller session state
-└── .gouvernance/         # review-policy, accompanied-agent, governance
-```
-
-</details>
 
 ---
 
