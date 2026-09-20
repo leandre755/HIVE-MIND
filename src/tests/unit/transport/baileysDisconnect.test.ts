@@ -1,23 +1,30 @@
 jest.unstable_mockModule('@whiskeysockets/baileys', () => ({
-  makeWASocket: jest.fn(() => ({
-    ev: { on: jest.fn(), removeAllListeners: jest.fn() },
-    end: jest.fn(),
-    sendPresenceUpdate: jest.fn().mockResolvedValue(undefined),
+  makeWASocket: jest.fn<(...args: unknown[]) => unknown>(() => ({
+    ev: {
+      on: jest.fn<(...args: unknown[]) => unknown>(),
+      removeAllListeners: jest.fn<(...args: unknown[]) => unknown>(),
+    },
+    end: jest.fn<(...args: unknown[]) => unknown>(),
+    sendPresenceUpdate: jest
+      .fn<(...args: unknown[]) => unknown>()
+      .mockResolvedValue(undefined as unknown as never),
   })),
-  useMultiFileAuthState: jest.fn().mockResolvedValue({
+  useMultiFileAuthState: jest.fn<(...args: unknown[]) => unknown>().mockResolvedValue({
     state: { creds: { registered: true } },
-    saveCreds: jest.fn(),
-  }),
-  fetchLatestBaileysVersion: jest.fn().mockResolvedValue({ version: [1, 2, 3] }),
+    saveCreds: jest.fn<(...args: unknown[]) => unknown>(),
+  } as unknown as never),
+  fetchLatestBaileysVersion: jest
+    .fn<(...args: unknown[]) => unknown>()
+    .mockResolvedValue({ version: [1, 2, 3] } as unknown as never),
   DisconnectReason: {
     connectionClosed: 428,
     connectionLost: 408,
     loggedOut: 401,
     restartRequired: 515,
   },
-  delay: jest.fn(),
-  downloadMediaMessage: jest.fn(),
-  isRealMessage: jest.fn(),
+  delay: jest.fn<(...args: unknown[]) => unknown>(),
+  downloadMediaMessage: jest.fn<(...args: unknown[]) => unknown>(),
+  isRealMessage: jest.fn<(...args: unknown[]) => unknown>(),
   proto: { WebMessageInfo: {} },
 }));
 import { jest } from '@jest/globals';
@@ -26,10 +33,10 @@ import EventEmitter from 'events';
 // Mock du logger
 jest.unstable_mockModule('../../../utils/logger.js', () => ({
   default: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
+    info: jest.fn<(...args: unknown[]) => unknown>(),
+    error: jest.fn<(...args: unknown[]) => unknown>(),
+    warn: jest.fn<(...args: unknown[]) => unknown>(),
+    debug: jest.fn<(...args: unknown[]) => unknown>(),
   },
 }));
 
@@ -49,6 +56,10 @@ interface IBaileysTransport {
   connect: (sessionPath: string) => Promise<void>;
   _handleConnectionUpdate: (u: unknown, s: string) => void;
   _removeRegisteredListeners: () => void;
+  _cleanupPreviousSocket: () => Promise<void>;
+  _setupMessageListeners: () => void;
+  _setupContactSync: () => void;
+  _setupGroupParticipantsListener: () => void;
 }
 
 describe('BaileysTransport - Intentional Disconnect & Reconnect Timer', () => {
@@ -189,7 +200,7 @@ describe('BaileysTransport - connect() error handling', () => {
   it('devrait reset isConnecting à false si une erreur se produit pendant connect()', async () => {
     // Force une erreur en mockant _cleanupPreviousSocket
     jest
-      .spyOn(baileysTransport, '_cleanupPreviousSocket')
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_cleanupPreviousSocket')
       .mockRejectedValue(new Error('Cleanup Failed'));
 
     await expect(baileysTransport.connect('session')).rejects.toThrow('Cleanup Failed');
@@ -199,12 +210,16 @@ describe('BaileysTransport - connect() error handling', () => {
   });
 
   it("devrait throw si la session n'est pas enregistrée", async () => {
-    jest.spyOn(baileysTransport, '_cleanupPreviousSocket').mockResolvedValue(undefined);
+    jest
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_cleanupPreviousSocket')
+      .mockResolvedValue(undefined as unknown as never);
 
     const { useMultiFileAuthState } = await import('@whiskeysockets/baileys');
-    (useMultiFileAuthState as jest.Mock).mockResolvedValueOnce({
+    (
+      useMultiFileAuthState as jest.Mock<(...args: unknown[]) => Promise<unknown>>
+    ).mockResolvedValueOnce({
       state: { creds: { registered: false } },
-      saveCreds: jest.fn(),
+      saveCreds: jest.fn<(...args: unknown[]) => unknown>(),
     });
 
     await expect(baileysTransport.connect('session')).rejects.toThrow(
@@ -215,10 +230,18 @@ describe('BaileysTransport - connect() error handling', () => {
   });
 
   it('devrait réussir à se connecter (happy path pour la couverture)', async () => {
-    jest.spyOn(baileysTransport, '_cleanupPreviousSocket').mockResolvedValue(undefined);
-    jest.spyOn(baileysTransport, '_setupMessageListeners').mockImplementation(() => {});
-    jest.spyOn(baileysTransport, '_setupContactSync').mockImplementation(() => {});
-    jest.spyOn(baileysTransport, '_setupGroupParticipantsListener').mockImplementation(() => {});
+    jest
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_cleanupPreviousSocket')
+      .mockResolvedValue(undefined as unknown as never);
+    jest
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_setupMessageListeners')
+      .mockImplementation((() => {}) as unknown as never);
+    jest
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_setupContactSync')
+      .mockImplementation((() => {}) as unknown as never);
+    jest
+      .spyOn(baileysTransport as unknown as IBaileysTransport, '_setupGroupParticipantsListener')
+      .mockImplementation((() => {}) as unknown as never);
 
     await baileysTransport.connect('session');
 
