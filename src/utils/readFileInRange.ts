@@ -335,6 +335,7 @@ function readFileInRangeStreaming(
 
     if (signal) {
       abortListener = () => {
+        cleanupSignal();
         stream.destroy();
         reject(signal.reason || new Error('Aborted'));
       };

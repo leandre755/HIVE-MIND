@@ -222,6 +222,7 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
         if (isFinished) return;
         isFinished = true;
         clearTimeout(globalTimer);
+        /* istanbul ignore next */
         if (reconnectTimer) clearTimeout(reconnectTimer);
 
         if (activeSocket) {
@@ -263,6 +264,16 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
       const startSock = () => {
         if (isFinished) return;
 
+        if (activeSocket) {
+          try {
+            activeSocket.ev.removeAllListeners('creds.update');
+            activeSocket.ev.removeAllListeners('connection.update');
+            activeSocket.end(undefined);
+          } catch {
+            // Ignore socket cleanup error
+          }
+        }
+
         const sock = makeWASocket({
           version,
           logger,
@@ -280,7 +291,9 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
           pairingState,
           isFinishedLive: () => isFinished,
           finish,
+          /* istanbul ignore next */
           reconnect: () => {
+            if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(startSock, 1500);
           },
         };
