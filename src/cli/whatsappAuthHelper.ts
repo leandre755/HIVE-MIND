@@ -222,7 +222,6 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
         if (isFinished) return;
         isFinished = true;
         clearTimeout(globalTimer);
-        /* istanbul ignore next */
         if (reconnectTimer) clearTimeout(reconnectTimer);
 
         if (activeSocket) {
@@ -291,7 +290,6 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
           pairingState,
           isFinishedLive: () => isFinished,
           finish,
-          /* istanbul ignore next */
           reconnect: () => {
             if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(startSock, 1500);
