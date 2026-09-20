@@ -184,9 +184,11 @@ class BaileysTransport extends EventEmitter {
   backlogMessagesIgnored: number;
   container: ServiceContainer | null;
   isConnecting: boolean;
+  isDisconnecting: boolean;
   state: AuthenticationState | null;
   saveCreds: (() => Promise<void>) | null;
   reconnectAttempts: number;
+  reconnectTimer: NodeJS.Timeout | null;
   audioHandler: AudioHandler;
   antiDeleteHandler: AntiDeleteHandler;
 
@@ -199,10 +201,12 @@ class BaileysTransport extends EventEmitter {
     this.backlogMessagesIgnored = 0; // Compteur de messages ignorés
     this.container = null; // DI Container
     this.isConnecting = false; // Guard to prevent parallel connections
+    this.isDisconnecting = false; // Flag to skip reconnect during intentional shutdown
     // State management
     this.state = null;
     this.saveCreds = null;
     this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
     this.audioHandler = new AudioHandler(this, this.logger);
     this.antiDeleteHandler = new AntiDeleteHandler(this, this.logger);
   }
@@ -261,6 +265,11 @@ class BaileysTransport extends EventEmitter {
    * appelant ne consommait la valeur (`this.sock` reste accessible sur l'instance).
    */
   async connect(sessionPath: string = 'session'): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     // Guard: Prevent multiple simultaneous connection attempts
     if (this.isConnecting) {
       console.log('[Baileys] Connexion déjà en cours, ignoré.');
@@ -388,16 +397,28 @@ class BaileysTransport extends EventEmitter {
 
     this.isConnecting = false;
 
+    if (this.isDisconnecting) {
+      console.log('[Baileys] Déconnexion intentionnelle en cours, aucune reconnexion planifiée.');
+      return;
+    }
+
     if (shouldReconnect) {
       const delayMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
       this.reconnectAttempts += 1;
       console.log(`Reconnexion dans ${delayMs / 1000}s...`);
-      setTimeout(() => {
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+      }
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
         this.connect(sessionPath).catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.error('Echec reconnexion:', msg);
         });
-      }, delayMs).unref();
+      }, delayMs);
+      if (this.reconnectTimer && typeof this.reconnectTimer.unref === 'function') {
+        this.reconnectTimer.unref();
+      }
     } else {
       console.log('[Baileys] Déconnexion définitive (loggedOut)');
     }
@@ -1439,7 +1460,16 @@ class BaileysTransport extends EventEmitter {
    * Termine proprement la connexion WhatsApp
    */
   async disconnect() {
-    if (!this.sock) return;
+    this.isDisconnecting = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (!this.sock) {
+      this.isDisconnecting = false;
+      return;
+    }
 
     console.log('[Baileys] 🔌 Déconnexion demandée...');
 
@@ -1460,11 +1490,11 @@ class BaileysTransport extends EventEmitter {
         );
       }
 
-      // 3. Fermer le socket proprement (toujours atteint)
-      this.sock.end(undefined);
-
-      // 4. Nettoyer les listeners
+      // 3. Nettoyer les listeners AVANT sock.end() pour ne pas capturer le close event synchrone
       this._removeRegisteredListeners();
+
+      // 4. Fermer le socket proprement
+      this.sock.end(undefined);
       this.sock = null;
 
       console.log('[Baileys] ✅ Connexion fermée proprement.');
@@ -1473,6 +1503,8 @@ class BaileysTransport extends EventEmitter {
         '[Baileys] ⚠️ Erreur lors de la déconnexion:',
         error instanceof Error ? error.message : String(error),
       );
+    } finally {
+      this.isDisconnecting = false;
     }
   }
 }
