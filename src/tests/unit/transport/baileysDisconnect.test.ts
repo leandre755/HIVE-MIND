@@ -248,4 +248,44 @@ describe('BaileysTransport - connect() error handling', () => {
     expect(baileysTransport.isConnecting).toBe(true);
     expect(baileysTransport.sock).toBeDefined();
   });
+
+  it('devrait retourner immediatement si isDisconnecting est vrai pendant connect()', async () => {
+    baileysTransport.isDisconnecting = true;
+    await baileysTransport.connect('session');
+    expect(baileysTransport.isConnecting).toBe(false);
+  });
+
+  it("devrait clearer reconnectTimer s'il existe pendant un handleDisconnect avec shouldReconnect", () => {
+    baileysTransport.reconnectTimer = setTimeout(() => {}, 10000) as unknown as NodeJS.Timeout;
+    const mockDisconnect: { error?: Error; date: Date } = { date: new Date() };
+    const mockConnectionUpdate = {
+      connection: 'close',
+      lastDisconnect: mockDisconnect,
+    } as unknown;
+
+    mockDisconnect.error = new Error('Disconnect');
+    (mockDisconnect.error as Error & { output: { statusCode: number } }).output = {
+      statusCode: 515,
+    }; // restartRequired
+
+    (
+      baileysTransport as unknown as IBaileysTransport & {
+        _handleConnectionUpdate: (...args: unknown[]) => void;
+      }
+    )._handleConnectionUpdate(mockConnectionUpdate, 'session');
+    expect(baileysTransport.reconnectTimer).not.toBeNull();
+  });
+
+  it('devrait gerer une exception dans disconnect() et reset isDisconnecting', async () => {
+    baileysTransport.sock = {
+      end: jest.fn(() => {
+        throw new Error('Disconnect Error');
+      }),
+    } as unknown as NonNullable<typeof baileysTransport.sock>;
+
+    await baileysTransport.disconnect();
+
+    expect(baileysTransport.isDisconnecting).toBe(false);
+    expect(baileysTransport.sock).not.toBeNull(); // it crashes before this.sock = null
+  });
 });
