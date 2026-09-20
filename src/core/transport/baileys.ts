@@ -184,6 +184,7 @@ class BaileysTransport extends EventEmitter {
   backlogMessagesIgnored: number;
   container: ServiceContainer | null;
   isConnecting: boolean;
+  isDisconnecting: boolean;
   state: AuthenticationState | null;
   saveCreds: (() => Promise<void>) | null;
   reconnectAttempts: number;
@@ -200,6 +201,7 @@ class BaileysTransport extends EventEmitter {
     this.backlogMessagesIgnored = 0; // Compteur de messages ignorés
     this.container = null; // DI Container
     this.isConnecting = false; // Guard to prevent parallel connections
+    this.isDisconnecting = false; // Flag to skip reconnect during intentional shutdown
     // State management
     this.state = null;
     this.saveCreds = null;
@@ -394,6 +396,11 @@ class BaileysTransport extends EventEmitter {
     }
 
     this.isConnecting = false;
+
+    if (this.isDisconnecting) {
+      console.log('[Baileys] Déconnexion intentionnelle en cours, aucune reconnexion planifiée.');
+      return;
+    }
 
     if (shouldReconnect) {
       const delayMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
@@ -1453,12 +1460,16 @@ class BaileysTransport extends EventEmitter {
    * Termine proprement la connexion WhatsApp
    */
   async disconnect() {
+    this.isDisconnecting = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
 
-    if (!this.sock) return;
+    if (!this.sock) {
+      this.isDisconnecting = false;
+      return;
+    }
 
     console.log('[Baileys] 🔌 Déconnexion demandée...');
 
@@ -1479,11 +1490,11 @@ class BaileysTransport extends EventEmitter {
         );
       }
 
-      // 3. Fermer le socket proprement (toujours atteint)
-      this.sock.end(undefined);
-
-      // 4. Nettoyer les listeners
+      // 3. Nettoyer les listeners AVANT sock.end() pour ne pas capturer le close event synchrone
       this._removeRegisteredListeners();
+
+      // 4. Fermer le socket proprement
+      this.sock.end(undefined);
       this.sock = null;
 
       console.log('[Baileys] ✅ Connexion fermée proprement.');
@@ -1492,6 +1503,8 @@ class BaileysTransport extends EventEmitter {
         '[Baileys] ⚠️ Erreur lors de la déconnexion:',
         error instanceof Error ? error.message : String(error),
       );
+    } finally {
+      this.isDisconnecting = false;
     }
   }
 }
