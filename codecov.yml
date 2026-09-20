@@ -1,16 +1,16 @@
 coverage:
   precision: 2
   round: down
-  range: "50...100"
+  range: "90...100"      # Mis à jour pour que le rouge/vert s'adapte à votre nouvel objectif
   status:
     project:
       default:
-        target: auto
-        threshold: 1%
+        target: 90%      # Échoue si le projet global descend sous les 90%
+        threshold: 0%    # Zéro tolérance
     patch:
       default:
-        target: auto
-        threshold: 1%
+        target: 100%     # Échoue si la moindre ligne modifiée dans la PR n'est pas testée
+        threshold: 0%    # Zéro tolérance
 
 comment:
   layout: "header, diff, flags, files"
