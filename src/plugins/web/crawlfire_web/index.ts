@@ -261,7 +261,6 @@ export default {
   async apiFetch(url: string, options: RequestInit): Promise<FirecrawlApiResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30000);
-    /* istanbul ignore next */
     timer.unref();
 
     try {
@@ -431,7 +430,6 @@ export default {
       attempts++;
       await new Promise((r) => {
         const timer = setTimeout(r, 10000);
-        /* istanbul ignore next */
         timer.unref();
       });
 

@@ -181,7 +181,6 @@ export class DatabaseMonitor {
       },
       60 * 60 * 1000,
     ); // Toutes les heures
-    /* istanbul ignore next */
     this.hourlyIntervalId.unref();
 
     // Vérification complète tous les jours à 6h
@@ -198,7 +197,6 @@ export class DatabaseMonitor {
         );
       }
     }, this.getNextDailyCheck());
-    /* istanbul ignore next */
     this.dailyIntervalId.unref();
 
     console.log('[DatabaseMonitor] ⏰ Monitoring démarré');

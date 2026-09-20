@@ -220,7 +220,6 @@ export class GeminiLiveProvider {
           this.disconnect().catch(() => {});
         }
       }, 15000);
-      /* istanbul ignore next */
       setupTimer.unref();
 
       this.ws.on('message', (data: WebSocket.Data) => {
@@ -439,7 +438,6 @@ export class GeminiLiveProvider {
       // Petit délai artificiel
       await new Promise<void>((resolve) => {
         const timer = setTimeout(resolve, 10);
-        /* istanbul ignore next */
         timer.unref();
       });
     }
@@ -464,7 +462,6 @@ export class GeminiLiveProvider {
           this._resetActivityTimeout = null;
           reject(new Error(`Response timeout (${timeoutMs}ms without activity)`));
         }, timeoutMs);
-        /* istanbul ignore next */
         timeout.unref();
       };
 
