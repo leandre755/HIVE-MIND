@@ -81,7 +81,7 @@ HIVE-MIND est un **harnais strict à cinq couches** à dépendance unidirectionn
 
 ## <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide:sparkles.svg?color=%23f0f6fc"><source media="(prefers-color-scheme: light)" srcset="https://api.iconify.design/lucide:sparkles.svg?color=%231f2328"><img src="https://api.iconify.design/lucide:sparkles.svg?color=%231f2328" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px;" /></picture> Démonstration Live
 
-Soon.
+Bientôt.
 
 ---
 
@@ -218,8 +218,11 @@ npm run dev
 # 77 suites — 834 tests unitaires
 npm run test:unit
 
-# Porte locale complète
+# Porte de vérification locale rapide (build + lint rapide + tests unitaires)
 npm run build && npm run lint:fast && npm run test:unit
+
+# Porte locale complète (build + lints + tous les tests + audit)
+npm run build && npm run lint:fast && npm run lint:arch && npm run test:unit && npm run test:integration && npm audit
 ```
 
 </details>
@@ -232,9 +235,37 @@ npm run build && npm run lint:fast && npm run test:unit
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png">
     <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png">
-    <img alt="Structure du Projet" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
+    <img alt="Aperçu de la Structure du Répertoire HIVE-MIND" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
   </picture>
 </p>
+
+<details open>
+<summary><b>Arborescence Textuelle Accessible</b></summary>
+
+```text
+hive-mind/
+├── src/
+│   ├── bin/              # entrée daemon — hive-mind.ts
+│   ├── cli/              # startupMenu, whatsappAuthHelper, authSessionManager
+│   ├── config/           # schémas Zod, pricing, keyResolver, blueprints
+│   ├── core/             # BotCore, ServiceContainer, FairnessQueue, transports
+│   ├── persona/          # prompts système + lessons_learned.md
+│   ├── plugins/          # outils modulaires (manifest validé Zod)
+│   ├── providers/        # Layer0 ExecutionLayer + Layer1 SmartLayer + families
+│   ├── scheduler/        # node-cron + dbMonitoring
+│   ├── services/         # mémoire L1/L2, Planner/SubAgent agentic, PTC VM, runtime
+│   ├── supabase/         # migrations SQL, fonctions pgvector match_*
+│   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
+├── documentation/        # 97 docs Diátaxis (core/providers/transport/memory/runtime/plugins)
+├── src/tests/
+│   ├── unit/             # 77 suites — core/providers/runtime/services
+│   ├── integration/      # 5 suites, 34 tests
+│   └── e2e/              # harness + WebSocket cross-process
+├── .GCC/                 # état session Git-Context-Controller
+└── .gouvernance/         # review-policy, accompanied-agent, gouvernance
+```
+
+</details>
 
 ---
 
@@ -247,7 +278,7 @@ npm run build && npm run lint:fast && npm run test:unit
 | `npm run lint:arch` | dependency-cruiser frontières | 0 violation |
 | `npm run test:unit` | Jest, 77 suites | 834 / 834 passants |
 | `npm run test:integration` | 5 suites | 34 / 34 passants |
-| `npm audit` | CVE High/Moderate + GPL-2.0 deny | 0 vulnérabilité |
+| `npm audit` | Audit des vulnérabilités CVE connues | 0 vulnérabilité |
 
 ---
 

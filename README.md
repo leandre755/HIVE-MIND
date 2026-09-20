@@ -218,8 +218,11 @@ npm run dev
 # 77 suites — 834 unit tests
 npm run test:unit
 
-# Full local verification gate
+# Fast local verification gate (build + fast lint + unit tests)
 npm run build && npm run lint:fast && npm run test:unit
+
+# Full local verification gate (build + lints + all tests + audit)
+npm run build && npm run lint:fast && npm run lint:arch && npm run test:unit && npm run test:integration && npm audit
 ```
 
 </details>
@@ -232,9 +235,37 @@ npm run build && npm run lint:fast && npm run test:unit
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png">
     <source media="(prefers-color-scheme: light)" srcset="https://i.ibb.co/m5J3YmfB/Image-Codex-19-sept-2026-21-08-21.png">
-    <img alt="Project Structure" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
+    <img alt="HIVE-MIND Directory Structure Overview" src="https://i.ibb.co/gLrbpqN0/Image-Codex-19-sept-2026-21-05-01.png" width="100%" style="border-radius: 10px;" />
   </picture>
 </p>
+
+<details open>
+<summary><b>Accessible Directory Tree</b></summary>
+
+```text
+hive-mind/
+├── src/
+│   ├── bin/              # daemon entry — hive-mind.ts
+│   ├── cli/              # startupMenu, whatsappAuthHelper, authSessionManager
+│   ├── config/           # Zod schemas, pricing, keyResolver, blueprints
+│   ├── core/             # BotCore, ServiceContainer, FairnessQueue, transports
+│   ├── persona/          # system prompts + lessons_learned.md
+│   ├── plugins/          # modular tools (manifest Zod-validated)
+│   ├── providers/        # Layer0 ExecutionLayer + Layer1 SmartLayer + families
+│   ├── scheduler/        # node-cron + dbMonitoring
+│   ├── services/         # memory L1/L2, agentic Planner/SubAgent, PTC VM, runtime
+│   ├── supabase/         # SQL migrations, pgvector match_* functions
+│   └── utils/            # safeFs.ts, pidLock, TlsImpersonator, toolExecution
+├── documentation/        # 97 Diátaxis docs (core/providers/transport/memory/runtime/plugins)
+├── src/tests/
+│   ├── unit/             # 77 suites — core/providers/runtime/services
+│   ├── integration/      # 5 suites, 34 tests
+│   └── e2e/              # harness + WebSocket cross-process
+├── .GCC/                 # Git-Context-Controller session state
+└── .gouvernance/         # review-policy, accompanied-agent, governance
+```
+
+</details>
 
 ---
 
@@ -247,7 +278,7 @@ npm run build && npm run lint:fast && npm run test:unit
 | `npm run lint:arch` | dependency-cruiser boundaries | 0 violations |
 | `npm run test:unit` | Jest, 77 suites | 834 / 834 passing |
 | `npm run test:integration` | 5 suites | 34 / 34 passing |
-| `npm audit` | High/Moderate CVEs + GPL-2.0 deny | 0 vulnerabilities |
+| `npm audit` | Known CVE vulnerability audit | 0 vulnerabilities |
 
 ---
 
