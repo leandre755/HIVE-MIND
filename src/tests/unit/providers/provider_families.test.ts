@@ -739,6 +739,18 @@ describe('E. GenericProviderAdapter défensif', () => {
       }),
     ).rejects.toThrow('Délai dépassé');
   });
+
+  it("E.5 fetch network failure : propage l'erreur réseau générique sans la masquer", async () => {
+    mockFetch.mockReset();
+    mockFetch.mockRejectedValue(new TypeError('Failed to fetch'));
+    const adapter = new GenericProviderAdapter('cerebras', realFamilyConfig('cerebras'));
+    await expect(
+      adapter.chat([{ role: 'user', content: 'x' }], {
+        model: 'llama-3.3-70b',
+        apiKey: DUMMY_API_KEY,
+      }),
+    ).rejects.toThrow('Failed to fetch');
+  });
 });
 
 describe('F. wireParams : précédence et allowlist', () => {
