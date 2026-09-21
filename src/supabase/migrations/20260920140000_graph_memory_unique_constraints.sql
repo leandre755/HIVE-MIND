@@ -46,6 +46,7 @@ BEGIN
                ORDER BY created_at ASC NULLS LAST, ctid ASC
              ) AS rn
       FROM public.relationships
+      WHERE source_id IS NOT NULL AND target_id IS NOT NULL AND relation_type IS NOT NULL
     )
     DELETE FROM public.relationships
     WHERE ctid IN (SELECT ctid FROM duplicate_repointed_rels WHERE rn > 1);

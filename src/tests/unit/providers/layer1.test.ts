@@ -281,11 +281,17 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
       messages: [{ role: 'user', content: 'Stream test' }],
     });
 
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockImplementation(async () => {
+      throw new Error('Gemini chat mock error');
+    });
+
     await expect(async () => {
       for await (const chunk of stream) {
         expect(chunk).toBeDefined();
       }
     }).rejects.toThrow();
+
+    chatSpy.mockRestore();
   });
 
   it('Gemini-native SmartLayer execution forwards tools, normalized parameters, effective tokens, and abort signal', async () => {
@@ -519,6 +525,14 @@ describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
   });
 });
 
+const makeSmartLayer = (creds: Partial<CredentialProvider>, exec: Partial<ExecutionLayer> = {}) =>
+  new SmartLayer(
+    ModelHealthRegistry.getInstance(),
+    creds as unknown as CredentialProvider,
+    ServiceRegistry.getInstance(),
+    exec as unknown as ExecutionLayer,
+  );
+
 describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)', () => {
   beforeEach(() => {
     SmartLayer.resetInstance();
@@ -529,31 +543,29 @@ describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)',
 
   it('execute skips models without valid apiKey and advances candidate chain', async () => {
     let callCount = 0;
-    const mockCredentialProvider = {
-      getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
-        callCount++;
-        if (callCount === 1) return { apiKey: '', keyIndex: 0, provider: 'codestral' };
-        return { apiKey: 'valid-key', keyIndex: 1, provider: 'codestral' };
-      }),
-      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
-    };
+    const getKeyMock = jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+      callCount++;
+      return {
+        apiKey: callCount === 1 ? '' : 'valid-key',
+        keyIndex: callCount,
+        provider: 'codestral',
+      };
+    });
 
     const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
       content: 'success-after-skip',
     });
 
-    const mockExecutionLayer = {
-      execute: jest.fn<ExecutionLayer['execute']>().mockResolvedValue({
-        content: 'success-after-skip',
-      } as unknown as AdapterChatResult),
-      executeStream: jest.fn<ExecutionLayer['executeStream']>(),
-    };
-
-    const smart = new SmartLayer(
-      ModelHealthRegistry.getInstance(),
-      mockCredentialProvider as unknown as CredentialProvider,
-      ServiceRegistry.getInstance(),
-      mockExecutionLayer as unknown as ExecutionLayer,
+    const smart = makeSmartLayer(
+      {
+        getKey: getKeyMock,
+        recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+      },
+      {
+        execute: jest.fn<ExecutionLayer['execute']>().mockResolvedValue({
+          content: 'success-after-skip',
+        } as unknown as AdapterChatResult),
+      },
     );
 
     const result = await smart.execute({
@@ -567,31 +579,25 @@ describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)',
   });
 
   it('records quota exceeded when streamAttempt encounters RateLimitError before stream starts', async () => {
-    const mockCredentialProvider = {
-      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
-        apiKey: 'valid-key',
-        keyIndex: 3,
-        provider: 'codestral',
-      }),
-      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
-    };
-
+    const recordQuotaMock = jest.fn<CredentialProvider['recordQuotaExceeded']>();
     const chatSpy = jest
       .spyOn(geminiAdapter, 'chat')
       .mockRejectedValue(new RateLimitError('quota exceeded'));
 
-    const mockExecutionLayer = {
-      execute: jest.fn<ExecutionLayer['execute']>(),
-      executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
-        throw new RateLimitError('quota exceeded');
-      }),
-    };
-
-    const smart = new SmartLayer(
-      ModelHealthRegistry.getInstance(),
-      mockCredentialProvider as unknown as CredentialProvider,
-      ServiceRegistry.getInstance(),
-      mockExecutionLayer as unknown as ExecutionLayer,
+    const smart = makeSmartLayer(
+      {
+        getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+          apiKey: 'valid-key',
+          keyIndex: 3,
+          provider: 'codestral',
+        }),
+        recordQuotaExceeded: recordQuotaMock,
+      },
+      {
+        executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
+          throw new RateLimitError('quota exceeded');
+        }),
+      },
     );
 
     const stream = smart.executeStream({
@@ -605,8 +611,39 @@ describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)',
       }
     }).rejects.toThrow('quota exceeded');
 
-    expect(mockCredentialProvider.recordQuotaExceeded).toHaveBeenCalled();
-
+    expect(recordQuotaMock).toHaveBeenCalled();
     chatSpy.mockRestore();
+  });
+
+  it('execute does not retry next candidates when caller signal is aborted', async () => {
+    const abortController = new AbortController();
+    const abortErr = new Error('The user aborted a request.');
+    abortErr.name = 'AbortError';
+
+    let calls = 0;
+    const smart = makeSmartLayer(
+      {
+        getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+          calls++;
+          return { apiKey: 'key', keyIndex: 0, provider: 'codestral' };
+        }),
+        recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+      },
+      {
+        execute: jest.fn<ExecutionLayer['execute']>().mockImplementation(async () => {
+          abortController.abort();
+          throw abortErr;
+        }),
+      },
+    );
+
+    await expect(
+      smart.execute(
+        { serviceOrCategory: 'EXECUTOR', messages: [{ role: 'user', content: 'test' }] },
+        { signal: abortController.signal },
+      ),
+    ).rejects.toThrow('The user aborted a request.');
+
+    expect(calls).toBe(1);
   });
 });

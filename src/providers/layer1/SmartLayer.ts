@@ -6,7 +6,15 @@
  * and an SSE stream lock (streamStarted) that prevents fallback once chunk output has begun.
  */
 
-import { ExecutionLayer, ExecutionRequest, StreamChunk } from '../layer0/ExecutionLayer.js';
+import {
+  ExecutionLayer,
+  ExecutionRequest,
+  StreamChunk,
+  setupAbortController,
+} from '../layer0/ExecutionLayer.js';
+import { getModelConfig } from '../layer0/ModelRegistry.js';
+import { adaptParamsForTargetModel, toWireParams } from '../GenerationParams.js';
+import geminiAdapter from '../adapters/gemini.js';
 import { RateLimitError } from '../layer0/errors.js';
 import { AdapterChatResult } from '../types.js';
 import { CredentialProvider, CredentialResolution } from './CredentialProvider.js';
@@ -90,12 +98,9 @@ export class SmartLayer {
     const reqStartTime = Date.now();
     let result: AdapterChatResult;
 
-    const { getModelConfig } = await import('../layer0/ModelRegistry.js');
     const modelConfig = getModelConfig(modelId);
 
     if (modelConfig.protocol_family === 'gemini-native') {
-      const { default: geminiAdapter } = await import('../adapters/gemini.js');
-      const { adaptParamsForTargetModel, toWireParams } = await import('../GenerationParams.js');
       const adaptedParams = adaptParamsForTargetModel(
         request.params ?? {},
         modelConfig.capabilities,
@@ -106,7 +111,6 @@ export class SmartLayer {
         modelConfig.capabilities,
         options?.effectiveMaxTokens,
       );
-      const { setupAbortController } = await import('../layer0/ExecutionLayer.js');
       const { controller, cleanup } = setupAbortController(recipe.timeoutMs, options?.signal);
 
       try {
@@ -140,6 +144,27 @@ export class SmartLayer {
     return { result, usedModel: modelId, usedProvider: family, attemptsCount };
   }
 
+  private isAttemptEligible(modelId: string): boolean {
+    if (this.healthRegistry.isCircuitOpen(modelId)) return false;
+    return this.healthRegistry.tryAcquireHalfOpenProbe(modelId);
+  }
+
+  private async handleCandidateFailure(
+    modelId: string,
+    error: unknown,
+    family: string,
+    creds: CredentialResolution,
+    options?: SmartExecutionOptions,
+  ): Promise<void> {
+    if (options?.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+    this.healthRegistry.recordFailure(modelId, error, family);
+    if (error instanceof RateLimitError) {
+      await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
+    }
+  }
+
   public async execute(
     request: SmartExecutionRequest,
     options?: SmartExecutionOptions,
@@ -155,16 +180,13 @@ export class SmartLayer {
 
     for (const modelId of sortedModels) {
       if (attemptsCount >= maxAttempts || Date.now() - startTime >= deadlineMs) break;
-      if (this.healthRegistry.isCircuitOpen(modelId)) continue;
-      if (!this.healthRegistry.tryAcquireHalfOpenProbe(modelId)) continue;
+      if (!this.isAttemptEligible(modelId)) continue;
 
       const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
 
       try {
         const creds = await this.credentialProvider.getKey(family, modelId);
-        if (!creds?.apiKey) {
-          continue;
-        }
+        if (!creds?.apiKey) continue;
 
         attemptsCount++;
         try {
@@ -179,10 +201,7 @@ export class SmartLayer {
           );
         } catch (error: unknown) {
           lastError = error;
-          this.healthRegistry.recordFailure(modelId, error, family);
-          if (error instanceof RateLimitError) {
-            await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
-          }
+          await this.handleCandidateFailure(modelId, error, family, creds, options);
         }
       } finally {
         this.healthRegistry.releaseHalfOpenProbe(modelId);
@@ -208,7 +227,6 @@ export class SmartLayer {
   ): AsyncIterable<
     StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
   > {
-    const { default: geminiAdapter } = await import('../adapters/gemini.js');
     const controller = new AbortController();
     let timeoutId: NodeJS.Timeout | undefined;
 
@@ -287,7 +305,6 @@ export class SmartLayer {
     let streamStarted = false;
 
     try {
-      const { getModelConfig } = await import('../layer0/ModelRegistry.js');
       const modelConfig = getModelConfig(modelId);
 
       const targetStream =
@@ -327,6 +344,15 @@ export class SmartLayer {
     }
   }
 
+  private handleStreamAttemptError(error: unknown, options?: SmartExecutionOptions): void {
+    if (typeof error === 'object' && error !== null && Reflect.get(error, '__streamStarted')) {
+      throw error;
+    }
+    if (options?.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+  }
+
   public async *executeStream(
     request: SmartExecutionRequest,
     options?: SmartExecutionOptions,
@@ -342,29 +368,20 @@ export class SmartLayer {
 
     for (const modelId of sortedModels) {
       if (attemptsCount >= maxAttempts || Date.now() - startTime >= deadlineMs) break;
-      if (this.healthRegistry.isCircuitOpen(modelId)) continue;
-      if (!this.healthRegistry.tryAcquireHalfOpenProbe(modelId)) continue;
+      if (!this.isAttemptEligible(modelId)) continue;
 
       const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
 
       try {
         const creds = await this.credentialProvider.getKey(family, modelId);
-        if (!creds?.apiKey) {
-          continue;
-        }
+        if (!creds?.apiKey) continue;
 
         attemptsCount++;
         try {
           yield* this.streamAttempt(modelId, request, options, recipe, creds, family);
           return;
         } catch (error: unknown) {
-          if (
-            typeof error === 'object' &&
-            error !== null &&
-            Reflect.get(error, '__streamStarted')
-          ) {
-            throw error;
-          }
+          this.handleStreamAttemptError(error, options);
           lastError = error;
         }
       } finally {
