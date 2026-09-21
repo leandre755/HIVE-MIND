@@ -87,7 +87,7 @@ export const StateManager = {
     let userData: Record<string, string> | null = (await redis?.hGetAll(cacheKey)) ?? null;
 
     // 2. Cache Miss ou Cache Partiel (seulement interaction_count): Lecture DB + Hydratation
-    if (!userData || !userData.created_at) {
+    if (!userData?.created_at) {
       // Verrouillage pour éviter "Thundering Herd" si 50 messages arrivent en même temps
       const lockId = await userLock.acquireWait(uuid);
       if (!lockId) {
@@ -98,7 +98,7 @@ export const StateManager = {
       try {
         // Double check après lock
         userData = (await redis?.hGetAll(cacheKey)) ?? null;
-        if (!userData || !userData.created_at) {
+        if (!userData?.created_at) {
           if (supabase) {
             const { data } = await supabase.from('users').select('*').eq('id', uuid).single();
             if (data) {

@@ -321,15 +321,47 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
     jest.restoreAllMocks();
   });
 
-  it('should never emit synthetic provider secrets in console when provider responses contain secrets', async () => {
-    const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
+  async function assertSecretLeakageProtected(
+    mockFetchImpl: (input: RequestInfo | URL) => Promise<Response>,
+    testPayload: string,
+    secret: string,
+  ) {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const mockFetch = jest
-      .fn<typeof fetch>()
-      .mockImplementation(async (input: RequestInfo | URL) => {
+    global.fetch = jest.fn<typeof fetch>().mockImplementation(mockFetchImpl);
+
+    const service = new EmbeddingsService({
+      geminiKey: 'mock-gemini-key',
+      openaiKey: 'mock-openai-key',
+    });
+
+    const result = await service.embed(testPayload);
+
+    expect(result).toBeNull();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+    );
+    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
+
+    const allLoggedArgs = [
+      ...logSpy.mock.calls.flat(),
+      ...warnSpy.mock.calls.flat(),
+      ...errorSpy.mock.calls.flat(),
+    ];
+
+    for (const arg of allLoggedArgs) {
+      expect(serializeLoggedArg(arg)).not.toContain(secret);
+    }
+  }
+
+  it('should never emit synthetic provider secrets in console when provider responses contain secrets', async () => {
+    const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
+    await assertSecretLeakageProtected(
+      async (input: RequestInfo | URL) => {
         const parsed = new URL(String(input));
         if (parsed.hostname === 'generativelanguage.googleapis.com') {
           return {
@@ -356,44 +388,16 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
           } as unknown as Response;
         }
         throw new Error(`Unexpected hostname: ${parsed.hostname}`);
-      });
-    global.fetch = mockFetch;
-
-    const service = new EmbeddingsService({
-      geminiKey: 'mock-gemini-key',
-      openaiKey: 'mock-openai-key',
-    });
-
-    const result = await service.embed('test payload with potential secret leakage');
-
-    expect(result).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+      },
+      'test payload with potential secret leakage',
+      syntheticSecret,
     );
-    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
-
-    const allLoggedArgs = [
-      ...logSpy.mock.calls.flat(),
-      ...warnSpy.mock.calls.flat(),
-      ...errorSpy.mock.calls.flat(),
-    ];
-
-    for (const arg of allLoggedArgs) {
-      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
-    }
   });
 
   it('should never emit synthetic secrets in console when network exceptions contain secrets', async () => {
     const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    const mockFetch = jest
-      .fn<typeof fetch>()
-      .mockImplementation(async (input: RequestInfo | URL) => {
+    await assertSecretLeakageProtected(
+      async (input: RequestInfo | URL) => {
         const parsed = new URL(String(input));
         if (parsed.hostname === 'generativelanguage.googleapis.com') {
           throw new Error(`Gemini network failure: ${syntheticSecret}`);
@@ -402,32 +406,9 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
           throw new Error(`OpenAI socket failure: ${syntheticSecret}`);
         }
         throw new Error(`Unexpected hostname: ${parsed.hostname}`);
-      });
-    global.fetch = mockFetch;
-
-    const service = new EmbeddingsService({
-      geminiKey: 'mock-gemini-key',
-      openaiKey: 'mock-openai-key',
-    });
-
-    const result = await service.embed('network failure test');
-
-    expect(result).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+      },
+      'network failure test',
+      syntheticSecret,
     );
-    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
-
-    const allLoggedArgs = [
-      ...logSpy.mock.calls.flat(),
-      ...warnSpy.mock.calls.flat(),
-      ...errorSpy.mock.calls.flat(),
-    ];
-
-    for (const arg of allLoggedArgs) {
-      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
-    }
   });
 });

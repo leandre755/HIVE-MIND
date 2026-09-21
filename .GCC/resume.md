@@ -10,30 +10,33 @@
   - PR #120 : Correction des P1 Greptile (abandon des retries sur annulation appelant `AbortError` / `signal.aborted`, préservation des relations nullables dans la migration Supabase SQL), réduction de la complexité cognitive SonarJS sous 15 via helpers dédiés, et passage à 100% de couverture de patch.
 
 ## ⚡ Technical Diffs / Atomic Modifications
+- **File**: `src/providers/layer0/ExecutionLayer.ts`
+  - **Scope**: Méthodes `execute` et `executeStream`.
+  - **Exact Technical Change**: Extraction de `executeHttpRequest` pour dédupliquer l'envoi HTTP fetch, le wrapping d'erreurs d'annulation/timeout et le traitement des codes d'erreur.
 - **File**: `src/providers/layer1/SmartLayer.ts`
-  - **Scope**: Méthodes `execute`, `executeStream`, et extraction des helpers `isAttemptEligible`, `handleCandidateFailure`, `handleStreamAttemptError`.
-  - **Exact Technical Change**: Arrêt immédiat de la chaîne de repli lors d'une annulation par le caller (`options.signal.aborted` ou `AbortError`) dans `execute` et `executeStream`. Extraction de méthodes privées pour maintenir la complexité cognitive sous le seuil maximal de 15. Imports statiques pour éliminer les retards de dynamic import.
-- **File**: `src/supabase/migrations/20260920140000_graph_memory_unique_constraints.sql`
-  - **Scope**: CTE `duplicate_repointed_rels`.
-  - **Exact Technical Change**: Ajout du filtre `WHERE source_id IS NOT NULL AND target_id IS NOT NULL AND relation_type IS NOT NULL` pour éviter la suppression involontaire de relations valides avec extrémités nullables.
+  - **Scope**: Méthodes `execute` et `executeStream`.
+  - **Exact Technical Change**: Extraction de `prepareExecutionBudget` éliminant la duplication de résolution des modèles candidats et du calcul de deadline/tentatives.
+- **File**: `src/tests/unit/services/embeddingsService.test.ts`
+  - **Scope**: Suite `EmbeddingsService - Secret Leakage Prevention`.
+  - **Exact Technical Change**: Extraction du helper `assertSecretLeakageProtected` éliminant 85 lignes de duplication.
 - **File**: `src/tests/unit/providers/layer1.test.ts`
-  - **Scope**: Suite `Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)`.
-  - **Exact Technical Change**: Tests unitaires pour la terminaison propre sur signal d'annulation, le repli sur identifiants manquants, l'enregistrement des quotas sur RateLimitError, et mock de `geminiAdapter.chat` pour éviter les timeouts réseau.
-- **File**: `src/tests/unit/core/BotCoreMedia.test.ts` (PR #118)
-  - **Scope**: Suite `BotCore Media & Audio Lifecycle`.
-  - **Exact Technical Change**: Tests unitaires vérifiant le nettoyage des fichiers temporaires audio natifs et la journalisation des erreurs `safeUnlink` autres que `ENOENT`.
+  - **Scope**: Tests de streaming Gemini natif.
+  - **Exact Technical Change**: Extraction de `createGeminiTestSmartLayer` supprimant 50 lignes de duplication.
+- **File**: `src/core/ServiceContainer.ts`, `src/services/state/StateManager.ts`, `src/services/runtime/RuntimeInfrastructure.ts`
+  - **Scope**: Résolution des code smells SonarCloud (S7737, S6582, S6594).
+  - **Exact Technical Change**: Constante `DEFAULT_CONTAINER_OPTIONS`, chaînage optionnel `!userData?.created_at`, et utilisation de `RegExp.exec()`.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run lint:fast && npx tsc --noEmit && npx eslint src/providers/layer1/SmartLayer.ts src/tests/unit/providers/layer1.test.ts`
+- **Verification Command Run**: `npm run lint:fast && npx tsc --noEmit && NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/services/embeddingsService.test.ts src/tests/unit/providers/layer1.test.ts src/tests/unit/providers/layer0.test.ts src/tests/unit/services/StateManager.test.ts src/tests/unit/core/ServiceContainer.test.ts`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 
 Found 0 warnings and 0 errors.
-Finished in 198ms on 342 files with 96 rules using 4 threads.
 (tsc --noEmit: 0 error)
-(eslint: 0 error, 0 warning)
+Test Suites: 5 passed, 5 total
+Tests:       63 passed, 63 total
 ```
 
 ## 🚧 Unfinished Work & Technical Failures

@@ -435,6 +435,24 @@ describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
     ServiceRegistry.resetInstance();
   });
 
+  function createGeminiTestSmartLayer(): SmartLayer {
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 0,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    return new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+  }
+
   it('Gemini-native SmartLayer streaming propagates abort signal and respects cancellation', async () => {
     const abortController = new AbortController();
     abortController.abort();
@@ -446,21 +464,7 @@ describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
       return { content: 'Should not reach here' };
     });
 
-    const mockCredentialProvider = {
-      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
-        apiKey: 'dummy-gemini-key',
-        keyIndex: 0,
-        provider: 'gemini',
-      }),
-      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
-    };
-
-    const smart = new SmartLayer(
-      ModelHealthRegistry.getInstance(),
-      mockCredentialProvider as unknown as CredentialProvider,
-      ServiceRegistry.getInstance(),
-      new ExecutionLayer(),
-    );
+    const smart = createGeminiTestSmartLayer();
 
     const stream = smart.executeStream(
       {
@@ -487,21 +491,7 @@ describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
       thought: 'gemini thought',
     });
 
-    const mockCredentialProvider = {
-      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
-        apiKey: 'dummy-gemini-key',
-        keyIndex: 0,
-        provider: 'gemini',
-      }),
-      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
-    };
-
-    const smart = new SmartLayer(
-      ModelHealthRegistry.getInstance(),
-      mockCredentialProvider as unknown as CredentialProvider,
-      ServiceRegistry.getInstance(),
-      new ExecutionLayer(),
-    );
+    const smart = createGeminiTestSmartLayer();
 
     const stream = smart.executeStream(
       {

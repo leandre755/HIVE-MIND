@@ -165,15 +165,25 @@ export class SmartLayer {
     }
   }
 
+  private prepareExecutionBudget(request: SmartExecutionRequest, options?: SmartExecutionOptions) {
+    const startTime = Date.now();
+    const deadlineMs = Math.min(options?.deadlineMs ?? DEFAULT_DEADLINE_MS, DEFAULT_DEADLINE_MS);
+    const maxAttempts = Math.min(options?.maxAttempts ?? MAX_ATTEMPTS, MAX_ATTEMPTS);
+    const candidateInfo = this.resolveCandidateModels(request);
+    return {
+      startTime,
+      deadlineMs,
+      maxAttempts,
+      ...candidateInfo,
+    };
+  }
+
   public async execute(
     request: SmartExecutionRequest,
     options?: SmartExecutionOptions,
   ): Promise<SmartExecuteResult> {
-    const startTime = Date.now();
-    const deadlineMs = Math.min(options?.deadlineMs ?? DEFAULT_DEADLINE_MS, DEFAULT_DEADLINE_MS);
-    const maxAttempts = Math.min(options?.maxAttempts ?? MAX_ATTEMPTS, MAX_ATTEMPTS);
-
-    const { targetName, sortedModels, recipe } = this.resolveCandidateModels(request);
+    const budget = this.prepareExecutionBudget(request, options);
+    const { targetName, sortedModels, recipe, startTime, deadlineMs, maxAttempts } = budget;
 
     let attemptsCount = 0;
     let lastError: unknown = null;
@@ -357,11 +367,8 @@ export class SmartLayer {
     request: SmartExecutionRequest,
     options?: SmartExecutionOptions,
   ): AsyncIterable<StreamChunk & { usedModel?: string; usedProvider?: string }> {
-    const startTime = Date.now();
-    const deadlineMs = Math.min(options?.deadlineMs ?? DEFAULT_DEADLINE_MS, DEFAULT_DEADLINE_MS);
-    const maxAttempts = Math.min(options?.maxAttempts ?? MAX_ATTEMPTS, MAX_ATTEMPTS);
-
-    const { targetName, sortedModels, recipe } = this.resolveCandidateModels(request);
+    const budget = this.prepareExecutionBudget(request, options);
+    const { targetName, sortedModels, recipe, startTime, deadlineMs, maxAttempts } = budget;
 
     let attemptsCount = 0;
     let lastError: unknown = null;
