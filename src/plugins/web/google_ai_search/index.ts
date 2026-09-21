@@ -213,6 +213,7 @@ export default {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    timeoutId.unref();
 
     const requestStart = Date.now();
 

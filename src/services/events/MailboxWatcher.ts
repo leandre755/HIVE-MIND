@@ -18,6 +18,7 @@ export const mailboxWatcher = {
       },
       30 * 60 * 1000,
     );
+    intervalId.unref();
   },
 
   stop(): void {

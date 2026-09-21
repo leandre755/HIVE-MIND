@@ -181,6 +181,7 @@ export class DatabaseMonitor {
       },
       60 * 60 * 1000,
     ); // Toutes les heures
+    this.hourlyIntervalId.unref();
 
     // Vérification complète tous les jours à 6h
     this.dailyIntervalId = setInterval(async () => {
@@ -196,6 +197,7 @@ export class DatabaseMonitor {
         );
       }
     }, this.getNextDailyCheck());
+    this.dailyIntervalId.unref();
 
     console.log('[DatabaseMonitor] ⏰ Monitoring démarré');
   }
