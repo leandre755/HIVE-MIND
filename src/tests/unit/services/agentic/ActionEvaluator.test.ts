@@ -36,4 +36,40 @@ describe('ActionEvaluator Lifecycle', () => {
     evaluator.shutdown();
     await expect(shutdownPromise).resolves.toBeNull();
   });
+
+  it('aborts evaluate and returns null when shutdown is called during feedback wait', async () => {
+    const action = {
+      id: 'action_1',
+      tool: 'test_tool',
+      params: {},
+      result: 'success',
+      error: null,
+      duration_ms: 150,
+      chatId: 'chat123',
+      timestamp: new Date().toISOString(),
+    };
+
+    const evalPromise = evaluator.evaluate(action);
+    evaluator.shutdown();
+    const result = await evalPromise;
+    expect(result).toBeNull();
+  });
+
+  it('returns null immediately from evaluate and _detectFeedback when already shut down', async () => {
+    evaluator.shutdown();
+    const evalResult = await evaluator.evaluate({
+      id: 'action_2',
+      tool: 'test_tool_2',
+      params: {},
+      result: 'success',
+      error: null,
+      duration_ms: 50,
+      chatId: 'chat123',
+      timestamp: new Date().toISOString(),
+    });
+    expect(evalResult).toBeNull();
+
+    const feedbackResult = await evaluator._detectFeedback('chat123', new Date().toISOString());
+    expect(feedbackResult).toBeNull();
+  });
 });

@@ -52,8 +52,10 @@ function extractErrorMessage(error: unknown): string {
  */
 export class ActionEvaluator {
   private activeTimers = new Map<NodeJS.Timeout, () => void>();
+  private isShutdown = false;
 
   shutdown(): void {
+    this.isShutdown = true;
     for (const [timer, resolve] of this.activeTimers.entries()) {
       clearTimeout(timer);
       resolve();
@@ -68,6 +70,7 @@ export class ActionEvaluator {
   }
 
   async evaluate(action: ActionInput): Promise<EvaluationResult | null> {
+    if (this.isShutdown) return null;
     console.log(`[ActionEvaluator] 📊 Évaluation: ${action.tool}`);
 
     try {
@@ -77,11 +80,17 @@ export class ActionEvaluator {
         result_quality: await this._assessResult(action),
       };
 
+      if (this.isShutdown) return null;
+
       const userFeedback = await this._detectFeedback(action.chatId, action.timestamp);
+
+      if (this.isShutdown) return null;
 
       const finalScore = this._computeScore(objective, userFeedback);
 
       const lesson = await this._extractLesson(action, finalScore);
+
+      if (this.isShutdown) return null;
 
       if (supabase) {
         const { error } = await supabase
@@ -201,6 +210,7 @@ Score:`;
     chatId: string,
     actionTimestamp: string,
   ): Promise<'positive' | 'negative' | 'neutral' | null> {
+    if (this.isShutdown) return null;
     try {
       await new Promise<void>((resolve) => {
         const onDone = () => {
@@ -211,7 +221,7 @@ Score:`;
         this.activeTimers.set(timer, onDone);
       });
 
-      if (!supabase) return null;
+      if (this.isShutdown || !supabase) return null;
 
       const { data: messages } = await supabase
         .from('memories')
