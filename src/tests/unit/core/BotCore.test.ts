@@ -131,4 +131,78 @@ describe('BotCore (Orchestration Core Integration)', () => {
       expect(res.cleaned).toBe('Message direct dépaqueté');
     });
   });
+
+  describe('Gestion du téléchargement de document (_downloadMediaDocumentNotice)', () => {
+    it('télécharge et nettoie le fichier temporaire avec unref', async () => {
+      jest.useFakeTimers();
+      const mockDownload = jest
+        .spyOn(bot.transport, 'downloadMedia')
+        .mockResolvedValueOnce(Buffer.from('test content'));
+
+      const msg = {
+        mediaType: 'document',
+        raw: { documentMessage: { fileName: 'test_doc.txt' } },
+      };
+
+      const result = await (
+        bot as unknown as {
+          _downloadMediaDocumentNotice: (
+            m: unknown,
+            s: string,
+            c: string,
+          ) => Promise<string | null>;
+        }
+      )._downloadMediaDocumentNotice(msg, 'UserTest', 'chat123');
+      expect(result).toContain('test_doc.txt');
+
+      await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+      mockDownload.mockRestore();
+      jest.useRealTimers();
+    });
+
+    it('ignore silencieusement ENOENT si le fichier temporaire a déjà été supprimé', async () => {
+      jest.useFakeTimers();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const mockDownload = jest
+        .spyOn(bot.transport, 'downloadMedia')
+        .mockResolvedValueOnce(Buffer.from('test content 2'));
+
+      const msg = {
+        mediaType: 'document',
+        raw: { documentMessage: { fileName: 'already_deleted.txt' } },
+      };
+
+      await (
+        bot as unknown as {
+          _downloadMediaDocumentNotice: (
+            m: unknown,
+            s: string,
+            c: string,
+          ) => Promise<string | null>;
+        }
+      )._downloadMediaDocumentNotice(msg, 'UserTest', 'chat123');
+
+      const path = await import('path');
+      const filePath = path.join(
+        process.cwd(),
+        'hm_storage',
+        'tmp_download',
+        'already_deleted.txt',
+      );
+      const { safeUnlink } = await import('../../../utils/safeFs.js');
+      await safeUnlink(filePath).catch(() => {});
+
+      await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('[BotCore] Erreur suppression fichier temporaire:'),
+        expect.anything(),
+      );
+
+      consoleErrorSpy.mockRestore();
+      mockDownload.mockRestore();
+      jest.useRealTimers();
+    });
+  });
 });

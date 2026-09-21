@@ -77,5 +77,26 @@ describe('Startup Options Menu CLI & Session Manager', () => {
       expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('🤖 HIVE-MIND'));
       consoleSpy.mockRestore();
     });
+
+    it('should handle waitWithInterruption when not TTY', async () => {
+      jest.useFakeTimers();
+      const isTTYOriginal = process.stdout.isTTY;
+      const stdinTTYOriginal = process.stdin.isTTY;
+      try {
+        process.stdout.isTTY = false;
+        process.stdin.isTTY = false;
+
+        const { waitWithInterruption } = await import('../../../cli/startupMenu.js');
+        const p = waitWithInterruption(5000);
+        jest.advanceTimersByTime(5000);
+        const res = await p;
+
+        expect(res).toBe(false);
+      } finally {
+        process.stdout.isTTY = isTTYOriginal;
+        process.stdin.isTTY = stdinTTYOriginal;
+        jest.useRealTimers();
+      }
+    });
   });
 });

@@ -24,10 +24,11 @@ const PROMPT_OPTIONS = {
 /**
  * Attend pendant un délai spécifié en ms avec possibilité d'interruption par une touche dans TTY.
  */
-function waitWithInterruption(timeoutMs: number): Promise<boolean> {
+export function waitWithInterruption(timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
-      setTimeout(() => resolve(false), timeoutMs);
+      const t = setTimeout(() => resolve(false), timeoutMs);
+      if (t.unref) t.unref();
       return;
     }
 

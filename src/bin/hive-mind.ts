@@ -16,6 +16,7 @@ import { eventBus, BotEvents } from '../core/events.js';
 import { StateManager } from '../services/state/StateManager.js';
 import { container } from '../core/ServiceContainer.js';
 import { baileysTransport } from '../core/transport/baileys.js';
+import { actionEvaluator } from '../services/agentic/ActionEvaluator.js';
 import * as logger from '../utils/logger.js';
 import { safeReadFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
@@ -61,8 +62,16 @@ program
         console.warn('⚠️ Shutdown timeout reached. Force exiting...');
         process.exit(1);
       }, 10000);
+      forceExitTimeout.unref();
 
       // Each step isolated: a failure in one must not prevent the others.
+      try {
+        console.log("🛑 Nettoyage des timers d'évaluation...");
+        actionEvaluator.shutdown();
+      } catch (err) {
+        console.error('❌ Erreur nettoyage timers:', err);
+      }
+
       try {
         console.log('💾 Synchronisation des buffers...');
         await userService.flushAll();
@@ -115,9 +124,10 @@ program
       await botCore.init();
 
       // Worker Loop: Sync DB toutes les 30s
-      setInterval(() => {
+      const syncInterval = setInterval(() => {
         StateManager.processSyncQueue().catch(() => {});
       }, 30000);
+      syncInterval.unref();
     } catch (error) {
       console.error('❌ Erreur fatale:', error);
       process.exit(1);

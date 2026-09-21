@@ -2,7 +2,13 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
+import {
+  safeReadFileSync,
+  safeUnlinkSync,
+  safeUnlink,
+  safeMkdir,
+  safeWriteFile,
+} from '../utils/safeFs.js';
 import { dirname, join } from 'path';
 
 import { fileURLToPath } from 'url';
@@ -116,7 +122,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let persona: { name: string; traits?: string[]; interests?: string[]; role?: string };
 try {
-  persona = JSON.parse(readFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
+  persona = JSON.parse(safeReadFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
 } catch {
   persona = { name: 'Bot', traits: [], interests: [] };
 }
@@ -124,9 +130,12 @@ try {
 // Charger le prompt système
 let refusalPrompt: string;
 try {
-  readFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
+  safeReadFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
   // Charger le template de refus s'il existe
-  refusalPrompt = readFileSync(join(__dirname, '..', 'persona', 'prompts', 'refusal.md'), 'utf-8');
+  refusalPrompt = safeReadFileSync(
+    join(__dirname, '..', 'persona', 'prompts', 'refusal.md'),
+    'utf-8',
+  );
 } catch {
   refusalPrompt = 'You are {{name}}. Politely refuse because: {{reason}}.';
 }
@@ -1105,23 +1114,24 @@ export class BotCore {
     if (response?.audioFile) {
       try {
         const converter = await import('../services/audio/audioConverter.js');
-        const fs = await import('fs');
+
         const outputOgg = response.audioFile.replace('.pcm', '.ogg');
         await converter.convertPcmToOgg(response.audioFile, outputOgg);
         await this.transport.sendVoiceNote(chatId, outputOgg);
 
-        setTimeout(() => {
+        const audioCleanupTimer = setTimeout(() => {
           try {
-            fs.unlinkSync(response.audioFile!);
+            safeUnlinkSync(response.audioFile!);
           } catch {
             /* ignore */
           }
           try {
-            fs.unlinkSync(outputOgg);
+            safeUnlinkSync(outputOgg);
           } catch {
             /* ignore */
           }
         }, 10000);
+        audioCleanupTimer.unref();
       } catch (e: unknown) {
         const eMsg = e instanceof Error ? e.message : String(e);
         console.error('[Core] ❌ Erreur envoi vocal natif:', eMsg);
@@ -1236,16 +1246,15 @@ export class BotCore {
         originalFileName = `fichier_${Date.now()}`;
       }
 
-      const fs = await import('fs');
       const path = await import('path');
 
       const downloadDir = path.join(process.cwd(), 'hm_storage', 'tmp_download');
-      await fs.promises.mkdir(downloadDir, { recursive: true });
+      await safeMkdir(downloadDir, { recursive: true });
 
       const safeFileName = path.basename(originalFileName).replace(/[^a-zA-Z0-9.\-_ ()]/g, '_');
       const filePath = path.join(downloadDir, safeFileName);
 
-      await fs.promises.writeFile(filePath, buffer);
+      await safeWriteFile(filePath, buffer);
       console.log(`[Core] ✅ Fichier téléchargé: ${filePath}`);
 
       getMediaIndexer()
@@ -1258,22 +1267,17 @@ export class BotCore {
         })
         .catch(() => {});
 
-      setTimeout(
+      const cleanupTimer = setTimeout(
         () => {
-          fs.unlink(filePath, (err) => {
-            if (err && err.code !== 'ENOENT') {
-              console.error(
-                '[Cleanup] Erreur lors de la suppression de %s:',
-                filePath,
-                err.message,
-              );
-            } else if (!err) {
-              console.log(`[Cleanup] 🧹 Fichier temporaire supprimé: ${filePath}`);
+          safeUnlink(filePath).catch((err: unknown) => {
+            if ((err as { code?: string })?.code !== 'ENOENT') {
+              console.error('[BotCore] Erreur suppression fichier temporaire:', err);
             }
           });
         },
         10 * 60 * 1000,
       );
+      cleanupTimer.unref();
 
       const timeString = new Date().toLocaleString('fr-FR');
       return `\n\n[SYSTÈME ALERTE FICHIER : \n- Expéditeur : @${senderName}\n- Date : ${timeString}\n- Fichier reçu : "${originalFileName}"\n- Type : ${message.mediaType}\n- Emplacement temporaire : ${filePath}\n\nATTENTION : Ce fichier est stocké dans un répertoire temporaire et SERA SUPPRIMÉ AUTOMATIQUEMENT dans 10 minutes. Si ce fichier est important et que vous devez le conserver, vous DEVEZ utiliser vos outils pour le copier ou le déplacer vers un stockage permanent avant de faire autre chose. Vous pouvez lire son contenu avec read_file si nécessaire.]`;

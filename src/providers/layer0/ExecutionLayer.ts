@@ -152,6 +152,7 @@ export function setupAbortController(
     timeoutTimer = setTimeout(() => {
       controller.abort(new Error(`Timeout after ${timeoutMs}ms`));
     }, timeoutMs);
+    timeoutTimer.unref();
   }
 
   let externalAbortHandler: (() => void) | undefined;
