@@ -51,11 +51,12 @@ function extractErrorMessage(error: unknown): string {
  * Évaluateur post-action pour l'amélioration continue
  */
 export class ActionEvaluator {
-  private activeTimers = new Set<NodeJS.Timeout>();
+  private activeTimers = new Map<NodeJS.Timeout, () => void>();
 
   shutdown(): void {
-    for (const timer of this.activeTimers) {
+    for (const [timer, resolve] of this.activeTimers.entries()) {
       clearTimeout(timer);
+      resolve();
     }
     this.activeTimers.clear();
   }
@@ -202,11 +203,12 @@ Score:`;
   ): Promise<'positive' | 'negative' | 'neutral' | null> {
     try {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
+        const onDone = () => {
           this.activeTimers.delete(timer);
           resolve();
-        }, this.feedbackWindow);
-        this.activeTimers.add(timer);
+        };
+        const timer = setTimeout(onDone, this.feedbackWindow);
+        this.activeTimers.set(timer, onDone);
       });
 
       if (!supabase) return null;

@@ -1,8 +1,17 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ActionEvaluator } from '../../../../services/agentic/ActionEvaluator.js';
+
+jest.unstable_mockModule('../../../../services/supabase.js', () => ({
+  supabase: null,
+}));
+
+jest.unstable_mockModule('../../../../providers/index.js', () => ({
+  providerRouter: {},
+}));
+
+const { ActionEvaluator } = await import('../../../../services/agentic/ActionEvaluator.js');
 
 describe('ActionEvaluator Lifecycle', () => {
-  let evaluator: ActionEvaluator;
+  let evaluator: InstanceType<typeof ActionEvaluator>;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -23,8 +32,8 @@ describe('ActionEvaluator Lifecycle', () => {
     await expect(feedbackPromise).resolves.toBeNull();
 
     // Now start a second feedback detection and shut down immediately
-    evaluator._detectFeedback('chat123', new Date().toISOString());
+    const shutdownPromise = evaluator._detectFeedback('chat123', new Date().toISOString());
     evaluator.shutdown();
-    expect(evaluator).toBeDefined();
+    await expect(shutdownPromise).resolves.toBeNull();
   });
 });
