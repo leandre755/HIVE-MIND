@@ -14,6 +14,7 @@ import { ServiceRegistry } from '../../../providers/layer1/ServiceRegistry.js';
 import { SmartLayer } from '../../../providers/layer1/SmartLayer.js';
 import { ExecutionLayer } from '../../../providers/layer0/ExecutionLayer.js';
 import { ServerError } from '../../../providers/layer0/errors.js';
+import geminiAdapter from '../../../providers/adapters/gemini.js';
 import type { AdapterChatResult } from '../../../providers/types.js';
 
 describe('Layer 1 - ModelHealthRegistry', () => {
@@ -237,5 +238,63 @@ describe('Layer 1 - SmartLayer', () => {
     expect(caughtError).not.toBeNull();
     expect(caughtError?.message).toBe('Mid-stream connection drop');
     expect(mockExecutionLayer.executeStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('Gemini-native SmartLayer execution forwards tools, normalized parameters, effective tokens, and abort signal', async () => {
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'Mock Gemini response',
+      usage: { total_tokens: 10 },
+    });
+
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 0,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+
+    const abortController = new AbortController();
+    const res = await smart.execute(
+      {
+        modelId: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'Hello gemini' }],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'testTool',
+              description: 'A test tool',
+              parameters: { type: 'object', properties: {} },
+            },
+          },
+        ],
+        params: {
+          temperature: 0.12,
+        },
+      },
+      {
+        effectiveMaxTokens: 12,
+        signal: abortController.signal,
+      },
+    );
+
+    expect(res.result.content).toBe('Mock Gemini response');
+    expect(chatSpy).toHaveBeenCalledTimes(1);
+    const [, options] = chatSpy.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(options.apiKey).toBe('dummy-gemini-key');
+    expect(options.tools).toHaveLength(1);
+    expect(options.temperature).toBeCloseTo(0.12);
+    expect(options.signal).toBeDefined();
+    expect((options.wireParams as Record<string, unknown>).maxOutputTokens).toBe(12);
+    chatSpy.mockRestore();
   });
 });

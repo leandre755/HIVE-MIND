@@ -136,7 +136,7 @@ async function handleResponseError(response: Response): Promise<never> {
   });
 }
 
-function setupAbortController(
+export function setupAbortController(
   optsTimeout?: number,
   optsSignal?: AbortSignal,
   defaultTimeout = 60_000,

@@ -42,7 +42,7 @@ describe('EmbeddingsService - Core Generation', () => {
 
     const service = new EmbeddingsService({
       geminiKey: 'mock-gemini-test-key',
-      model: 'custom-model',
+      model: 'text-embedding-004',
       dimensions: 3,
     });
 
@@ -54,7 +54,7 @@ describe('EmbeddingsService - Core Generation', () => {
     const fetchCall = mockFetch.mock.calls[0];
     if (!fetchCall) throw new Error('fetchCall undefined');
 
-    expect(String(fetchCall[0])).toContain('custom-model:embedContent');
+    expect(String(fetchCall[0])).toContain('text-embedding-004:embedContent');
     expect(String(fetchCall[0])).toContain('key=mock-gemini-test-key');
 
     const requestBody = JSON.parse(fetchCall[1]?.body as string);

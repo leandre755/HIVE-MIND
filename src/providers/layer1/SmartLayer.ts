@@ -95,12 +95,38 @@ export class SmartLayer {
 
     if (modelConfig.protocol_family === 'gemini-native') {
       const { default: geminiAdapter } = await import('../adapters/gemini.js');
-      result = await geminiAdapter.chat(request.messages, {
-        model: modelId,
-        apiKey: creds.apiKey,
-        familyConfig: modelConfig.familyConfig,
-        wireParams: request.wireParams,
-      });
+      const { adaptParamsForTargetModel, toWireParams } = await import('../GenerationParams.js');
+      const adaptedParams = adaptParamsForTargetModel(
+        request.params ?? {},
+        modelConfig.capabilities,
+      );
+      const wireParams = toWireParams(
+        modelConfig.protocol_family,
+        adaptedParams,
+        modelConfig.capabilities,
+        options?.effectiveMaxTokens,
+      );
+      const { setupAbortController } = await import('../layer0/ExecutionLayer.js');
+      const { controller, cleanup } = setupAbortController(recipe.timeoutMs, options?.signal);
+
+      try {
+        result = await geminiAdapter.chat(request.messages, {
+          model: modelId,
+          apiKey: creds.apiKey,
+          familyConfig: modelConfig.familyConfig,
+          tools: request.tools,
+          tool_choice: request.tool_choice,
+          temperature: adaptedParams.temperature,
+          wireParams: {
+            ...wireParams,
+            ...request.wireParams,
+          },
+          signal: controller.signal,
+          ...request.options,
+        });
+      } finally {
+        cleanup();
+      }
     } else {
       result = await this.executionLayer.execute(modelId, request, {
         apiKey: creds.apiKey,

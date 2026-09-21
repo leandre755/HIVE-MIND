@@ -66,6 +66,7 @@ try {
   embeddings = new EmbeddingsService({
     geminiKey: geminiKey || undefined,
     openaiKey: openaiKey || undefined,
+    dimensions: 1024,
   });
 } catch (error: unknown) {
   console.error('[GraphMemory] Erreur init embeddings:', extractErrorMessage(error));

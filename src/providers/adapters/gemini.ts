@@ -275,6 +275,7 @@ const geminiAdapter: ProviderAdapter = {
       tools,
       temperature = DEFAULT_TEMPERATURE,
       max_tokens: maxTokens,
+      signal,
     } = options;
     const modelId = requireModel(model, 'Gemini Adapter');
 
@@ -325,6 +326,7 @@ const geminiAdapter: ProviderAdapter = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!response.ok) {

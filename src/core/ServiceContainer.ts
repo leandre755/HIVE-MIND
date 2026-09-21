@@ -83,7 +83,10 @@ export class ServiceContainer {
 
   public async init(options: ContainerInitOptions = { mode: 'full' }): Promise<void> {
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this._doInit(options);
+    this.initPromise = this._doInit(options).catch((err) => {
+      this.initPromise = null;
+      throw err;
+    });
     return this.initPromise;
   }
 

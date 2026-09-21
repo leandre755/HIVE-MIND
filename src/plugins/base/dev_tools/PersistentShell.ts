@@ -8,7 +8,7 @@ import { safeExistsSync, safeMkdirSync } from '../../../utils/safeFs.js';
  * Manages a persistent Shell process (bash) to maintain state (CWD, Env vars).
  * Inspired by the Claude Code pattern (PersistentShell.ts).
  */
-class PersistentShell extends EventEmitter {
+export class PersistentShell extends EventEmitter {
   private static readonly SENTINEL_PATTERN = /__HIVE_MIND_SHELL_DONE__(\d+)\|([^\n\r]+)/;
   private shell: ChildProcessWithoutNullStreams | null = null;
   private outputBuffer: string = '';
@@ -17,6 +17,7 @@ class PersistentShell extends EventEmitter {
     : path.resolve(process.cwd(), 'Sandbox1');
   private sentinel: string = '__HIVE_MIND_SHELL_DONE__';
   private isExecuting: boolean = false;
+  private isDisposed: boolean = false;
   private executionPromise: {
     resolve: (val: { stdout: string; exitCode: number }) => void;
     reject: (err: Error) => void;
@@ -50,6 +51,7 @@ class PersistentShell extends EventEmitter {
     });
 
     this.shell.on('exit', (code) => {
+      if (this.isDisposed) return;
       console.log(`[PersistentShell] Shell exited with code ${code}. Restarting...`);
       this._initShell();
     });
@@ -122,7 +124,6 @@ class PersistentShell extends EventEmitter {
         }
       }, timeoutMs);
 
-      // istanbul ignore next
       if (timeout && typeof timeout.unref === 'function') {
         timeout.unref();
       }
@@ -149,6 +150,7 @@ class PersistentShell extends EventEmitter {
    * Terminates the shell
    */
   shutdown() {
+    this.isDisposed = true;
     if (this.executionPromise) {
       this.executionPromise.reject(new Error('Shell was shut down'));
       this.executionPromise = null;

@@ -56,5 +56,19 @@ describe('ServiceContainer (SS-01: Core / IoC Container)', () => {
 
       expect(container.get('serviceX')).toBe('remplacé');
     });
+
+    it('permet de retenter init() après un échec initial sans rester bloqué sur la promesse rejetée', async () => {
+      let attempts = 0;
+      (container as unknown as { _doInit: () => Promise<void> })._doInit = async () => {
+        attempts++;
+        if (attempts === 1) {
+          throw new Error('Transient initialization failure');
+        }
+      };
+
+      await expect(container.init()).rejects.toThrow('Transient initialization failure');
+      await expect(container.init()).resolves.toBeUndefined();
+      expect(attempts).toBe(2);
+    });
   });
 });
