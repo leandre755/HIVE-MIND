@@ -18,8 +18,7 @@ export const mailboxWatcher = {
       },
       30 * 60 * 1000,
     );
-    /* istanbul ignore next */
-    intervalId?.unref?.();
+    intervalId.unref();
   },
 
   stop(): void {

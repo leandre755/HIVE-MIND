@@ -259,14 +259,22 @@ export default {
   },
 
   async apiFetch(url: string, options: RequestInit): Promise<FirecrawlApiResponse> {
-    const res = await fetch(url, options);
-    const contentType = res.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(
-        `API error: non-JSON response (Status ${res.status}). Service potentially unavailable.`,
-      );
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    timer.unref();
+
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(
+          `API error: non-JSON response (Status ${res.status}). Service potentially unavailable.`,
+        );
+      }
+      return (await res.json()) as FirecrawlApiResponse;
+    } finally {
+      clearTimeout(timer);
     }
-    return (await res.json()) as FirecrawlApiResponse;
   },
 
   async handleScrape(url: string, headers: FirecrawlHeaders, baseUrl: string) {
@@ -420,7 +428,10 @@ export default {
 
     while (attempts < maxAttempts) {
       attempts++;
-      await new Promise((r) => setTimeout(r, 10000));
+      await new Promise((r) => {
+        const timer = setTimeout(r, 10000);
+        timer.unref();
+      });
 
       console.log(`[CrawlFire] ⏳ Polling ${type} job ${jobId} (attempt ${attempts})`);
       const json = await this.apiFetch(`${baseUrl}/${type}/${jobId}`, { headers });

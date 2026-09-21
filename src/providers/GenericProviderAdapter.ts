@@ -321,37 +321,39 @@ export class GenericProviderAdapter implements ProviderAdapter {
     const timer = setTimeout(() => {
       controller.abort();
     }, timeoutMs);
+    timer.unref();
 
     let response: Response;
     try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(
-          `[${label}] Délai dépassé : la requête a été interrompue après ` +
-            `${timeoutMs} ms sans réponse du fournisseur.`,
-          { cause: error },
-        );
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(
+            `[${label}] Délai dépassé : la requête a été interrompue après ${timeoutMs} ms sans réponse du fournisseur.`,
+            { cause: error },
+          );
+        }
+        throw error;
       }
-      throw error;
+
+      // 6. Échec HTTP : le moteur de protocole traduit et lève toujours.
+      if (!response.ok) {
+        const errorBody: unknown = await response.json().catch(() => null);
+        throw protocol.parseError(errorBody, response.status);
+      }
+
+      // 7. Succès : résultat du moteur, sans ajout de cet adapter.
+      const data: unknown = await response.json();
+      return protocol.parseResponse(data, ctx);
     } finally {
       clearTimeout(timer);
     }
-
-    // 6. Échec HTTP : le moteur de protocole traduit et lève toujours.
-    if (!response.ok) {
-      const errorBody: unknown = await response.json().catch(() => null);
-      throw protocol.parseError(errorBody, response.status);
-    }
-
-    // 7. Succès : résultat du moteur, sans ajout de cet adapter.
-    const data: unknown = await response.json();
-    return protocol.parseResponse(data, ctx);
   }
 }
 

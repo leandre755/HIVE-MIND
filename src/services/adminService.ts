@@ -34,6 +34,7 @@ interface ContainerLike {
 const adminCache = new Map<string, AdminRole>();
 const REFRESH_INTERVAL = 10 * 60 * 1000;
 let refreshIntervalId: ReturnType<typeof setInterval> | null = null;
+let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -60,7 +61,10 @@ export const adminService = {
       const success = await this.refresh();
       if (!success) {
         console.log('[AdminService] Retry refresh in 5s...');
-        setTimeout(initialRefresh, 5000);
+        retryTimeoutId = setTimeout(initialRefresh, 5000);
+        retryTimeoutId.unref();
+      } else {
+        retryTimeoutId = null;
       }
     };
     await initialRefresh();
@@ -72,11 +76,14 @@ export const adminService = {
     refreshIntervalId = setInterval(() => {
       this.refresh().catch(console.error);
     }, REFRESH_INTERVAL);
-    /* istanbul ignore next */
-    refreshIntervalId?.unref?.();
+    refreshIntervalId.unref();
   },
 
   destroy() {
+    if (retryTimeoutId !== null) {
+      clearTimeout(retryTimeoutId);
+      retryTimeoutId = null;
+    }
     if (refreshIntervalId !== null) {
       clearInterval(refreshIntervalId);
       refreshIntervalId = null;
