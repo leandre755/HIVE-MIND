@@ -186,6 +186,32 @@ export function processConnectionUpdate(
 }
 
 /**
+ * Nettoie et déconnecte un socket actif en purgeant ses écouteurs d'événements.
+ */
+export function cleanupActiveSocket(socket: WASocket | null): void {
+  if (!socket) return;
+  try {
+    socket.ev.removeAllListeners('creds.update');
+    socket.ev.removeAllListeners('connection.update');
+    socket.end(undefined);
+  } catch {
+    // Ignore socket cleanup error
+  }
+}
+
+/**
+ * Programme une reconnexion en annulant tout timer de reconnexion existant.
+ */
+export function scheduleReconnect(
+  currentTimer: NodeJS.Timeout | null,
+  onReconnect: () => void,
+  delayMs = 1500,
+): NodeJS.Timeout {
+  if (currentTimer) clearTimeout(currentTimer);
+  return setTimeout(onReconnect, delayMs);
+}
+
+/**
  * Traite le cycle complet d'authentification WhatsApp avec reconnexion automatique
  * et attente effective de la confirmation par téléphone.
  */
@@ -226,16 +252,7 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
         isFinished = true;
         clearTimeout(globalTimer);
         if (reconnectTimer) clearTimeout(reconnectTimer);
-
-        if (activeSocket) {
-          try {
-            activeSocket.ev.removeAllListeners('creds.update');
-            activeSocket.ev.removeAllListeners('connection.update');
-            activeSocket.end(undefined);
-          } catch {
-            // Ignore socket cleanup error
-          }
-        }
+        cleanupActiveSocket(activeSocket);
 
         const finalize = async () => {
           // En cas de succès, on force le flush disque des creds (incluant me.id)
@@ -265,16 +282,7 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
 
       const startSock = () => {
         if (isFinished) return;
-
-        if (activeSocket) {
-          try {
-            activeSocket.ev.removeAllListeners('creds.update');
-            activeSocket.ev.removeAllListeners('connection.update');
-            activeSocket.end(undefined);
-          } catch {
-            // Ignore socket cleanup error
-          }
-        }
+        cleanupActiveSocket(activeSocket);
 
         const sock = makeWASocket({
           version,
@@ -294,8 +302,7 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
           isFinishedLive: () => isFinished,
           finish,
           reconnect: () => {
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(startSock, 1500);
+            reconnectTimer = scheduleReconnect(reconnectTimer, startSock);
           },
         };
 

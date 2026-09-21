@@ -1,8 +1,10 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { DisconnectReason, type ConnectionState } from '@whiskeysockets/baileys';
+import { DisconnectReason, type ConnectionState, type WASocket } from '@whiskeysockets/baileys';
 import {
   handleConnectionClose,
   processConnectionUpdate,
+  cleanupActiveSocket,
+  scheduleReconnect,
   type SocketContext,
 } from '../../../cli/whatsappAuthHelper.js';
 
@@ -136,6 +138,58 @@ describe('whatsappAuthHelper - Connection Handling', () => {
 
       expect(reconnect).toHaveBeenCalledTimes(1);
       expect(finish).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cleanupActiveSocket and scheduleReconnect', () => {
+    it('handles null socket safely in cleanupActiveSocket', () => {
+      expect(() => cleanupActiveSocket(null)).not.toThrow();
+    });
+
+    it('cleans up event listeners and ends active socket in cleanupActiveSocket', () => {
+      const mockSocket = {
+        ev: {
+          removeAllListeners: jest.fn(),
+        },
+        end: jest.fn(),
+      } as unknown as WASocket;
+
+      cleanupActiveSocket(mockSocket);
+
+      expect(mockSocket.ev.removeAllListeners).toHaveBeenCalledWith('creds.update');
+      expect(mockSocket.ev.removeAllListeners).toHaveBeenCalledWith('connection.update');
+      expect(mockSocket.end).toHaveBeenCalledWith(undefined);
+    });
+
+    it('catches and ignores socket.end errors safely', () => {
+      const throwingSocket = {
+        ev: {
+          removeAllListeners: jest.fn(),
+        },
+        end: jest.fn().mockImplementation(() => {
+          throw new Error('Socket already destroyed');
+        }),
+      } as unknown as WASocket;
+
+      expect(() => cleanupActiveSocket(throwingSocket)).not.toThrow();
+    });
+
+    it('schedules reconnect and clears previous timer in scheduleReconnect', () => {
+      jest.useFakeTimers();
+      const callback = jest.fn();
+      const previousTimer = setTimeout(() => {}, 10000);
+      const clearSpy = jest.spyOn(global, 'clearTimeout');
+
+      const newTimer = scheduleReconnect(previousTimer, callback, 1500);
+
+      expect(clearSpy).toHaveBeenCalledWith(previousTimer);
+      expect(callback).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(1500);
+      expect(callback).toHaveBeenCalledTimes(1);
+
+      clearTimeout(newTimer);
+      jest.useRealTimers();
     });
   });
 });

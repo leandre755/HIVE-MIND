@@ -276,7 +276,7 @@ function streamOnEnd(this: StreamState): void {
   });
 }
 
-function readFileInRangeStreaming(
+export function readFileInRangeStreaming(
   filePath: string,
   offset: number,
   maxLines: number | undefined,

@@ -1,6 +1,10 @@
 import { describe, beforeAll, afterAll, it, expect } from '@jest/globals';
 import * as path from 'path';
-import { readFileInRange, FileTooLargeError } from '../../../utils/readFileInRange.js';
+import {
+  readFileInRange,
+  readFileInRangeStreaming,
+  FileTooLargeError,
+} from '../../../utils/readFileInRange.js';
 import {
   safeExistsSync,
   safeMkdirSync,
@@ -118,5 +122,44 @@ describe('readFileInRange', () => {
       'Abort manually',
     );
     expect(ac.signal.aborted).toBe(true);
+  });
+
+  it('should read via readFileInRangeStreaming directly and handle stream completion', async () => {
+    const filePath = path.join(testDir, 'streaming_direct.txt');
+    const lines = Array.from({ length: 100 }, (_, i) => `line ${i}`);
+    safeWriteFileSync(filePath, lines.join('\n'), 'utf8');
+
+    const result = await readFileInRangeStreaming(filePath, 10, 5, undefined, false);
+    expect(result.content).toBe('line 10\nline 11\nline 12\nline 13\nline 14');
+    expect(result.lineCount).toBe(5);
+  });
+
+  it('should clean up abort listeners on stream end in readFileInRangeStreaming', async () => {
+    const filePath = path.join(testDir, 'streaming_direct_signal.txt');
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i}`);
+    safeWriteFileSync(filePath, lines.join('\n'), 'utf8');
+
+    const ac = new AbortController();
+    const result = await readFileInRangeStreaming(filePath, 0, 5, undefined, false, ac.signal);
+    expect(result.lineCount).toBe(5);
+  });
+
+  it('should handle abort signal in readFileInRangeStreaming', async () => {
+    const filePath = path.join(testDir, 'streaming_abort_direct.txt');
+    const lines = Array.from({ length: 2000 }, (_, i) => `line ${i}`);
+    safeWriteFileSync(filePath, lines.join('\n'), 'utf8');
+
+    const ac = new AbortController();
+    const promise = readFileInRangeStreaming(filePath, 0, 1000, undefined, false, ac.signal);
+    ac.abort(new Error('Streaming aborted manually'));
+    await expect(promise).rejects.toThrow('Streaming aborted manually');
+  });
+
+  it('should reject and clean up signal on stream error in readFileInRangeStreaming', async () => {
+    const nonExistentPath = path.join(testDir, 'non_existent_stream_file.txt');
+    const ac = new AbortController();
+    await expect(
+      readFileInRangeStreaming(nonExistentPath, 0, 5, undefined, false, ac.signal),
+    ).rejects.toThrow();
   });
 });
