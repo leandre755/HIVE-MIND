@@ -1119,7 +1119,7 @@ export class BotCore {
         await converter.convertPcmToOgg(response.audioFile, outputOgg);
         await this.transport.sendVoiceNote(chatId, outputOgg);
 
-        setTimeout(() => {
+        const audioCleanupTimer = setTimeout(() => {
           try {
             safeUnlinkSync(response.audioFile!);
           } catch {
@@ -1131,6 +1131,7 @@ export class BotCore {
             /* ignore */
           }
         }, 10000);
+        audioCleanupTimer.unref();
       } catch (e: unknown) {
         const eMsg = e instanceof Error ? e.message : String(e);
         console.error('[Core] ❌ Erreur envoi vocal natif:', eMsg);
@@ -1266,14 +1267,17 @@ export class BotCore {
         })
         .catch(() => {});
 
-      setTimeout(
+      const cleanupTimer = setTimeout(
         () => {
           safeUnlink(filePath).catch((err: unknown) => {
-            console.error('[BotCore] Erreur suppression fichier temporaire:', err);
+            if ((err as { code?: string })?.code !== 'ENOENT') {
+              console.error('[BotCore] Erreur suppression fichier temporaire:', err);
+            }
           });
         },
         10 * 60 * 1000,
       );
+      cleanupTimer.unref();
 
       const timeString = new Date().toLocaleString('fr-FR');
       return `\n\n[SYSTÈME ALERTE FICHIER : \n- Expéditeur : @${senderName}\n- Date : ${timeString}\n- Fichier reçu : "${originalFileName}"\n- Type : ${message.mediaType}\n- Emplacement temporaire : ${filePath}\n\nATTENTION : Ce fichier est stocké dans un répertoire temporaire et SERA SUPPRIMÉ AUTOMATIQUEMENT dans 10 minutes. Si ce fichier est important et que vous devez le conserver, vous DEVEZ utiliser vos outils pour le copier ou le déplacer vers un stockage permanent avant de faire autre chose. Vous pouvez lire son contenu avec read_file si nécessaire.]`;
