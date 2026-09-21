@@ -45,10 +45,7 @@ describe('adminService lifecycle', () => {
     mockRefresh.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     await adminService.init();
 
-    jest.advanceTimersByTime(5000);
-    // Wait for async operations to complete
-    await new Promise(process.nextTick);
-    await new Promise(process.nextTick);
+    await jest.advanceTimersByTimeAsync(5000);
 
     expect(mockRefresh).toHaveBeenCalledTimes(2);
   });
