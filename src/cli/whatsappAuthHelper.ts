@@ -106,7 +106,7 @@ async function executePairingRequest(sock: WASocket, cleanPhone: string): Promis
 /**
  * Gère la fermeture de connexion intermédiaire et les reconnexions transitoires.
  */
-function handleConnectionClose(
+export function handleConnectionClose(
   lastDisconnect: Partial<ConnectionState>['lastDisconnect'],
   pairingRequested: boolean,
   isRegistered: boolean,
@@ -147,7 +147,7 @@ function handleConnectionClose(
   onFail();
 }
 
-interface SocketContext {
+export interface SocketContext {
   mode: WhatsAppAuthMode;
   isRegisteredLive: () => boolean;
   pairingState: { requested: boolean };
@@ -156,7 +156,10 @@ interface SocketContext {
   reconnect: () => void;
 }
 
-function processConnectionUpdate(update: Partial<ConnectionState>, ctx: SocketContext): void {
+export function processConnectionUpdate(
+  update: Partial<ConnectionState>,
+  ctx: SocketContext,
+): void {
   const { connection, lastDisconnect, qr } = update;
 
   if (qr && ctx.mode === 'qr') {

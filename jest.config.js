@@ -17,6 +17,7 @@ const jestConfig = {
         // Disable ts-jest diagnostics because they produce false positives (TS1378, TS1343)
         // in our ESM test environment. Real type safety is enforced by `tsc --noEmit`.
         diagnostics: false,
+        isolatedModules: true,
       },
     ],
   },
