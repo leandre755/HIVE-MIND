@@ -46,11 +46,43 @@ const {
 } = await import('../../../utils/safeFs.js');
 
 describe('BotCore Media & Audio Lifecycle', () => {
+  const pcmFile = path.join(process.cwd(), 'hm_storage', 'test_audio.pcm');
+  const oggFile = path.join(process.cwd(), 'hm_storage', 'test_audio.ogg');
+  const dirFilePath = path.join(
+    process.cwd(),
+    'hm_storage',
+    'tmp_download',
+    'dir_error_target.txt',
+  );
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+    try {
+      if (safeExistsSync(dirFilePath)) {
+        safeRemoveDirectorySync(dirFilePath);
+      }
+    } catch {
+      try {
+        safeUnlinkSync(dirFilePath);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      if (safeExistsSync(pcmFile)) safeUnlinkSync(pcmFile);
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (safeExistsSync(oggFile)) safeUnlinkSync(oggFile);
+    } catch {
+      /* ignore */
+    }
+  });
+
   it('gère la réponse audio et nettoie les fichiers temporaires après délai', async () => {
     jest.useFakeTimers();
-    const pcmFile = path.join(process.cwd(), 'hm_storage', 'test_audio.pcm');
-    const oggFile = path.join(process.cwd(), 'hm_storage', 'test_audio.ogg');
-
     safeWriteFileSync(pcmFile, 'pcm test');
     safeWriteFileSync(oggFile, 'ogg test');
 
@@ -86,25 +118,23 @@ describe('BotCore Media & Audio Lifecycle', () => {
       sourceChannel: 'cli',
     };
 
-    const handled = await (
-      botCore as unknown as {
-        _handleNativeAudioFlow: (m: unknown, c: string) => Promise<boolean>;
-      }
-    )._handleNativeAudioFlow(message, 'chat_audio');
+    try {
+      const handled = await (
+        botCore as unknown as {
+          _handleNativeAudioFlow: (m: unknown, c: string) => Promise<boolean>;
+        }
+      )._handleNativeAudioFlow(message, 'chat_audio');
 
-    expect(handled).toBe(true);
-    expect(mockSendVoiceNote).toHaveBeenCalledWith('chat_audio', oggFile);
+      expect(handled).toBe(true);
+      expect(mockSendVoiceNote).toHaveBeenCalledWith('chat_audio', oggFile);
 
-    await jest.advanceTimersByTimeAsync(10000);
-    expect(safeExistsSync(pcmFile)).toBe(false);
-    expect(safeExistsSync(oggFile)).toBe(false);
-
-    if (safeExistsSync(pcmFile)) safeUnlinkSync(pcmFile);
-    if (safeExistsSync(oggFile)) safeUnlinkSync(oggFile);
-
-    loadSpy.mockRestore();
-    getToolsSpy.mockRestore();
-    jest.useRealTimers();
+      await jest.advanceTimersByTimeAsync(10000);
+      expect(safeExistsSync(pcmFile)).toBe(false);
+      expect(safeExistsSync(oggFile)).toBe(false);
+    } finally {
+      loadSpy.mockRestore();
+      getToolsSpy.mockRestore();
+    }
   });
 
   it('loggue une erreur si safeUnlink échoue avec une erreur autre que ENOENT lors du nettoyage', async () => {
@@ -119,26 +149,34 @@ describe('BotCore Media & Audio Lifecycle', () => {
       raw: { documentMessage: { fileName: 'dir_error_target.txt' } },
     };
 
-    await (
-      botCore as unknown as {
-        _downloadMediaDocumentNotice: (m: unknown, s: string, c: string) => Promise<string | null>;
+    try {
+      await (
+        botCore as unknown as {
+          _downloadMediaDocumentNotice: (
+            m: unknown,
+            s: string,
+            c: string,
+          ) => Promise<string | null>;
+        }
+      )._downloadMediaDocumentNotice(msg, 'UserTest', 'chat123');
+
+      safeUnlinkSync(dirFilePath);
+      safeMkdirSync(dirFilePath);
+
+      await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
+      jest.useRealTimers();
+
+      for (let i = 0; i < 50 && consoleErrorSpy.mock.calls.length === 0; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
       }
-    )._downloadMediaDocumentNotice(msg, 'UserTest', 'chat123');
 
-    const filePath = path.join(process.cwd(), 'hm_storage', 'tmp_download', 'dir_error_target.txt');
-    safeUnlinkSync(filePath);
-    safeMkdirSync(filePath);
-
-    await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[BotCore] Erreur suppression fichier temporaire:'),
-      expect.anything(),
-    );
-
-    safeRemoveDirectorySync(filePath);
-    consoleErrorSpy.mockRestore();
-    mockDownload.mockRestore();
-    jest.useRealTimers();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[BotCore] Erreur suppression fichier temporaire:'),
+        expect.anything(),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+      mockDownload.mockRestore();
+    }
   });
 });
