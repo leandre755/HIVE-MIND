@@ -222,12 +222,6 @@ export const telegramTransport: TelegramTransport = {
       const chunks = text.match(/[\s\S]{1,4000}/gu) || [];
       for (const chunk of chunks) {
         await telegramTransport.sendText(chatId, chunk, options);
-        // Anti-FLOOD_WAIT: pause between chunks
-        await new Promise((r) => {
-          const t = setTimeout(r, 1500);
-          /* istanbul ignore next */
-          t.unref();
-        });
       }
       return;
     }

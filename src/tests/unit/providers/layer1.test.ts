@@ -13,7 +13,7 @@ import { CredentialProvider } from '../../../providers/layer1/CredentialProvider
 import { ServiceRegistry } from '../../../providers/layer1/ServiceRegistry.js';
 import { SmartLayer } from '../../../providers/layer1/SmartLayer.js';
 import { ExecutionLayer } from '../../../providers/layer0/ExecutionLayer.js';
-import { ServerError } from '../../../providers/layer0/errors.js';
+import { ServerError, RateLimitError } from '../../../providers/layer0/errors.js';
 import geminiAdapter from '../../../providers/adapters/gemini.js';
 import type { AdapterChatResult } from '../../../providers/types.js';
 
@@ -295,6 +295,77 @@ describe('Layer 1 - SmartLayer', () => {
     expect(options.temperature).toBeCloseTo(0.12);
     expect(options.signal).toBeDefined();
     expect((options.wireParams as Record<string, unknown>).maxOutputTokens).toBe(12);
+    chatSpy.mockRestore();
+  });
+
+  it('Gemini-native SmartLayer streaming falls back through geminiAdapter.chat and yields chunks', async () => {
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'Streaming fallback content',
+      thought: 'Streaming thought',
+      toolCalls: [],
+      usage: { total_tokens: 5 },
+    });
+
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 0,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+
+    const chunks = [];
+    for await (const chunk of smart.executeStream({
+      modelId: 'gemini-2.5-flash',
+      messages: [{ role: 'user', content: 'Stream gemini' }],
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].content).toBe('Streaming fallback content');
+    expect(chunks[0].usedModel).toBe('gemini-2.5-flash');
+    chatSpy.mockRestore();
+  });
+
+  it('records quota exceeded when execute throws RateLimitError', async () => {
+    const chatSpy = jest
+      .spyOn(geminiAdapter, 'chat')
+      .mockRejectedValueOnce(new RateLimitError('Quota exceeded'));
+
+    const recordQuotaSpy = jest.fn<CredentialProvider['recordQuotaExceeded']>();
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 2,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: recordQuotaSpy,
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+
+    await expect(
+      smart.execute({
+        modelId: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'test rate limit' }],
+      }),
+    ).rejects.toThrow('Quota exceeded');
+
+    expect(recordQuotaSpy).toHaveBeenCalledWith('gemini-2.5-flash', 2);
     chatSpy.mockRestore();
   });
 });

@@ -156,7 +156,7 @@ export class PersistentShell extends EventEmitter {
       this.executionPromise = null;
       this.isExecuting = false;
     }
-    this.shell?.kill();
+    this.shell?.kill('SIGKILL');
     this.shell = null;
   }
 }

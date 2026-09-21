@@ -166,6 +166,45 @@ describe('ExplicitPlanner', () => {
       expect(parsedArgs.target_url).toBe('https://example.com/target-page');
       expect(parsedArgs.file_path).toBe('/path/to/reconstructed/file.txt');
     });
+
+    it('handles step failure and marks executionLog as failed without adding to completed', async () => {
+      const planner = new ExplicitPlanner();
+      const executeToolMock = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue({ success: false, error: 'Step execution failed permanently' });
+
+      const plan = {
+        id: 'plan_failed',
+        goal: 'Test failure',
+        totalTime: 5,
+        complexity: 'low',
+        status: 'pending',
+        steps: [
+          {
+            id: 99,
+            action: 'Failing action',
+            tool: 'test_tool',
+            estimated_time: 5,
+            params: {},
+            depends_on: [],
+          },
+        ],
+      };
+
+      const context = {
+        chatId: 'chat_fail',
+        executeToolFn: executeToolMock as unknown as (
+          toolCall: { id: string; function: { name: string; arguments: string } },
+          message: unknown,
+        ) => Promise<{ success: boolean; llmOutput: string }>,
+        tools: [createToolDefinition('test_tool', 'A test tool')],
+        message: { role: 'user', content: 'test' },
+      };
+
+      const result = await planner.execute(plan, context);
+      expect(result.failed).toContain(99);
+      expect(result.completed).not.toContain(99);
+    });
   });
 });
 

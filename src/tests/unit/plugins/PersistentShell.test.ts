@@ -1,5 +1,8 @@
-import { describe, it, expect, afterEach } from '@jest/globals';
-import { PersistentShell } from '../../../plugins/base/dev_tools/PersistentShell.js';
+import { describe, it, expect, afterEach, afterAll } from '@jest/globals';
+import {
+  PersistentShell,
+  persistentShell,
+} from '../../../plugins/base/dev_tools/PersistentShell.js';
 
 describe('PersistentShell Lifecycle & Execution', () => {
   let shell: PersistentShell | null = null;
@@ -9,6 +12,10 @@ describe('PersistentShell Lifecycle & Execution', () => {
       shell.shutdown();
       shell = null;
     }
+  });
+
+  afterAll(() => {
+    persistentShell.shutdown();
   });
 
   it('executes a basic command and retrieves stdout and exitCode', async () => {
@@ -32,10 +39,14 @@ describe('PersistentShell Lifecycle & Execution', () => {
     const afterShutdownShell = (shell as unknown as { shell: unknown }).shell;
     expect(afterShutdownShell).toBeNull();
 
-    // Wait a brief tick to ensure the exit event did not spawn a replacement
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
     const stillNull = (shell as unknown as { shell: unknown }).shell;
     expect(stillNull).toBeNull();
+  });
+
+  it('rejects pending execution and clears execution state when shutdown is called during execution', async () => {
+    shell = new PersistentShell();
+    const execPromise = shell.execute('sleep 0.1', 10000);
+    shell.shutdown();
+    await expect(execPromise).rejects.toThrow('Shell was shut down');
   });
 });

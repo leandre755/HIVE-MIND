@@ -45,10 +45,9 @@ async function getRuntime() {
   } catch {
     /* ignore */
   }
-  const { AIRuntimeInfrastructure } =
-    (await import('../services/runtime/RuntimeInfrastructure.js')) as {
-      AIRuntimeInfrastructure: new () => unknown;
-    };
+  const { AIRuntimeInfrastructure } = (await Function(
+    'return import("../services/runtime/RuntimeInfrastructure.js")',
+  )()) as { AIRuntimeInfrastructure: new () => unknown };
   activeRuntime = new AIRuntimeInfrastructure();
   return activeRuntime;
 }
