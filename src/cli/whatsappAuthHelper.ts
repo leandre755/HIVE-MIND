@@ -106,7 +106,7 @@ async function executePairingRequest(sock: WASocket, cleanPhone: string): Promis
 /**
  * Gère la fermeture de connexion intermédiaire et les reconnexions transitoires.
  */
-function handleConnectionClose(
+export function handleConnectionClose(
   lastDisconnect: Partial<ConnectionState>['lastDisconnect'],
   pairingRequested: boolean,
   isRegistered: boolean,
@@ -133,21 +133,21 @@ function handleConnectionClose(
   // et l'authentification tourne jusqu'au timeout ("impossible de se connecter").
   if (isRegistered) {
     console.log('🔄 Finalisation de la session authentifiée...');
-    setTimeout(onReconnect, 1500);
+    onReconnect();
     return;
   }
 
   // Reconnexions intermédiaires transitoires pendant l'attente de saisie du code.
   if (pairingRequested) {
     console.log('🔄 Reconnexion intermédiaire au réseau WhatsApp...');
-    setTimeout(onReconnect, 1500);
+    onReconnect();
     return;
   }
 
   onFail();
 }
 
-interface SocketContext {
+export interface SocketContext {
   mode: WhatsAppAuthMode;
   isRegisteredLive: () => boolean;
   pairingState: { requested: boolean };
@@ -156,7 +156,10 @@ interface SocketContext {
   reconnect: () => void;
 }
 
-function processConnectionUpdate(update: Partial<ConnectionState>, ctx: SocketContext): void {
+export function processConnectionUpdate(
+  update: Partial<ConnectionState>,
+  ctx: SocketContext,
+): void {
   const { connection, lastDisconnect, qr } = update;
 
   if (qr && ctx.mode === 'qr') {
@@ -180,6 +183,32 @@ function processConnectionUpdate(update: Partial<ConnectionState>, ctx: SocketCo
       () => ctx.finish(false),
     );
   }
+}
+
+/**
+ * Nettoie et déconnecte un socket actif en purgeant ses écouteurs d'événements.
+ */
+export function cleanupActiveSocket(socket: WASocket | null): void {
+  if (!socket) return;
+  try {
+    socket.ev.removeAllListeners('creds.update');
+    socket.ev.removeAllListeners('connection.update');
+    socket.end(undefined);
+  } catch {
+    // Ignore socket cleanup error
+  }
+}
+
+/**
+ * Programme une reconnexion en annulant tout timer de reconnexion existant.
+ */
+export function scheduleReconnect(
+  currentTimer: NodeJS.Timeout | null,
+  onReconnect: () => void,
+  delayMs = 1500,
+): NodeJS.Timeout {
+  if (currentTimer) clearTimeout(currentTimer);
+  return setTimeout(onReconnect, delayMs);
 }
 
 /**
@@ -215,22 +244,15 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
     return await new Promise<boolean>((resolvePromise) => {
       let isFinished = false;
       let activeSocket: WASocket | null = null;
+      let reconnectTimer: NodeJS.Timeout | null = null;
       const pairingState = { requested: false };
 
       const finish = (result: boolean) => {
         if (isFinished) return;
         isFinished = true;
         clearTimeout(globalTimer);
-
-        if (activeSocket) {
-          try {
-            activeSocket.ev.removeAllListeners('creds.update');
-            activeSocket.ev.removeAllListeners('connection.update');
-            activeSocket.end(undefined);
-          } catch {
-            // Ignore socket cleanup error
-          }
-        }
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        cleanupActiveSocket(activeSocket);
 
         const finalize = async () => {
           // En cas de succès, on force le flush disque des creds (incluant me.id)
@@ -260,6 +282,7 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
 
       const startSock = () => {
         if (isFinished) return;
+        cleanupActiveSocket(activeSocket);
 
         const sock = makeWASocket({
           version,
@@ -278,7 +301,9 @@ export async function authenticateWhatsApp(mode: WhatsAppAuthMode): Promise<bool
           pairingState,
           isFinishedLive: () => isFinished,
           finish,
-          reconnect: startSock,
+          reconnect: () => {
+            reconnectTimer = scheduleReconnect(reconnectTimer, startSock);
+          },
         };
 
         sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {

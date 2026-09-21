@@ -213,3 +213,7 @@ export function safeSymlinkSync(target: string, path: string): void {
   const fn = fsGet('symlinkSync');
   fn!(resolve(target), resolve(path));
 }
+
+export function safeRmSync(path: string, options?: fs.RmOptions): void {
+  fs.rmSync(path, options);
+}

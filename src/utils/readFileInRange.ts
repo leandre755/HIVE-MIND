@@ -276,7 +276,7 @@ function streamOnEnd(this: StreamState): void {
   });
 }
 
-function readFileInRangeStreaming(
+export function readFileInRangeStreaming(
   filePath: string,
   offset: number,
   maxLines: number | undefined,
@@ -315,18 +315,31 @@ function readFileInRangeStreaming(
       mtimeReady,
     };
 
+    let abortListener: (() => void) | undefined;
+    const cleanupSignal = () => {
+      if (signal && abortListener) {
+        signal.removeEventListener('abort', abortListener);
+      }
+    };
+
     stream.once('open', streamOnOpen.bind(state));
     stream.on('data', streamOnData.bind(state));
-    stream.once('end', streamOnEnd.bind(state));
+    stream.once('end', () => {
+      cleanupSignal();
+      streamOnEnd.call(state);
+    });
     stream.once('error', (err) => {
+      cleanupSignal();
       reject(err);
     });
 
     if (signal) {
-      signal.addEventListener('abort', () => {
+      abortListener = () => {
+        cleanupSignal();
         stream.destroy();
         reject(signal.reason || new Error('Aborted'));
-      });
+      };
+      signal.addEventListener('abort', abortListener);
     }
   });
 }
