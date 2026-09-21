@@ -178,50 +178,87 @@ export class SmartLayer {
     };
   }
 
-  public async execute(
-    request: SmartExecutionRequest,
-    options?: SmartExecutionOptions,
-  ): Promise<SmartExecuteResult> {
-    const budget = this.prepareExecutionBudget(request, options);
-    const { targetName, sortedModels, recipe, startTime, deadlineMs, maxAttempts } = budget;
-
+  private async *iterateEligibleCandidates(budget: {
+    startTime: number;
+    deadlineMs: number;
+    maxAttempts: number;
+    sortedModels: string[];
+    recipe: ReturnType<ServiceRegistry['getRecipe']>;
+  }): AsyncIterable<{
+    modelId: string;
+    family: string;
+    creds: CredentialResolution;
+    releaseProbe: () => void;
+  }> {
     let attemptsCount = 0;
-    let lastError: unknown = null;
-
-    for (const modelId of sortedModels) {
-      if (attemptsCount >= maxAttempts || Date.now() - startTime >= deadlineMs) break;
+    for (const modelId of budget.sortedModels) {
+      if (
+        attemptsCount >= budget.maxAttempts ||
+        Date.now() - budget.startTime >= budget.deadlineMs
+      ) {
+        break;
+      }
       if (!this.isAttemptEligible(modelId)) continue;
 
-      const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
+      const family =
+        this.healthRegistry.getFamilyForModel(modelId) || budget.recipe.family || 'openai';
 
       try {
         const creds = await this.credentialProvider.getKey(family, modelId);
         if (!creds?.apiKey) continue;
 
         attemptsCount++;
-        try {
-          return await this.executeAttempt(
-            modelId,
-            request,
-            options,
-            recipe,
-            creds,
-            family,
-            attemptsCount,
-          );
-        } catch (error: unknown) {
-          lastError = error;
-          await this.handleCandidateFailure(modelId, error, family, creds, options);
-        }
-      } finally {
+        yield {
+          modelId,
+          family,
+          creds,
+          releaseProbe: () => this.healthRegistry.releaseHalfOpenProbe(modelId),
+        };
+      } catch (error: unknown) {
         this.healthRegistry.releaseHalfOpenProbe(modelId);
+        throw error;
+      }
+    }
+  }
+
+  public async execute(
+    request: SmartExecutionRequest,
+    options?: SmartExecutionOptions,
+  ): Promise<SmartExecuteResult> {
+    const budget = this.prepareExecutionBudget(request, options);
+    let attemptsCount = 0;
+    let lastError: unknown = null;
+
+    for await (const candidate of this.iterateEligibleCandidates(budget)) {
+      attemptsCount++;
+      try {
+        return await this.executeAttempt(
+          candidate.modelId,
+          request,
+          options,
+          budget.recipe,
+          candidate.creds,
+          candidate.family,
+          attemptsCount,
+        );
+      } catch (error: unknown) {
+        lastError = error;
+        await this.handleCandidateFailure(
+          candidate.modelId,
+          error,
+          candidate.family,
+          candidate.creds,
+          options,
+        );
+      } finally {
+        candidate.releaseProbe();
       }
     }
 
     throw (
       lastError ||
       new Error(
-        `SmartLayer: Request for "${targetName}" failed after ${attemptsCount} attempts or deadline exceeded`,
+        `SmartLayer: Request for "${budget.targetName}" failed after ${attemptsCount} attempts or deadline exceeded`,
       )
     );
   }
@@ -400,38 +437,33 @@ export class SmartLayer {
     options?: SmartExecutionOptions,
   ): AsyncIterable<StreamChunk & { usedModel?: string; usedProvider?: string }> {
     const budget = this.prepareExecutionBudget(request, options);
-    const { targetName, sortedModels, recipe, startTime, deadlineMs, maxAttempts } = budget;
-
     let attemptsCount = 0;
     let lastError: unknown = null;
 
-    for (const modelId of sortedModels) {
-      if (attemptsCount >= maxAttempts || Date.now() - startTime >= deadlineMs) break;
-      if (!this.isAttemptEligible(modelId)) continue;
-
-      const family = this.healthRegistry.getFamilyForModel(modelId) || recipe.family || 'openai';
-
+    for await (const candidate of this.iterateEligibleCandidates(budget)) {
+      attemptsCount++;
       try {
-        const creds = await this.credentialProvider.getKey(family, modelId);
-        if (!creds?.apiKey) continue;
-
-        attemptsCount++;
-        try {
-          yield* this.streamAttempt(modelId, request, options, recipe, creds, family);
-          return;
-        } catch (error: unknown) {
-          this.handleStreamAttemptError(error, options);
-          lastError = error;
-        }
+        yield* this.streamAttempt(
+          candidate.modelId,
+          request,
+          options,
+          budget.recipe,
+          candidate.creds,
+          candidate.family,
+        );
+        return;
+      } catch (error: unknown) {
+        this.handleStreamAttemptError(error, options);
+        lastError = error;
       } finally {
-        this.healthRegistry.releaseHalfOpenProbe(modelId);
+        candidate.releaseProbe();
       }
     }
 
     throw (
       lastError ||
       new Error(
-        `SmartLayer: Streaming request for "${targetName}" failed after ${attemptsCount} attempts or deadline exceeded`,
+        `SmartLayer: Streaming request for "${budget.targetName}" failed after ${attemptsCount} attempts or deadline exceeded`,
       )
     );
   }
