@@ -49,4 +49,11 @@ describe('adminService lifecycle', () => {
 
     expect(mockRefresh).toHaveBeenCalledTimes(2);
   });
+
+  it('clears pending retry timeout on destroy if retry was scheduled', async () => {
+    mockRefresh.mockResolvedValueOnce(false);
+    await adminService.init();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    adminService.destroy();
+  });
 });
