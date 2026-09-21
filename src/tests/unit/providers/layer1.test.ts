@@ -734,4 +734,32 @@ describe('Layer 1 - SmartLayer (Signal Abort & Timeout Fallback)', () => {
     expect(getCallCount()).toBeGreaterThanOrEqual(2);
     chatSpy.mockRestore();
   });
+
+  it('breaks candidate iteration when maxAttempts is reached', async () => {
+    const { smart, getCallCount } = createFallbackTestLayer({
+      execute: jest.fn<ExecutionLayer['execute']>().mockRejectedValue(new Error('model down')),
+    });
+
+    await expect(
+      smart.execute(
+        { serviceOrCategory: 'EXECUTOR', messages: [{ role: 'user', content: 'test' }] },
+        { maxAttempts: 1 },
+      ),
+    ).rejects.toThrow('model down');
+
+    expect(getCallCount()).toBe(1);
+  });
+
+  it('releases probe and rethrows if getKey throws an unexpected error', async () => {
+    const smart = makeSmartLayer({
+      getKey: jest.fn<CredentialProvider['getKey']>().mockRejectedValue(new Error('Vault error')),
+    });
+
+    await expect(
+      smart.execute({
+        serviceOrCategory: 'EXECUTOR',
+        messages: [{ role: 'user', content: 'test' }],
+      }),
+    ).rejects.toThrow('Vault error');
+  });
 });
