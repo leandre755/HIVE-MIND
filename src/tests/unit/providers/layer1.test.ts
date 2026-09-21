@@ -472,4 +472,141 @@ describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
 
     chatSpy.mockRestore();
   });
+
+  it('Gemini-native SmartLayer streaming attaches listener and yields chunks when signal is not aborted', async () => {
+    const abortController = new AbortController();
+
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'stream chunk result',
+      thought: 'gemini thought',
+    });
+
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 0,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+
+    const stream = smart.executeStream(
+      {
+        modelId: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'Stream live' }],
+      },
+      { signal: abortController.signal },
+    );
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].content).toBe('stream chunk result');
+    expect(chunks[0].thought).toBe('gemini thought');
+    expect(chunks[0].done).toBe(true);
+
+    chatSpy.mockRestore();
+  });
+});
+
+describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)', () => {
+  beforeEach(() => {
+    SmartLayer.resetInstance();
+    ModelHealthRegistry.resetInstance();
+    CredentialProvider.resetInstance();
+    ServiceRegistry.resetInstance();
+  });
+
+  it('execute skips models without valid apiKey and advances candidate chain', async () => {
+    let callCount = 0;
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) return { apiKey: '', keyIndex: 0, provider: 'codestral' };
+        return { apiKey: 'valid-key', keyIndex: 1, provider: 'codestral' };
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'success-after-skip',
+    });
+
+    const mockExecutionLayer = {
+      execute: jest.fn<ExecutionLayer['execute']>().mockResolvedValue({
+        content: 'success-after-skip',
+      } as unknown as AdapterChatResult),
+      executeStream: jest.fn<ExecutionLayer['executeStream']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      mockExecutionLayer as unknown as ExecutionLayer,
+    );
+
+    const result = await smart.execute({
+      serviceOrCategory: 'EXECUTOR',
+      messages: [{ role: 'user', content: 'test' }],
+    });
+    expect(result.result.content).toBe('success-after-skip');
+    expect(callCount).toBeGreaterThanOrEqual(2);
+
+    chatSpy.mockRestore();
+  });
+
+  it('records quota exceeded when streamAttempt encounters RateLimitError before stream starts', async () => {
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'valid-key',
+        keyIndex: 3,
+        provider: 'codestral',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const chatSpy = jest
+      .spyOn(geminiAdapter, 'chat')
+      .mockRejectedValue(new RateLimitError('quota exceeded'));
+
+    const mockExecutionLayer = {
+      execute: jest.fn<ExecutionLayer['execute']>(),
+      executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
+        throw new RateLimitError('quota exceeded');
+      }),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      mockExecutionLayer as unknown as ExecutionLayer,
+    );
+
+    const stream = smart.executeStream({
+      serviceOrCategory: 'EXECUTOR',
+      messages: [{ role: 'user', content: 'rate limit test' }],
+    });
+
+    await expect(async () => {
+      for await (const chunk of stream) {
+        expect(chunk).toBeDefined();
+      }
+    }).rejects.toThrow('quota exceeded');
+
+    expect(mockCredentialProvider.recordQuotaExceeded).toHaveBeenCalled();
+
+    chatSpy.mockRestore();
+  });
 });
