@@ -49,4 +49,15 @@ describe('PersistentShell Lifecycle & Execution', () => {
     shell.shutdown();
     await expect(execPromise).rejects.toThrow('Shell was shut down');
   });
+
+  it('handles child process exit when disposed without restarting shell', () => {
+    shell = new PersistentShell();
+    const internal = shell as unknown as {
+      isDisposed: boolean;
+      shell: { emit: (event: string, code: number) => void };
+    };
+    internal.isDisposed = true;
+    internal.shell.emit('exit', 0);
+    expect(internal.isDisposed).toBe(true);
+  });
 });

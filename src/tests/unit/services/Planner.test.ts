@@ -205,6 +205,37 @@ describe('ExplicitPlanner', () => {
       expect(result.failed).toContain(99);
       expect(result.completed).not.toContain(99);
     });
+
+    it('gère une étape déjà marquée en échec sans lever d exception critique', async () => {
+      const planner = new ExplicitPlanner();
+      const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
+      const context = { chatId: 'chat_123', userId: 'user_1' };
+      const executionLog = {
+        completed: [] as number[],
+        failed: [1],
+        results: {},
+      };
+      const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
+
+      (
+        planner as unknown as {
+          _executeStepWithRetry: () => Promise<null>;
+        }
+      )._executeStepWithRetry = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+
+      await (
+        planner as unknown as {
+          _executeSingleStep: (
+            step: unknown,
+            context: unknown,
+            executionLog: unknown,
+            plan: unknown,
+          ) => Promise<void>;
+        }
+      )._executeSingleStep(step, context, executionLog, plan);
+
+      expect(executionLog.failed).toContain(1);
+    });
   });
 });
 

@@ -70,5 +70,20 @@ describe('ServiceContainer (SS-01: Core / IoC Container)', () => {
       await expect(container.init()).resolves.toBeUndefined();
       expect(attempts).toBe(2);
     });
+
+    it('renvoie la même promesse d initialisation si init() est appelé plusieurs fois en parallèle', async () => {
+      let resolveInit!: () => void;
+      (container as unknown as { _doInit: () => Promise<void> })._doInit = () =>
+        new Promise<void>((resolve) => {
+          resolveInit = resolve;
+        });
+
+      const p1 = container.init();
+      const p2 = container.init();
+      expect(p1).toBe(p2);
+
+      resolveInit();
+      await Promise.all([p1, p2]);
+    });
   });
 });

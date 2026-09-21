@@ -239,6 +239,54 @@ describe('Layer 1 - SmartLayer', () => {
     expect(caughtError?.message).toBe('Mid-stream connection drop');
     expect(mockExecutionLayer.executeStream).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
+  beforeEach(() => {
+    SmartLayer.resetInstance();
+    ModelHealthRegistry.resetInstance();
+    CredentialProvider.resetInstance();
+    ServiceRegistry.resetInstance();
+  });
+
+  it('handles missing credentials and candidate errors in executeStream', async () => {
+    const mockExecutionLayer = {
+      execute: jest.fn<ExecutionLayer['execute']>(),
+      executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
+        throw new Error('Stream execution initialization failure');
+      }),
+    };
+
+    let callCount = 0;
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { apiKey: '', keyIndex: 0, provider: 'codestral' };
+        }
+        return { apiKey: 'valid-key', keyIndex: 1, provider: 'codestral' };
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      mockExecutionLayer as unknown as ExecutionLayer,
+    );
+
+    const stream = smart.executeStream({
+      serviceOrCategory: 'EXECUTOR',
+      messages: [{ role: 'user', content: 'Stream test' }],
+    });
+
+    await expect(async () => {
+      for await (const chunk of stream) {
+        expect(chunk).toBeDefined();
+      }
+    }).rejects.toThrow();
+  });
 
   it('Gemini-native SmartLayer execution forwards tools, normalized parameters, effective tokens, and abort signal', async () => {
     const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
