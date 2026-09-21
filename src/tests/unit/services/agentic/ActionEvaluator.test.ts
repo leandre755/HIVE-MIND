@@ -72,4 +72,23 @@ describe('ActionEvaluator Lifecycle', () => {
     const feedbackResult = await evaluator._detectFeedback('chat123', new Date().toISOString());
     expect(feedbackResult).toBeNull();
   });
+
+  it('completes evaluation when feedback window elapses normally without shutdown', async () => {
+    const action = {
+      id: 'action_normal',
+      tool: 'test_tool',
+      params: {},
+      result: 'success',
+      error: null,
+      duration_ms: 100,
+      chatId: 'chat123',
+      timestamp: new Date().toISOString(),
+    };
+
+    const evalPromise = evaluator.evaluate(action);
+    await jest.advanceTimersByTimeAsync(evaluator.feedbackWindow);
+    const result = await evalPromise;
+    expect(result).toBeDefined();
+    expect(result?.score).toBeGreaterThan(0);
+  });
 });

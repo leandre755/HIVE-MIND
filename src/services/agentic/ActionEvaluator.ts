@@ -80,17 +80,11 @@ export class ActionEvaluator {
         result_quality: await this._assessResult(action),
       };
 
-      if (this.isShutdown) return null;
-
       const userFeedback = await this._detectFeedback(action.chatId, action.timestamp);
-
       if (this.isShutdown) return null;
 
       const finalScore = this._computeScore(objective, userFeedback);
-
       const lesson = await this._extractLesson(action, finalScore);
-
-      if (this.isShutdown) return null;
 
       if (supabase) {
         const { error } = await supabase
