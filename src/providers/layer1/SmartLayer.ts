@@ -205,7 +205,10 @@ export class SmartLayer {
 
       try {
         const creds = await this.credentialProvider.getKey(family, modelId);
-        if (!creds?.apiKey) continue;
+        if (!creds?.apiKey) {
+          this.healthRegistry.releaseHalfOpenProbe(modelId);
+          continue;
+        }
 
         attemptsCount++;
         yield {

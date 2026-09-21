@@ -762,4 +762,27 @@ describe('Layer 1 - SmartLayer (Signal Abort & Timeout Fallback)', () => {
       }),
     ).rejects.toThrow('Vault error');
   });
+
+  it('releases half-open probe when candidate has no valid apiKey in iterateEligibleCandidates', async () => {
+    const healthRegistry = ModelHealthRegistry.getInstance();
+    const releaseSpy = jest.spyOn(healthRegistry, 'releaseHalfOpenProbe');
+
+    const smart = makeSmartLayer({
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: '',
+        keyIndex: 0,
+        provider: 'codestral',
+      }),
+    });
+
+    await expect(
+      smart.execute({
+        serviceOrCategory: 'EXECUTOR',
+        messages: [{ role: 'user', content: 'test no key' }],
+      }),
+    ).rejects.toThrow(/failed after 0 attempts/);
+
+    expect(releaseSpy).toHaveBeenCalled();
+    releaseSpy.mockRestore();
+  });
 });
