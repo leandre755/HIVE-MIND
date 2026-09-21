@@ -27,22 +27,30 @@
   - **Exact Technical Change**: Constante `DEFAULT_CONTAINER_OPTIONS`, chaînage optionnel `!userData?.created_at`, et utilisation de `RegExp.exec()`.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run lint:fast && npx tsc --noEmit && NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/services/embeddingsService.test.ts src/tests/unit/providers/layer1.test.ts src/tests/unit/providers/layer0.test.ts src/tests/unit/services/StateManager.test.ts src/tests/unit/core/ServiceContainer.test.ts`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npm run test:unit`
 - **Linter/Compiler Status**:
 ```text
+> hive-mind@1.0.0 build
+> tsc --noEmit
+
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 
 Found 0 warnings and 0 errors.
-(tsc --noEmit: 0 error)
-Test Suites: 5 passed, 5 total
-Tests:       63 passed, 63 total
+Finished in 150ms on 342 files with 96 rules using 4 threads.
+
+> hive-mind@1.0.0 test:unit
+Test Suites: 85 passed, 85 total
+Tests:       907 passed, 907 total
+Snapshots:   0 total
+Time:        42.975 s
+Ran all test suites matching src/tests/unit.
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun blocage restant.
+- **Blocker / Failure Explanation**: Aucun blocage. Tous les checks GitHub Actions, SonarCloud (0.0% duplication, 0 new issue) et Codecov (100% patch) sont validés sur PR #120, PR #117 et PR #118.
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target File**: `src/providers/layer1/SmartLayer.ts`
-2. **Immediate Action**: Pousser les commits validés vers `origin/fix/logic-and-state-bugs` et vérifier l'ensemble des 14 checks sur GitHub.
-3. **Verification Command**: `gh pr checks 120 && gh pr checks 118`
+2. **Immediate Action**: Les PRs #117, #118 et #120 sont toutes prêtes au merge humain. Procéder à la suppression des worktrees locaux dès confirmation.
+3. **Verification Command**: `gh pr checks 120 && gh pr checks 118 && gh pr checks 117`
