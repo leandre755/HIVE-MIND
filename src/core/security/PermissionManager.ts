@@ -1204,7 +1204,7 @@ export class PermissionManager {
             );
             this._startInBandFallback(pending, false).catch(() => {});
           }
-        }, this.HUB_TIMEOUT_MS);
+        }, this.HUB_TIMEOUT_MS).unref();
 
         return;
       } catch (hubErr) {
@@ -1439,7 +1439,7 @@ export class PermissionManager {
             feedback: 'The administrator did not respond in time (Timeout).',
           });
         }
-      }, this.INBAND_TIMEOUT_MS);
+      }, this.INBAND_TIMEOUT_MS).unref();
     } catch (error) {
       console.error('[Permission] ❌ Failed to send In-Band request:', error);
       this._cleanup(requestId, numericId);

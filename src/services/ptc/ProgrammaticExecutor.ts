@@ -694,6 +694,7 @@ ${SANDBOX_HELPERS_SOURCE}
         cleanup();
         reject(new Error(`[PTC] Timeout: exécution dépassant ${this.config.timeoutMs}ms`));
       }, this.config.timeoutMs);
+      timeoutId.unref();
 
       const cleanup = () => {
         clearTimeout(timeoutId);
