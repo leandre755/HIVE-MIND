@@ -7,9 +7,14 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'entities_context_name_unique'
   ) THEN
-    -- Reconcile historical duplicate entities by (context_id, name)
-    WITH duplicate_entities AS (
-      SELECT ctid,
+    -- Map discarded entity id to survivor entity id
+    CREATE TEMP TABLE entity_survivor_map ON COMMIT DROP AS
+    WITH ranked_entities AS (
+      SELECT id,
+             FIRST_VALUE(id) OVER (
+               PARTITION BY context_id, name
+               ORDER BY updated_at DESC NULLS LAST, created_at ASC NULLS LAST, ctid ASC
+             ) AS survivor_id,
              ROW_NUMBER() OVER (
                PARTITION BY context_id, name
                ORDER BY updated_at DESC NULLS LAST, created_at ASC NULLS LAST, ctid ASC
@@ -17,8 +22,39 @@ BEGIN
       FROM public.entities
       WHERE context_id IS NOT NULL AND name IS NOT NULL
     )
+    SELECT id AS old_id, survivor_id AS new_id
+    FROM ranked_entities
+    WHERE rn > 1 AND id <> survivor_id;
+
+    -- Repoint relationships source_id
+    UPDATE public.relationships r
+    SET source_id = m.new_id
+    FROM entity_survivor_map m
+    WHERE r.source_id = m.old_id;
+
+    -- Repoint relationships target_id
+    UPDATE public.relationships r
+    SET target_id = m.new_id
+    FROM entity_survivor_map m
+    WHERE r.target_id = m.old_id;
+
+    -- Reconcile duplicate relationships that might have been created by repointing
+    WITH duplicate_repointed_rels AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY source_id, target_id, relation_type
+               ORDER BY created_at ASC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.relationships
+    )
+    DELETE FROM public.relationships
+    WHERE ctid IN (SELECT ctid FROM duplicate_repointed_rels WHERE rn > 1);
+
+    -- Now safely delete discarded duplicate entities
     DELETE FROM public.entities
-    WHERE ctid IN (SELECT ctid FROM duplicate_entities WHERE rn > 1);
+    WHERE id IN (SELECT old_id FROM entity_survivor_map);
+
+    DROP TABLE IF EXISTS entity_survivor_map;
 
     ALTER TABLE public.entities ADD CONSTRAINT entities_context_name_unique UNIQUE (context_id, name);
   END IF;

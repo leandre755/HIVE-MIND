@@ -85,5 +85,10 @@ describe('ServiceContainer (SS-01: Core / IoC Container)', () => {
       resolveInit();
       await Promise.all([p1, p2]);
     });
+
+    it('retourne immédiatement si le container est déjà initialisé', async () => {
+      (container as unknown as { initialized: boolean }).initialized = true;
+      await expect(container.init()).resolves.toBeUndefined();
+    });
   });
 });

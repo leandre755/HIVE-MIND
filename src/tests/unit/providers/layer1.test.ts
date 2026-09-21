@@ -381,6 +381,9 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0].content).toBe('Streaming fallback content');
     expect(chunks[0].usedModel).toBe('gemini-2.5-flash');
+    expect(chatSpy).toHaveBeenCalledTimes(1);
+    const [, callOptions] = chatSpy.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(callOptions.signal).toBeDefined();
     chatSpy.mockRestore();
   });
 
@@ -414,6 +417,59 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
     ).rejects.toThrow('Quota exceeded');
 
     expect(recordQuotaSpy).toHaveBeenCalledWith('gemini-2.5-flash', 2);
+    chatSpy.mockRestore();
+  });
+});
+
+describe('Layer 1 - SmartLayer (Cancellation & Timeouts)', () => {
+  beforeEach(() => {
+    SmartLayer.resetInstance();
+    ModelHealthRegistry.resetInstance();
+    CredentialProvider.resetInstance();
+    ServiceRegistry.resetInstance();
+  });
+
+  it('Gemini-native SmartLayer streaming propagates abort signal and respects cancellation', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockImplementation(async (_msgs, opts) => {
+      if (opts.signal?.aborted) {
+        throw new Error('This operation was aborted');
+      }
+      return { content: 'Should not reach here' };
+    });
+
+    const mockCredentialProvider = {
+      getKey: jest.fn<CredentialProvider['getKey']>().mockResolvedValue({
+        apiKey: 'dummy-gemini-key',
+        keyIndex: 0,
+        provider: 'gemini',
+      }),
+      recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+    };
+
+    const smart = new SmartLayer(
+      ModelHealthRegistry.getInstance(),
+      mockCredentialProvider as unknown as CredentialProvider,
+      ServiceRegistry.getInstance(),
+      new ExecutionLayer(),
+    );
+
+    const stream = smart.executeStream(
+      {
+        modelId: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'Stream cancel' }],
+      },
+      { signal: abortController.signal },
+    );
+
+    await expect(async () => {
+      for await (const chunk of stream) {
+        expect(chunk).toBeDefined();
+      }
+    }).rejects.toThrow('This operation was aborted');
+
     chatSpy.mockRestore();
   });
 });
