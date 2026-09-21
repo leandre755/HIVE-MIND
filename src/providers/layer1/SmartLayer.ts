@@ -156,7 +156,7 @@ export class SmartLayer {
     creds: CredentialResolution,
     options?: SmartExecutionOptions,
   ): Promise<void> {
-    if (options?.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+    if (options?.signal?.aborted) {
       throw error;
     }
     this.healthRegistry.recordFailure(modelId, error, family);
@@ -303,6 +303,54 @@ export class SmartLayer {
     }
   }
 
+  private resolveTargetStream(
+    modelId: string,
+    request: SmartExecutionRequest,
+    options: SmartExecutionOptions | undefined,
+    recipe: ReturnType<ServiceRegistry['getRecipe']>,
+    creds: CredentialResolution,
+    family: string,
+  ): AsyncIterable<
+    StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
+  > {
+    const modelConfig = getModelConfig(modelId);
+    if (modelConfig.protocol_family === 'gemini-native') {
+      return this.streamGeminiFallback(
+        modelId,
+        request,
+        options,
+        recipe,
+        creds,
+        family,
+        modelConfig.familyConfig,
+      );
+    }
+    return this.streamExecutionLayerFallback(modelId, request, options, recipe, creds, family);
+  }
+
+  private async handleStreamAttemptFailure(
+    error: unknown,
+    streamStarted: boolean,
+    modelId: string,
+    family: string,
+    creds: CredentialResolution,
+    options?: SmartExecutionOptions,
+  ): Promise<never> {
+    if (streamStarted) {
+      if (typeof error === 'object' && error !== null) {
+        Reflect.set(error, '__streamStarted', true);
+      }
+      throw error;
+    }
+    if (!options?.signal?.aborted) {
+      this.healthRegistry.recordFailure(modelId, error, family);
+      if (error instanceof RateLimitError) {
+        await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
+      }
+    }
+    throw error;
+  }
+
   private async *streamAttempt(
     modelId: string,
     request: SmartExecutionRequest,
@@ -315,20 +363,14 @@ export class SmartLayer {
     let streamStarted = false;
 
     try {
-      const modelConfig = getModelConfig(modelId);
-
-      const targetStream =
-        modelConfig.protocol_family === 'gemini-native'
-          ? this.streamGeminiFallback(
-              modelId,
-              request,
-              options,
-              recipe,
-              creds,
-              family,
-              modelConfig.familyConfig,
-            )
-          : this.streamExecutionLayerFallback(modelId, request, options, recipe, creds, family);
+      const targetStream = this.resolveTargetStream(
+        modelId,
+        request,
+        options,
+        recipe,
+        creds,
+        family,
+      );
 
       for await (const chunk of targetStream) {
         if (!streamStarted && chunk._started) {
@@ -340,17 +382,7 @@ export class SmartLayer {
 
       this.healthRegistry.recordSuccess(modelId, Date.now() - reqStartTime, family);
     } catch (error: unknown) {
-      if (streamStarted) {
-        if (typeof error === 'object' && error !== null) {
-          Reflect.set(error, '__streamStarted', true);
-        }
-        throw error;
-      }
-      this.healthRegistry.recordFailure(modelId, error, family);
-      if (error instanceof RateLimitError) {
-        await this.credentialProvider.recordQuotaExceeded(modelId, creds.keyIndex);
-      }
-      throw error;
+      await this.handleStreamAttemptFailure(error, streamStarted, modelId, family, creds, options);
     }
   }
 
@@ -358,7 +390,7 @@ export class SmartLayer {
     if (typeof error === 'object' && error !== null && Reflect.get(error, '__streamStarted')) {
       throw error;
     }
-    if (options?.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+    if (options?.signal?.aborted) {
       throw error;
     }
   }

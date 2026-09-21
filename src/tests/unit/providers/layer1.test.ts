@@ -604,6 +604,15 @@ describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)',
     expect(recordQuotaMock).toHaveBeenCalled();
     chatSpy.mockRestore();
   });
+});
+
+describe('Layer 1 - SmartLayer (Signal Abort & Timeout Fallback)', () => {
+  beforeEach(() => {
+    SmartLayer.resetInstance();
+    ModelHealthRegistry.resetInstance();
+    CredentialProvider.resetInstance();
+    ServiceRegistry.resetInstance();
+  });
 
   it('execute does not retry next candidates when caller signal is aborted', async () => {
     const abortController = new AbortController();
@@ -635,5 +644,123 @@ describe('Layer 1 - SmartLayer (Candidate Credential Fallback & Stream Errors)',
     ).rejects.toThrow('The user aborted a request.');
 
     expect(calls).toBe(1);
+  });
+
+  it('execute falls back to next candidate when attempt times out internally without caller abort', async () => {
+    const timeoutErr = new Error('The operation was aborted due to timeout.');
+    timeoutErr.name = 'AbortError';
+
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'Fallback candidate response',
+    });
+
+    let calls = 0;
+    const smart = makeSmartLayer(
+      {
+        getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+          calls++;
+          return { apiKey: 'key', keyIndex: 0, provider: 'codestral' };
+        }),
+        recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+      },
+      {
+        execute: jest.fn<ExecutionLayer['execute']>().mockImplementation(async () => {
+          if (calls === 1) {
+            throw timeoutErr;
+          }
+          return { content: 'Fallback candidate response' } as unknown as AdapterChatResult;
+        }),
+      },
+    );
+
+    const result = await smart.execute({
+      serviceOrCategory: 'EXECUTOR',
+      messages: [{ role: 'user', content: 'test timeout fallback' }],
+    });
+
+    expect(result.result.content).toBe('Fallback candidate response');
+    expect(calls).toBeGreaterThanOrEqual(2);
+    chatSpy.mockRestore();
+  });
+
+  it('executeStream does not retry next candidates when caller signal is aborted', async () => {
+    const abortController = new AbortController();
+    const abortErr = new Error('The user aborted a request.');
+    abortErr.name = 'AbortError';
+
+    let calls = 0;
+    const smart = makeSmartLayer(
+      {
+        getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+          calls++;
+          return { apiKey: 'key', keyIndex: 0, provider: 'codestral' };
+        }),
+        recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+      },
+      {
+        executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
+          abortController.abort();
+          throw abortErr;
+        }),
+      },
+    );
+
+    const stream = smart.executeStream(
+      { serviceOrCategory: 'EXECUTOR', messages: [{ role: 'user', content: 'test stream abort' }] },
+      { signal: abortController.signal },
+    );
+
+    await expect(async () => {
+      for await (const chunk of stream) {
+        expect(chunk).toBeDefined();
+      }
+    }).rejects.toThrow('The user aborted a request.');
+
+    expect(calls).toBe(1);
+  });
+
+  it('executeStream falls back to next candidate when attempt times out internally without caller abort', async () => {
+    const timeoutErr = new Error('The operation was aborted due to timeout.');
+    timeoutErr.name = 'AbortError';
+
+    const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
+      content: 'Fallback stream response',
+    });
+
+    let calls = 0;
+    const smart = makeSmartLayer(
+      {
+        getKey: jest.fn<CredentialProvider['getKey']>().mockImplementation(async () => {
+          calls++;
+          return { apiKey: 'key', keyIndex: 0, provider: 'codestral' };
+        }),
+        recordQuotaExceeded: jest.fn<CredentialProvider['recordQuotaExceeded']>(),
+      },
+      {
+        executeStream: jest.fn<ExecutionLayer['executeStream']>().mockImplementation(() => {
+          if (calls === 1) {
+            throw timeoutErr;
+          }
+          return (async function* () {
+            yield { content: 'Fallback stream response' };
+          })();
+        }),
+      },
+    );
+
+    const stream = smart.executeStream({
+      serviceOrCategory: 'EXECUTOR',
+      messages: [{ role: 'user', content: 'test stream timeout fallback' }],
+    });
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].content).toBe('Fallback stream response');
+    expect(calls).toBeGreaterThanOrEqual(2);
+    chatSpy.mockRestore();
   });
 });

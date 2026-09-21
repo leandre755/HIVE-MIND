@@ -17,7 +17,6 @@ import {
 } from '../GenerationParams.js';
 import type { AdapterChatResult, ChatMessage, ToolDefinition } from '../types.js';
 import { classifyError } from './classifyError.js';
-import { Layer0Error } from './errors.js';
 import { getModelConfig, ResolvedModelConfig } from './ModelRegistry.js';
 
 export interface ExecutionRequest {
@@ -195,7 +194,6 @@ async function executeHttpRequest(params: {
     });
   } catch (error: unknown) {
     cleanup();
-    if (error instanceof Layer0Error) throw error;
     if (error instanceof Error && (error.name === 'AbortError' || controller.signal.aborted)) {
       throw classifyError({
         status: 0,
@@ -210,14 +208,8 @@ async function executeHttpRequest(params: {
     });
   }
 
-  if (!response || !response.ok) {
+  if (!response.ok) {
     cleanup();
-    if (!response) {
-      throw classifyError({
-        status: 0,
-        message: 'ExecutionLayer: no response received from fetch',
-      });
-    }
     await handleResponseError(response);
   }
 
