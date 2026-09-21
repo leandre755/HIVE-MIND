@@ -81,7 +81,7 @@ export class ServiceContainer {
   private mode: 'full' | 'minimal' = 'full';
   private initPromise: Promise<void> | null = null;
 
-  public async init(options: ContainerInitOptions = { mode: 'full' }): Promise<void> {
+  public init(options: ContainerInitOptions = { mode: 'full' }): Promise<void> {
     if (this.initPromise) return this.initPromise;
     this.initPromise = this._doInit(options).catch((err) => {
       this.initPromise = null;
