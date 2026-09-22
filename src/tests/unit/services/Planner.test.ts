@@ -46,6 +46,23 @@ jest.unstable_mockModule('../../../services/supabase.js', () => ({
 
 const { ExplicitPlanner } = await import('../../../services/agentic/Planner.js');
 
+type StepInternals = {
+  _executeStepWithRetry: (
+    step: unknown,
+    context: unknown,
+    log: unknown,
+    plan: unknown,
+  ) => Promise<unknown>;
+  _executeSingleStep: (
+    step: unknown,
+    context: unknown,
+    log: unknown,
+    plan: unknown,
+  ) => Promise<void>;
+};
+const internals = (planner: InstanceType<typeof ExplicitPlanner>) =>
+  planner as unknown as StepInternals;
+
 describe('ExplicitPlanner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -213,39 +230,15 @@ describe('execute - échecs et replanification', () => {
     const planner = new ExplicitPlanner();
     const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
     const context = { chatId: 'chat_123', userId: 'user_1' };
-    const executionLog = {
-      completed: [] as number[],
-      failed: [1],
-      results: {},
-    };
+    const executionLog = { completed: [] as number[], failed: [1], results: {} };
     const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
-
-    (
-      planner as unknown as {
-        _executeStepWithRetry: (
-          step: unknown,
-          context: unknown,
-          log: { failed: number[] },
-        ) => Promise<null>;
-      }
-    )._executeStepWithRetry = jest
-      .fn<(step: unknown, context: unknown, log: { failed: number[] }) => Promise<null>>()
-      .mockImplementation(async (_step, _ctx, log) => {
-        log.failed.push(1);
+    internals(planner)._executeStepWithRetry = jest
+      .fn<StepInternals['_executeStepWithRetry']>()
+      .mockImplementation(async (_s, _c, log) => {
+        (log as { failed: number[] }).failed.push(1);
         return null;
       });
-
-    await (
-      planner as unknown as {
-        _executeSingleStep: (
-          step: unknown,
-          context: unknown,
-          executionLog: unknown,
-          plan: unknown,
-        ) => Promise<void>;
-      }
-    )._executeSingleStep(step, context, executionLog, plan);
-
+    await internals(planner)._executeSingleStep(step, context, executionLog, plan);
     expect(executionLog.failed).toContain(1);
     expect(executionLog.completed).not.toContain(1);
   });
@@ -260,26 +253,10 @@ describe('execute - échecs et replanification', () => {
       results: {} as Record<string, unknown>,
     };
     const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
-
-    (
-      planner as unknown as {
-        _executeStepWithRetry: () => Promise<{ success: boolean } | null>;
-      }
-    )._executeStepWithRetry = jest
-      .fn<() => Promise<{ success: boolean } | null>>()
+    internals(planner)._executeStepWithRetry = jest
+      .fn<StepInternals['_executeStepWithRetry']>()
       .mockResolvedValue({ success: true });
-
-    await (
-      planner as unknown as {
-        _executeSingleStep: (
-          step: unknown,
-          context: unknown,
-          executionLog: unknown,
-          plan: unknown,
-        ) => Promise<void>;
-      }
-    )._executeSingleStep(step, context, executionLog, plan);
-
+    await internals(planner)._executeSingleStep(step, context, executionLog, plan);
     expect(executionLog.completed).toContain(1);
     expect(executionLog.failed).not.toContain(1);
     expect(executionLog.results[1]).toBeDefined();
