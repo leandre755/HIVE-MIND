@@ -86,6 +86,37 @@ export class SmartLayer {
     return { targetName, sortedModels, recipe };
   }
 
+  private buildGeminiChatOptions(
+    modelId: string,
+    modelConfig: ReturnType<typeof getModelConfig>,
+    request: SmartExecutionRequest,
+    options: SmartExecutionOptions | undefined,
+    apiKey: string,
+    signal: AbortSignal,
+  ) {
+    const adaptedParams = adaptParamsForTargetModel(request.params ?? {}, modelConfig.capabilities);
+    const wireParams = toWireParams(
+      modelConfig.protocol_family,
+      adaptedParams,
+      modelConfig.capabilities,
+      options?.effectiveMaxTokens,
+    );
+    return {
+      model: modelId,
+      apiKey,
+      familyConfig: modelConfig.familyConfig,
+      tools: request.tools,
+      tool_choice: request.tool_choice,
+      temperature: adaptedParams.temperature,
+      wireParams: {
+        ...wireParams,
+        ...request.wireParams,
+      },
+      ...request.options,
+      signal,
+    };
+  }
+
   private async executeAttempt(
     modelId: string,
     request: SmartExecutionRequest,
@@ -101,33 +132,20 @@ export class SmartLayer {
     const modelConfig = getModelConfig(modelId);
 
     if (modelConfig.protocol_family === 'gemini-native') {
-      const adaptedParams = adaptParamsForTargetModel(
-        request.params ?? {},
-        modelConfig.capabilities,
-      );
-      const wireParams = toWireParams(
-        modelConfig.protocol_family,
-        adaptedParams,
-        modelConfig.capabilities,
-        options?.effectiveMaxTokens,
-      );
       const { controller, cleanup } = setupAbortController(recipe.timeoutMs, options?.signal);
 
       try {
-        result = await geminiAdapter.chat(request.messages, {
-          model: modelId,
-          apiKey: creds.apiKey,
-          familyConfig: modelConfig.familyConfig,
-          tools: request.tools,
-          tool_choice: request.tool_choice,
-          temperature: adaptedParams.temperature,
-          wireParams: {
-            ...wireParams,
-            ...request.wireParams,
-          },
-          signal: controller.signal,
-          ...request.options,
-        });
+        result = await geminiAdapter.chat(
+          request.messages,
+          this.buildGeminiChatOptions(
+            modelId,
+            modelConfig,
+            request,
+            options,
+            creds.apiKey,
+            controller.signal,
+          ),
+        );
       } finally {
         cleanup();
       }
@@ -273,35 +291,24 @@ export class SmartLayer {
     recipe: ReturnType<ServiceRegistry['getRecipe']>,
     creds: CredentialResolution,
     family: string,
-    familyConfig: Record<string, unknown> | undefined,
+    modelConfig: ReturnType<typeof getModelConfig>,
   ): AsyncIterable<
     StreamChunk & { usedModel?: string; usedProvider?: string; _started?: boolean }
   > {
-    const controller = new AbortController();
-    let timeoutId: NodeJS.Timeout | undefined;
-
-    if (recipe?.timeoutMs && recipe.timeoutMs > 0) {
-      timeoutId = setTimeout(() => controller.abort(), recipe.timeoutMs);
-      if (typeof timeoutId.unref === 'function') timeoutId.unref();
-    }
-
-    const onAbort = () => controller.abort();
-    if (options?.signal) {
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        options.signal.addEventListener('abort', onAbort, { once: true });
-      }
-    }
+    const { controller, cleanup } = setupAbortController(recipe?.timeoutMs, options?.signal);
 
     try {
-      const result = await geminiAdapter.chat(request.messages, {
-        model: modelId,
-        apiKey: creds.apiKey,
-        familyConfig,
-        wireParams: request.wireParams,
-        signal: controller.signal,
-      });
+      const result = await geminiAdapter.chat(
+        request.messages,
+        this.buildGeminiChatOptions(
+          modelId,
+          modelConfig,
+          request,
+          options,
+          creds.apiKey,
+          controller.signal,
+        ),
+      );
 
       yield {
         content: result.content ?? undefined,
@@ -313,10 +320,7 @@ export class SmartLayer {
         _started: true,
       };
     } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (options?.signal) {
-        options.signal.removeEventListener('abort', onAbort);
-      }
+      cleanup();
     }
   }
 
@@ -362,7 +366,7 @@ export class SmartLayer {
         recipe,
         creds,
         family,
-        modelConfig.familyConfig,
+        modelConfig,
       );
     }
     return this.streamExecutionLayerFallback(modelId, request, options, recipe, creds, family);

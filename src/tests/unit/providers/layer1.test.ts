@@ -352,7 +352,7 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
     chatSpy.mockRestore();
   });
 
-  it('Gemini-native SmartLayer streaming falls back through geminiAdapter.chat and yields chunks', async () => {
+  it('Gemini-native SmartLayer streaming forwards tools, normalized parameters, and effective tokens like execute()', async () => {
     const chatSpy = jest.spyOn(geminiAdapter, 'chat').mockResolvedValueOnce({
       content: 'Streaming fallback content',
       thought: 'Streaming thought',
@@ -376,11 +376,32 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
       new ExecutionLayer(),
     );
 
+    const abortController = new AbortController();
     const chunks = [];
-    for await (const chunk of smart.executeStream({
-      modelId: 'gemini-2.5-flash',
-      messages: [{ role: 'user', content: 'Stream gemini' }],
-    })) {
+    for await (const chunk of smart.executeStream(
+      {
+        modelId: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'Stream gemini' }],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'testTool',
+              description: 'A test tool',
+              parameters: { type: 'object', properties: {} },
+            },
+          },
+        ],
+        tool_choice: 'auto',
+        params: {
+          temperature: 0.12,
+        },
+      },
+      {
+        effectiveMaxTokens: 12,
+        signal: abortController.signal,
+      },
+    )) {
       chunks.push(chunk);
     }
 
@@ -390,6 +411,10 @@ describe('Layer 1 - SmartLayer (Streaming & Advanced Candidates)', () => {
     expect(chatSpy).toHaveBeenCalledTimes(1);
     const [, callOptions] = chatSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(callOptions.signal).toBeDefined();
+    expect(callOptions.tools).toHaveLength(1);
+    expect(callOptions.tool_choice).toBe('auto');
+    expect(callOptions.temperature).toBeCloseTo(0.12);
+    expect((callOptions.wireParams as Record<string, unknown>).maxOutputTokens).toBe(12);
     chatSpy.mockRestore();
   });
 

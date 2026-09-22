@@ -35,6 +35,7 @@ const adminCache = new Map<string, AdminRole>();
 const REFRESH_INTERVAL = 10 * 60 * 1000;
 let refreshIntervalId: ReturnType<typeof setInterval> | null = null;
 let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let lifecycleGeneration = 0;
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -57,8 +58,10 @@ export const adminService = {
   },
 
   async init() {
+    const generation = ++lifecycleGeneration;
     const initialRefresh = async () => {
       const success = await this.refresh();
+      if (generation !== lifecycleGeneration) return;
       if (!success) {
         console.log('[AdminService] Retry refresh in 5s...');
         retryTimeoutId = setTimeout(initialRefresh, 5000);
@@ -68,6 +71,9 @@ export const adminService = {
       }
     };
     await initialRefresh();
+
+    // destroy() pendant le refresh initial : ne programmer aucun timer
+    if (generation !== lifecycleGeneration) return;
 
     // Stocker la référence de l'intervalle pour permettre le nettoyage (prévention fuite mémoire)
     if (refreshIntervalId !== null) {
@@ -80,6 +86,7 @@ export const adminService = {
   },
 
   destroy() {
+    lifecycleGeneration++;
     if (retryTimeoutId !== null) {
       clearTimeout(retryTimeoutId);
       retryTimeoutId = null;

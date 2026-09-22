@@ -1,5 +1,33 @@
 # Test Execution Log
 
+## 📅 Date: 2026-09-22 (PR #120 — 3 bugs P1 Greptile : embeddings/schéma, adminService lifecycle, streaming Gemini)
+
+### Périmètre
+`src/services/ai/EmbeddingsService.ts`, `src/services/memory/constants.ts` (nouveau), `src/scripts/ingest_docs.js`, `src/services/memory.ts`, `src/services/adminService.ts`, `src/providers/layer1/SmartLayer.ts`, et les suites `src/tests/unit/providers/layer1.test.ts`, `src/tests/unit/services/{adminService,embeddingsService,memory}.test.ts` (ce dernier nouveau).
+
+### Résultats d'exécution (sorties brutes)
+- `npm run build` (`tsc --noEmit`) : **PASSED (0 erreur)**. Première exécution : `src/tests/unit/services/adminService.test.ts(72,5): error TS2349: This expression is not callable. Type 'never' has no call signatures.` (narrowing CFA sur le resolver d'une promesse différée capturé dans une closure) → corrigé par un deferred object `{ resolve?: (value: boolean) => void }`, re-exécution : sortie vide, exit 0.
+- `npm run lint:fast` (`oxlint --deny-warnings src/`) : **PASSED** — `Found 0 warnings and 0 errors.` (350 fichiers).
+- `npx prettier --check` (10 fichiers modifiés) : un écart sur `src/tests/unit/services/memory.test.ts` → `prettier --write`, re-contrôle : `All matched files use Prettier code style!`
+- `node --check src/scripts/ingest_docs.js` : `SYNTAX_OK`.
+- Suites ciblées avec couverture (`jest adminService embeddingsService memory layer1 --coverage --collectCoverageFrom=...`) : `Test Suites: 4 passed, 4 total / Tests: 45 passed, 45 total`. Couverture lignes des fichiers modifiés : `SmartLayer.ts 100`, `EmbeddingsService.ts 100`, `memory/constants.ts 100`, `adminService.ts` et `memory.ts` couverts sur toutes leurs lignes de patch (les lignes non couvertes restantes sont préexistantes et hors diff).
+- `npm run test:unit -- --coverage` (complet, équivalent CI) : `Test Suites: 92 passed, 92 total / Tests: 944 passed, 944 total`.
+- `npm run test:unit` (complet, après ajout du 7ᵉ test lifecycle) : `Test Suites: 92 passed, 92 total / Tests: 945 passed, 945 total / Time: 23.273 s`.
+- Re-validation ciblée post-formatage (`adminService` + `memory`) : `Test Suites: 2 passed, 2 total / Tests: 9 passed, 9 total`.
+
+### Nouveaux tests (7)
+1. `adminService` : `does not revive timers when destroy lands during the initial refresh` (couvre les deux gardes de génération).
+2. `adminService` : `resumes normal scheduling on a fresh init after destroy` (ré-initialisation valide).
+3. `embeddingsService` : `defaults to gemini-embedding-001 with 1024 dimensions and requests outputDimensionality`.
+4-7. `memory` : 4 parcours de `recall()` (fallback embeddings indisponibles, fallback vecteur nul, rappel global via `GLOBAL_CONTEXT_ID`, abandon sur échec de résolution de contexte).
+
+### Bugs découverts puis corrigés pendant la validation
+1. `TS2349 ... Type 'never' has no call signatures` dans le test `does not revive timers...` → deferred object typé.
+2. Non-conformité Prettier sur `memory.test.ts` → `prettier --write`.
+
+### Régression
+Aucune : les 938 tests existants restent verts (945 = 938 + 7 nouveaux).
+
 ## 📅 Date: 2026-09-06
 
 ## 🧪 Unit Test Results (InMemoryRedisMock - Issue #25)

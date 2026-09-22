@@ -46,7 +46,7 @@ describe('EmbeddingsService - Core Generation', () => {
       dimensions: 3,
     });
 
-    const result = await service.embed('hello\nworld');
+    const result = await service.embed('hello\nworld', 'RETRIEVAL_DOCUMENT');
 
     expect(result).toEqual(mockVector);
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -60,6 +60,7 @@ describe('EmbeddingsService - Core Generation', () => {
     const requestBody = JSON.parse(fetchCall[1]?.body as string);
     expect(requestBody.content.parts[0].text).toBe('hello world');
     expect(requestBody.outputDimensionality).toBe(3);
+    expect(requestBody.taskType).toBe('RETRIEVAL_DOCUMENT');
 
     // Verify console.log does NOT contain the API key (clear-text or obfuscated)
     expect(logSpy).toHaveBeenCalled();
@@ -69,6 +70,30 @@ describe('EmbeddingsService - Core Generation', () => {
       expect(loggedStr).not.toContain('2345');
       expect(loggedStr).not.toContain('Key:');
     }
+  });
+
+  it('defaults to gemini-embedding-001 with 1024 dimensions and requests outputDimensionality', async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockVector = Array.from({ length: 1024 }, () => 0.5);
+
+    const mockFetch = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        embedding: { values: mockVector },
+      }),
+    } as unknown as Response);
+    global.fetch = mockFetch;
+
+    const service = new EmbeddingsService({ geminiKey: 'mock-gemini-test-key' });
+    const result = await service.embed('default alignment');
+
+    expect(result).toEqual(mockVector);
+    const fetchCall = mockFetch.mock.calls[0];
+    if (!fetchCall) throw new Error('fetchCall undefined');
+
+    expect(String(fetchCall[0])).toContain('gemini-embedding-001:embedContent');
+    const requestBody = JSON.parse(fetchCall[1]?.body as string);
+    expect(requestBody.outputDimensionality).toBe(1024);
   });
 });
 

@@ -201,7 +201,8 @@ CREATE TABLE IF NOT EXISTS public.facts (
   key text NOT NULL,
   value text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT facts_pkey PRIMARY KEY (id)
+  CONSTRAINT facts_pkey PRIMARY KEY (id),
+  CONSTRAINT facts_context_key_unique UNIQUE (context_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS public.entities (

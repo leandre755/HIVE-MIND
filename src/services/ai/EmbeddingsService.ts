@@ -11,7 +11,7 @@ export interface EmbeddingConfig {
 }
 
 export interface IEmbeddingsService {
-  embed(text: string): Promise<number[] | null>;
+  embed(text: string, taskType?: string): Promise<number[] | null>;
 }
 
 export class EmbeddingsService implements IEmbeddingsService {
@@ -21,16 +21,17 @@ export class EmbeddingsService implements IEmbeddingsService {
 
   constructor(config: EmbeddingConfig) {
     this.config = config;
-    this.model = config.model || 'text-embedding-004';
-    this.dimensions = config.dimensions || 768; // text-embedding-004 default is 768
+    this.model = config.model || 'gemini-embedding-001';
+    this.dimensions = config.dimensions || 1024; // aligned with Supabase schema vector(1024)
   }
 
   /**
    * Generates a vector for the given text.
    * @param text The text to embed.
+   * @param taskType Optional retrieval task type forwarded to the Gemini API.
    * @returns A promise resolving to a number array (vector) or null.
    */
-  async embed(text: string): Promise<number[] | null> {
+  async embed(text: string, taskType?: string): Promise<number[] | null> {
     if (!text || !text.trim()) return null;
 
     // Cleaning: replace newlines with spaces (recommended for RAG)
@@ -39,7 +40,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     try {
       let vector: number[] | null = null;
       try {
-        vector = await this._embedWithGemini(cleanText);
+        vector = await this._embedWithGemini(cleanText, taskType);
       } catch {
         console.warn('[Embeddings] Gemini provider failed, attempting OpenAI fallback');
       }
@@ -52,7 +53,7 @@ export class EmbeddingsService implements IEmbeddingsService {
     }
   }
 
-  private async _embedWithGemini(text: string): Promise<number[] | null> {
+  private async _embedWithGemini(text: string, taskType?: string): Promise<number[] | null> {
     const apiKey = this.config.geminiKey;
     if (!apiKey) throw new Error('Gemini API key missing');
 
@@ -63,11 +64,9 @@ export class EmbeddingsService implements IEmbeddingsService {
     const bodyPayload: Record<string, unknown> = {
       model: `models/${this.model}`,
       content: { parts: [{ text }] },
+      outputDimensionality: this.dimensions,
     };
-
-    if (this.model === 'text-embedding-004') {
-      bodyPayload.outputDimensionality = this.dimensions;
-    }
+    if (taskType) bodyPayload.taskType = taskType;
 
     const response = await fetch(url, {
       method: 'POST',
