@@ -1,5 +1,71 @@
 # Test Execution Log
 
+## 📅 Date: 2026-09-22 (fin de session — compaction taille PR #120 + validation)
+
+- `npx prettier --write` + `eslint` (5 fichiers) + `npm run build` (tsc 0 erreur) + `npm run lint:fast` (0/0, 351 fichiers) : **PASSED**.
+- `npx jest PersistentShell memory Planner` : **PASSED (3/3 suites, 26/26 tests)**.
+- `npm run test:unit` : **PASSED (92/92 suites, 959/959 tests)** — 1 test à couverture dupliquée retiré (`getRecentContext : vide`, ligne déjà exercée par le cas principal).
+- Taille du diff code (hors .md, `git diff --numstat origin/master`) : `2571` → **`2465`** (plafond gouvernance 2500) par densification des suites de tests neuves (fixtures partagées, casts factorisés, lignes blanches retirées).
+- File de commentaires PR relayée par le mainteneur (misclick) : **non traitée volontairement**, consignée dans `resume.md` §Unfinished Work pour qualification en prochaine session.
+
+## 📅 Date: 2026-09-22 (PR #120 — revues locales et CodeRabbit : 8 + 6 findings soldés)
+
+### Périmètre
+Revue indépendante Layer 1 (2 passes) + revue CodeRabbit complète : `PersistentShell.ts`, `Planner.ts`, `memory.ts`, `memory/contextResolver.ts` (nouveau), `graphMemory.ts`, `cli-legacy/cli.ts`, `main.md`, et les suites `PersistentShell.test.ts`, `Planner.test.ts`, `memory.test.ts`.
+
+### Résultats d'exécution (sorties brutes)
+- Revue indépendante passe 1 : `REQUEST_CHANGES` — 8 findings (P2 couverture patch `ingest_docs.js` ; P2 `cli-legacy` sur `chat_id='global'` ; P2 `memory.ts`/`facts` incohérents schéma ; P3 signal écrasable, duplication abort/timeout, défauts d'embedding dupliqués, `taskType` écarté, rappel global inatteignable).
+- Finding couverture **réfuté par l'expérience** : `npm run test:unit -- --coverage` produit un lcov où 7 fichiers .ts modifiés par la PR sont absents (`codex.ts`, `huggingface.ts`, `types.ts`, `dreamService.ts`, `graphMemory.ts`, `mcpClient.ts`, `voiceProvider.ts`) alors que Codecov a publié « All modified and coverable lines are covered by tests » (patch 100%, threshold 0) — les fichiers absents du rapport sont exclus du calcul.
+- Revue indépendante passe 2 : 8/8 **CONFIRMÉ**, verdict **APPROVE** (+ 4 polish P3 non bloquants, tous traités : blindage symétrique `_recallContextMemories`, symétrie `role='system'` du `doc status`, idempotence de migration qualifiée `public`, tests des gardes).
+- CodeRabbit (`@coderabbitai full review`) : `CHANGES_REQUESTED`, 6 commentaires actionnables — tous vérifiés réels contre le code puis corrigés (commit `8a305c9`).
+- `npm run build` : **PASSED (0 erreur)** ; `npm run lint:fast` : **PASSED (0 warning, 0 erreur, 351 fichiers)** ; Prettier : **conforme** sur les 9 fichiers du lot.
+- `npm run test:unit` : **PASSED (92/92 suites, 960/960 tests)**. Ciblé : `Planner.test.ts` + `memory.test.ts` = 22/22 après restructuration des `describe`.
+- Couverture ciblée (lcov) : `memory/contextResolver.ts` LH=5/5 (100%), chaque hunk modifié de `PersistentShell.ts`, `Planner.ts` et `memory.ts` exercé par les nouveaux tests.
+- Gains ESLint de la gate (avant commit) : `max-lines-per-function` (202/210/213 > 200) sur `memory.test.ts` et `Planner.test.ts` → hooks remontés au niveau module, `describe('execute - échecs et replanification')` sorti au niveau module. Re-validation : ESLint 0 problème.
+- `git push` (2 pushes) : **Pre-push validé** (gitleaks historique `175 commits scanned, no leaks found`, suite unitaire verte, `npm audit` 0 vulnérabilité, `tsc` 0 erreur, dependency-cruiser 0 violation sur 407 modules, Semgrep 0 finding).
+
+### Fils de revue traités (12/12 résolus)
+- Greptile `Align graph embeddings` (4057523960) et `Migrate graph constraints` (4057523961) : réponses factuelles puis résolution GraphQL.
+- CodeRabbit ×6 (4068329896 GCC, 4068329903 PersistentShell, 4068329910 launcher ingestion, 4068329913 Planner, 4068329915 graphMemory, 4068329922 test PersistentShell) : corrigés puis résolus.
+
+### Bugs découverts puis corrigés pendant cette session
+1. `TS2349` (narrowing `never` sur resolver de promesse) dans `adminService.test.ts` → deferred object typé.
+2. Écart Prettier sur `memory.test.ts` → `prettier --write`.
+3. Import `GLOBAL_CONTEXT_ID` orphelin dans `cli-legacy/cli.ts` (méthodies non migrées) → détection par oxlint, migration `clearDocs`/`statusDocs` complétée.
+4. Accolade de fermeture manquante lors du split de `describe` dans `Planner.test.ts` → rééquilibrage.
+5. `max-lines-per-function` ESLint sur 2 suites → restructuration.
+
+### Régression
+Aucune : 938 tests de base toujours verts (960 = 938 + 22 nouveaux).
+
+## 📅 Date: 2026-09-22 (PR #120 — 3 bugs P1 Greptile : embeddings/schéma, adminService lifecycle, streaming Gemini)
+
+### Périmètre
+`src/services/ai/EmbeddingsService.ts`, `src/services/memory/constants.ts` (nouveau), `src/scripts/ingest_docs.js`, `src/services/memory.ts`, `src/services/adminService.ts`, `src/providers/layer1/SmartLayer.ts`, et les suites `src/tests/unit/providers/layer1.test.ts`, `src/tests/unit/services/{adminService,embeddingsService,memory}.test.ts` (ce dernier nouveau).
+
+### Résultats d'exécution (sorties brutes)
+- `npm run build` (`tsc --noEmit`) : **PASSED (0 erreur)**. Première exécution : `src/tests/unit/services/adminService.test.ts(72,5): error TS2349: This expression is not callable. Type 'never' has no call signatures.` (narrowing CFA sur le resolver d'une promesse différée capturé dans une closure) → corrigé par un deferred object `{ resolve?: (value: boolean) => void }`, re-exécution : sortie vide, exit 0.
+- `npm run lint:fast` (`oxlint --deny-warnings src/`) : **PASSED** — `Found 0 warnings and 0 errors.` (350 fichiers).
+- `npx prettier --check` (10 fichiers modifiés) : un écart sur `src/tests/unit/services/memory.test.ts` → `prettier --write`, re-contrôle : `All matched files use Prettier code style!`
+- `node --check src/scripts/ingest_docs.js` : `SYNTAX_OK`.
+- Suites ciblées avec couverture (`jest adminService embeddingsService memory layer1 --coverage --collectCoverageFrom=...`) : `Test Suites: 4 passed, 4 total / Tests: 45 passed, 45 total`. Couverture lignes des fichiers modifiés : `SmartLayer.ts 100`, `EmbeddingsService.ts 100`, `memory/constants.ts 100`, `adminService.ts` et `memory.ts` couverts sur toutes leurs lignes de patch (les lignes non couvertes restantes sont préexistantes et hors diff).
+- `npm run test:unit -- --coverage` (complet, équivalent CI) : `Test Suites: 92 passed, 92 total / Tests: 944 passed, 944 total`.
+- `npm run test:unit` (complet, après ajout du 7ᵉ test lifecycle) : `Test Suites: 92 passed, 92 total / Tests: 945 passed, 945 total / Time: 23.273 s`.
+- Re-validation ciblée post-formatage (`adminService` + `memory`) : `Test Suites: 2 passed, 2 total / Tests: 9 passed, 9 total`.
+
+### Nouveaux tests (7)
+1. `adminService` : `does not revive timers when destroy lands during the initial refresh` (couvre les deux gardes de génération).
+2. `adminService` : `resumes normal scheduling on a fresh init after destroy` (ré-initialisation valide).
+3. `embeddingsService` : `defaults to gemini-embedding-001 with 1024 dimensions and requests outputDimensionality`.
+4-7. `memory` : 4 parcours de `recall()` (fallback embeddings indisponibles, fallback vecteur nul, rappel global via `GLOBAL_CONTEXT_ID`, abandon sur échec de résolution de contexte).
+
+### Bugs découverts puis corrigés pendant la validation
+1. `TS2349 ... Type 'never' has no call signatures` dans le test `does not revive timers...` → deferred object typé.
+2. Non-conformité Prettier sur `memory.test.ts` → `prettier --write`.
+
+### Régression
+Aucune : les 938 tests existants restent verts (945 = 938 + 7 nouveaux).
+
 ## 📅 Date: 2026-09-06
 
 ## 🧪 Unit Test Results (InMemoryRedisMock - Issue #25)

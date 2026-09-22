@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveApiKey } from '../config/keyResolver.js';
@@ -71,6 +71,8 @@ export interface ServiceRegistry {
   db: typeof db;
 }
 
+const DEFAULT_CONTAINER_OPTIONS: ContainerInitOptions = Object.freeze({ mode: 'full' });
+
 /**
  * Conteneur d'Injection de Dépendances
  * Gère le cycle de vie et l'accès aux services de l'application
@@ -79,8 +81,18 @@ export class ServiceContainer {
   private services: Map<string, ServiceEntry> = new Map();
   private initialized: boolean = false;
   private mode: 'full' | 'minimal' = 'full';
+  private initPromise: Promise<void> | null = null;
 
-  public async init(options: ContainerInitOptions = { mode: 'full' }): Promise<void> {
+  public init(options: ContainerInitOptions = DEFAULT_CONTAINER_OPTIONS): Promise<void> {
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = this._doInit(options).catch((err) => {
+      this.initPromise = null;
+      throw err;
+    });
+    return this.initPromise;
+  }
+
+  private async _doInit(options: ContainerInitOptions): Promise<void> {
     if (this.initialized) return;
     this.mode = options.mode;
 

@@ -2,7 +2,7 @@
 // Adaptateur pour Hugging Face Router (surface OpenAI-compatible via le SDK officiel)
 
 import OpenAI, { APIError } from 'openai';
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 

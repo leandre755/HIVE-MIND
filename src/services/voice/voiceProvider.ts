@@ -2,7 +2,7 @@
 // Unified Voice Provider - Routes TTS/STT to appropriate adapters
 // Features: Dynamic quota-based switching, multi-model support
 
-import { readFileSync } from 'fs';
+import { safeReadFileSync as readFileSync } from '../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveCredentials } from '../../config/keyResolver.js';

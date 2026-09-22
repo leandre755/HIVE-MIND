@@ -46,6 +46,23 @@ jest.unstable_mockModule('../../../services/supabase.js', () => ({
 
 const { ExplicitPlanner } = await import('../../../services/agentic/Planner.js');
 
+type StepInternals = {
+  _executeStepWithRetry: (
+    step: unknown,
+    context: unknown,
+    log: unknown,
+    plan: unknown,
+  ) => Promise<unknown>;
+  _executeSingleStep: (
+    step: unknown,
+    context: unknown,
+    log: unknown,
+    plan: unknown,
+  ) => Promise<void>;
+};
+const internals = (planner: InstanceType<typeof ExplicitPlanner>) =>
+  planner as unknown as StepInternals;
+
 describe('ExplicitPlanner', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -166,6 +183,83 @@ describe('ExplicitPlanner', () => {
       expect(parsedArgs.target_url).toBe('https://example.com/target-page');
       expect(parsedArgs.file_path).toBe('/path/to/reconstructed/file.txt');
     });
+
+    it('handles step failure and marks executionLog as failed without adding to completed', async () => {
+      const planner = new ExplicitPlanner();
+      const executeToolMock = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue({ success: false, error: 'Step execution failed permanently' });
+
+      const plan = {
+        id: 'plan_failed',
+        goal: 'Test failure',
+        totalTime: 5,
+        complexity: 'low',
+        status: 'pending',
+        steps: [
+          {
+            id: 99,
+            action: 'Failing action',
+            tool: 'test_tool',
+            estimated_time: 5,
+            params: {},
+            depends_on: [],
+          },
+        ],
+      };
+
+      const context = {
+        chatId: 'chat_fail',
+        executeToolFn: executeToolMock as unknown as (
+          toolCall: { id: string; function: { name: string; arguments: string } },
+          message: unknown,
+        ) => Promise<{ success: boolean; llmOutput: string }>,
+        tools: [createToolDefinition('test_tool', 'A test tool')],
+        message: { role: 'user', content: 'test' },
+      };
+
+      const result = await planner.execute(plan, context);
+      expect(result.failed).toContain(99);
+      expect(result.completed).not.toContain(99);
+    });
+  });
+});
+
+describe('execute - échecs et replanification', () => {
+  it('gère une étape déjà marquée en échec sans lever d exception critique', async () => {
+    const planner = new ExplicitPlanner();
+    const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
+    const context = { chatId: 'chat_123', userId: 'user_1' };
+    const executionLog = { completed: [] as number[], failed: [1], results: {} };
+    const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
+    internals(planner)._executeStepWithRetry = jest
+      .fn<StepInternals['_executeStepWithRetry']>()
+      .mockImplementation(async (_s, _c, log) => {
+        (log as { failed: number[] }).failed.push(1);
+        return null;
+      });
+    await internals(planner)._executeSingleStep(step, context, executionLog, plan);
+    expect(executionLog.failed).toContain(1);
+    expect(executionLog.completed).not.toContain(1);
+  });
+
+  it('réhabilite une étape replanifiée dont l identifiant figure déjà dans les échecs antérieurs', async () => {
+    const planner = new ExplicitPlanner();
+    const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
+    const context = { chatId: 'chat_123', userId: 'user_1' };
+    const executionLog = {
+      completed: [] as number[],
+      failed: [1],
+      results: {} as Record<string, unknown>,
+    };
+    const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
+    internals(planner)._executeStepWithRetry = jest
+      .fn<StepInternals['_executeStepWithRetry']>()
+      .mockResolvedValue({ success: true });
+    await internals(planner)._executeSingleStep(step, context, executionLog, plan);
+    expect(executionLog.completed).toContain(1);
+    expect(executionLog.failed).not.toContain(1);
+    expect(executionLog.results[1]).toBeDefined();
   });
 });
 

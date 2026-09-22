@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { CallToolResultSchema, ListToolsResultSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, existsSync } from 'fs';
+import { safeReadFileSync as readFileSync, safeExistsSync as existsSync } from '../utils/safeFs.js';
 import { join } from 'path';
 
 export interface McpServerConfig {

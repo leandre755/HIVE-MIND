@@ -94,6 +94,7 @@ export interface AdapterChatOptions {
   temperature?: number;
   max_tokens?: number;
   version?: string;
+  signal?: AbortSignal;
   [key: string]: unknown;
 }
 

@@ -2,7 +2,11 @@
 // Adaptateur pour OpenAI Codex avec authentification OAuth officielle ChatGPT Plus/Pro.
 // WHY: Permet de consommer les modèles SOTA (gpt-5.5, gpt-5.4, etc.) via l'abonnement Codex.
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import {
+  safeReadFileSync as readFileSync,
+  safeWriteFileSync as writeFileSync,
+  safeExistsSync as existsSync,
+} from '../../utils/safeFs.js';
 import { Buffer } from 'buffer';
 import { randomUUID } from 'node:crypto';
 import type {

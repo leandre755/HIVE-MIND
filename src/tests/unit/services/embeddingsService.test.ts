@@ -42,11 +42,11 @@ describe('EmbeddingsService - Core Generation', () => {
 
     const service = new EmbeddingsService({
       geminiKey: 'mock-gemini-test-key',
-      model: 'custom-model',
+      model: 'text-embedding-004',
       dimensions: 3,
     });
 
-    const result = await service.embed('hello\nworld');
+    const result = await service.embed('hello\nworld', 'RETRIEVAL_DOCUMENT');
 
     expect(result).toEqual(mockVector);
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -54,12 +54,13 @@ describe('EmbeddingsService - Core Generation', () => {
     const fetchCall = mockFetch.mock.calls[0];
     if (!fetchCall) throw new Error('fetchCall undefined');
 
-    expect(String(fetchCall[0])).toContain('custom-model:embedContent');
+    expect(String(fetchCall[0])).toContain('text-embedding-004:embedContent');
     expect(String(fetchCall[0])).toContain('key=mock-gemini-test-key');
 
     const requestBody = JSON.parse(fetchCall[1]?.body as string);
     expect(requestBody.content.parts[0].text).toBe('hello world');
     expect(requestBody.outputDimensionality).toBe(3);
+    expect(requestBody.taskType).toBe('RETRIEVAL_DOCUMENT');
 
     // Verify console.log does NOT contain the API key (clear-text or obfuscated)
     expect(logSpy).toHaveBeenCalled();
@@ -69,6 +70,30 @@ describe('EmbeddingsService - Core Generation', () => {
       expect(loggedStr).not.toContain('2345');
       expect(loggedStr).not.toContain('Key:');
     }
+  });
+
+  it('defaults to gemini-embedding-001 with 1024 dimensions and requests outputDimensionality', async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockVector = Array.from({ length: 1024 }, () => 0.5);
+
+    const mockFetch = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        embedding: { values: mockVector },
+      }),
+    } as unknown as Response);
+    global.fetch = mockFetch;
+
+    const service = new EmbeddingsService({ geminiKey: 'mock-gemini-test-key' });
+    const result = await service.embed('default alignment');
+
+    expect(result).toEqual(mockVector);
+    const fetchCall = mockFetch.mock.calls[0];
+    if (!fetchCall) throw new Error('fetchCall undefined');
+
+    expect(String(fetchCall[0])).toContain('gemini-embedding-001:embedContent');
+    const requestBody = JSON.parse(fetchCall[1]?.body as string);
+    expect(requestBody.outputDimensionality).toBe(1024);
   });
 });
 
@@ -321,15 +346,47 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
     jest.restoreAllMocks();
   });
 
-  it('should never emit synthetic provider secrets in console when provider responses contain secrets', async () => {
-    const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
+  async function assertSecretLeakageProtected(
+    mockFetchImpl: (input: RequestInfo | URL) => Promise<Response>,
+    testPayload: string,
+    secret: string,
+  ) {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const mockFetch = jest
-      .fn<typeof fetch>()
-      .mockImplementation(async (input: RequestInfo | URL) => {
+    global.fetch = jest.fn<typeof fetch>().mockImplementation(mockFetchImpl);
+
+    const service = new EmbeddingsService({
+      geminiKey: 'mock-gemini-key',
+      openaiKey: 'mock-openai-key',
+    });
+
+    const result = await service.embed(testPayload);
+
+    expect(result).toBeNull();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+    );
+    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
+
+    const allLoggedArgs = [
+      ...logSpy.mock.calls.flat(),
+      ...warnSpy.mock.calls.flat(),
+      ...errorSpy.mock.calls.flat(),
+    ];
+
+    for (const arg of allLoggedArgs) {
+      expect(serializeLoggedArg(arg)).not.toContain(secret);
+    }
+  }
+
+  it('should never emit synthetic provider secrets in console when provider responses contain secrets', async () => {
+    const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
+    await assertSecretLeakageProtected(
+      async (input: RequestInfo | URL) => {
         const parsed = new URL(String(input));
         if (parsed.hostname === 'generativelanguage.googleapis.com') {
           return {
@@ -356,44 +413,16 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
           } as unknown as Response;
         }
         throw new Error(`Unexpected hostname: ${parsed.hostname}`);
-      });
-    global.fetch = mockFetch;
-
-    const service = new EmbeddingsService({
-      geminiKey: 'mock-gemini-key',
-      openaiKey: 'mock-openai-key',
-    });
-
-    const result = await service.embed('test payload with potential secret leakage');
-
-    expect(result).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+      },
+      'test payload with potential secret leakage',
+      syntheticSecret,
     );
-    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
-
-    const allLoggedArgs = [
-      ...logSpy.mock.calls.flat(),
-      ...warnSpy.mock.calls.flat(),
-      ...errorSpy.mock.calls.flat(),
-    ];
-
-    for (const arg of allLoggedArgs) {
-      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
-    }
   });
 
   it('should never emit synthetic secrets in console when network exceptions contain secrets', async () => {
     const syntheticSecret = 'SYNTHETIC_PROVIDER_SECRET_7c91b4';
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    const mockFetch = jest
-      .fn<typeof fetch>()
-      .mockImplementation(async (input: RequestInfo | URL) => {
+    await assertSecretLeakageProtected(
+      async (input: RequestInfo | URL) => {
         const parsed = new URL(String(input));
         if (parsed.hostname === 'generativelanguage.googleapis.com') {
           throw new Error(`Gemini network failure: ${syntheticSecret}`);
@@ -402,32 +431,9 @@ describe('EmbeddingsService - Secret Leakage Prevention', () => {
           throw new Error(`OpenAI socket failure: ${syntheticSecret}`);
         }
         throw new Error(`Unexpected hostname: ${parsed.hostname}`);
-      });
-    global.fetch = mockFetch;
-
-    const service = new EmbeddingsService({
-      geminiKey: 'mock-gemini-key',
-      openaiKey: 'mock-openai-key',
-    });
-
-    const result = await service.embed('network failure test');
-
-    expect(result).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[Embeddings] Gemini provider failed, attempting OpenAI fallback',
+      },
+      'network failure test',
+      syntheticSecret,
     );
-    expect(errorSpy).toHaveBeenCalledWith('[Embeddings] Fatal error during embedding generation');
-
-    const allLoggedArgs = [
-      ...logSpy.mock.calls.flat(),
-      ...warnSpy.mock.calls.flat(),
-      ...errorSpy.mock.calls.flat(),
-    ];
-
-    for (const arg of allLoggedArgs) {
-      expect(serializeLoggedArg(arg)).not.toContain(syntheticSecret);
-    }
   });
 });

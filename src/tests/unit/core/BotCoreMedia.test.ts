@@ -83,6 +83,7 @@ describe('BotCore Media & Audio Lifecycle', () => {
 
   it('gère la réponse audio et nettoie les fichiers temporaires après délai', async () => {
     jest.useFakeTimers();
+    safeMkdirSync(path.dirname(pcmFile), { recursive: true });
     safeWriteFileSync(pcmFile, 'pcm test');
     safeWriteFileSync(oggFile, 'ogg test');
 

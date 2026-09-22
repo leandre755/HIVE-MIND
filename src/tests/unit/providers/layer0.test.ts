@@ -304,6 +304,18 @@ describe('Layer 0 - ExecutionLayer', () => {
       ),
     ).rejects.toThrow(NetworkError);
   });
+
+  it('classifies generic fetch network rejection as NetworkError', async () => {
+    mockFetch.mockRejectedValue(new Error('Connection reset by peer'));
+
+    await expect(
+      execute(
+        'codestral-latest',
+        { messages: [{ role: 'user', content: 'Connection reset' }] },
+        { apiKey: DUMMY_API_KEY },
+      ),
+    ).rejects.toThrow(NetworkError);
+  });
 });
 
 describe('Layer 0 - ExecutionLayer Streaming', () => {

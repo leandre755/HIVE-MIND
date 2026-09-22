@@ -1,7 +1,10 @@
 // services/dreamService.js
 // Module de Rêve : Analyse des actions passées pour l'auto-apprentissage
 
-import { writeFileSync, readFileSync } from 'fs';
+import {
+  safeWriteFileSync as writeFileSync,
+  safeReadFileSync as readFileSync,
+} from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { agentMemory } from './agentMemory.js';

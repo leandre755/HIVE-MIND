@@ -17,7 +17,6 @@ import {
 } from '../GenerationParams.js';
 import type { AdapterChatResult, ChatMessage, ToolDefinition } from '../types.js';
 import { classifyError } from './classifyError.js';
-import { Layer0Error } from './errors.js';
 import { getModelConfig, ResolvedModelConfig } from './ModelRegistry.js';
 
 export interface ExecutionRequest {
@@ -136,7 +135,7 @@ async function handleResponseError(response: Response): Promise<never> {
   });
 }
 
-function setupAbortController(
+export function setupAbortController(
   optsTimeout?: number,
   optsSignal?: AbortSignal,
   defaultTimeout = 60_000,
@@ -174,6 +173,48 @@ function setupAbortController(
   };
 
   return { controller, cleanup, timeoutMs };
+}
+
+async function executeHttpRequest(params: {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  controller: AbortController;
+  cleanup: () => void;
+  timeoutMs: number;
+  isStream?: boolean;
+}): Promise<Response> {
+  const { url, headers, body, controller, cleanup, timeoutMs, isStream } = params;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error: unknown) {
+    cleanup();
+    if (error instanceof Error && (error.name === 'AbortError' || controller.signal.aborted)) {
+      throw classifyError({
+        status: 0,
+        message: `ExecutionLayer: ${isStream ? 'streaming ' : ''}request timed out or was aborted after ${timeoutMs}ms`,
+        cause: error,
+      });
+    }
+    throw classifyError({
+      status: 0,
+      message: error instanceof Error ? error.message : String(error),
+      cause: error,
+    });
+  }
+
+  if (!response.ok) {
+    cleanup();
+    await handleResponseError(response);
+  }
+
+  return response;
 }
 
 /**
@@ -232,41 +273,14 @@ export async function execute(
     });
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (error: unknown) {
-    cleanup();
-    if (error instanceof Layer0Error) throw error;
-    if (error instanceof Error && (error.name === 'AbortError' || controller.signal.aborted)) {
-      throw classifyError({
-        status: 0,
-        message: `ExecutionLayer: request timed out or was aborted after ${timeoutMs}ms`,
-        cause: error,
-      });
-    }
-    throw classifyError({
-      status: 0,
-      message: error instanceof Error ? error.message : String(error),
-      cause: error,
-    });
-  }
-
-  if (!response || !response.ok) {
-    cleanup();
-    if (!response) {
-      throw classifyError({
-        status: 0,
-        message: 'ExecutionLayer: no response received from fetch',
-      });
-    }
-    await handleResponseError(response);
-  }
+  const response = await executeHttpRequest({
+    url,
+    headers,
+    body,
+    controller,
+    cleanup,
+    timeoutMs,
+  });
 
   let data: unknown;
   try {
@@ -420,40 +434,15 @@ export async function* executeStream(
     protocol.timeoutMs ?? 60_000,
   );
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (error: unknown) {
-    cleanup();
-    if (error instanceof Layer0Error) throw error;
-    if (error instanceof Error && (error.name === 'AbortError' || controller.signal.aborted)) {
-      throw classifyError({
-        status: 0,
-        message: `ExecutionLayer: streaming request timed out or was aborted after ${timeoutMs}ms`,
-        cause: error,
-      });
-    }
-    throw classifyError({
-      status: 0,
-      message: error instanceof Error ? error.message : String(error),
-      cause: error,
-    });
-  }
-
-  if (!response || !response.ok) {
-    cleanup();
-    if (!response)
-      throw classifyError({
-        status: 0,
-        message: 'ExecutionLayer: no response received from fetch',
-      });
-    await handleResponseError(response);
-  }
+  const response = await executeHttpRequest({
+    url,
+    headers,
+    body,
+    controller,
+    cleanup,
+    timeoutMs,
+    isStream: true,
+  });
 
   if (!response.body) {
     cleanup();

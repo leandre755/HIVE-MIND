@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { EmbeddingsService } from '../services/ai/EmbeddingsService.js';
+import { GLOBAL_CONTEXT_ID } from '../services/memory/constants.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -83,8 +84,8 @@ async function init() {
   const embeddings = new EmbeddingsService({
     geminiKey: resolveKey('gemini', creds.familles_ia?.gemini),
     openaiKey: resolveKey('openai', creds.familles_ia?.openai),
-    model: embeddingConfig.model || 'text-embedding-004', // Modèle par défaut plus récent
-    dimensions: embeddingConfig.dimensions || 768,
+    model: embeddingConfig.model,
+    dimensions: embeddingConfig.dimensions,
   });
 
   return { supabase, embeddings };
@@ -119,11 +120,11 @@ async function run() {
   }
 
   // Nettoyage préalable (Optionnel, ici on le fait pour éviter les doublons brutaux)
-  console.log('🧹 Nettoyage de la base de connaissances actuelle (chat_id=global)...');
+  console.log('🧹 Nettoyage de la base de connaissances actuelle (contexte global)...');
   const { error: delError } = await supabase
     .from('memories')
     .delete()
-    .eq('chat_id', 'global')
+    .eq('context_id', GLOBAL_CONTEXT_ID)
     .eq('role', 'system'); // Sécurité pour ne pas supprimer d'autres trucs si on utilise global pour autre chose
 
   if (delError) console.error('Erreur nettoyage:', delError);
@@ -148,7 +149,7 @@ async function run() {
       if (vector) {
         // Insertion
         const { error } = await supabase.from('memories').insert({
-          chat_id: 'global', // ID Spécial
+          context_id: GLOBAL_CONTEXT_ID,
           content: chunkContent,
           role: 'system', // Considéré comme une instruction/connaissance système
           embedding: vector,

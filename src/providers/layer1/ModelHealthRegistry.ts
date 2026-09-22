@@ -385,8 +385,11 @@ export class ModelHealthRegistry {
       const statsA = this.getModelStats(a);
       const statsB = this.getModelStats(b);
 
-      const scoreA = 0.7 * statsA.failRatio + 0.3 * (statsA.latencyP50Ms / 1000);
-      const scoreB = 0.7 * statsB.failRatio + 0.3 * (statsB.latencyP50Ms / 1000);
+      // Le failRatio doit pénaliser lourdement pour ne pas qu'un modèle en panne
+      // (fail = 1, latency = 0) passe devant un modèle lent (fail = 0, latency = 5000ms).
+      // On convertit le failRatio en un malus de millisecondes (ex: 100% = 100000ms)
+      const scoreA = statsA.failRatio * 100000 + statsA.latencyP50Ms;
+      const scoreB = statsB.failRatio * 100000 + statsB.latencyP50Ms;
 
       return scoreA - scoreB;
     });

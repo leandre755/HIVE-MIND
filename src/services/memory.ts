@@ -1,7 +1,9 @@
 // services/memory.ts
 // Service de mémoire sémantique (RAG) avec pgvector
 
-import { supabase, db } from './supabase.js';
+import { supabase } from './supabase.js';
+import { GLOBAL_CONTEXT_ID } from './memory/constants.js';
+import { resolveMemoryContextId } from './memory/contextResolver.js';
 
 interface EmbeddingsService {
   embed(text: string, taskType: string): Promise<number[] | null>;
@@ -121,16 +123,8 @@ export const semanticMemory = {
       storedAt: new Date().toISOString(),
     };
 
-    let contextId = chatId;
-    try {
-      const { db: dbMod } = await import('./supabase.js');
-      const resolved = await dbMod.resolveContextFromLegacyId(chatId);
-      if (resolved) {
-        contextId = resolved.context_id;
-      }
-    } catch (e: unknown) {
-      console.warn('[Memory] Résolution context_id échouée:', extractErrorMessage(e));
-    }
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
 
     const { error } = await supabase.from('memories').insert({
       context_id: contextId,
@@ -146,75 +140,83 @@ export const semanticMemory = {
   async recall(chatId: string, query: string, limit = 5): Promise<FormattedMemory[]> {
     if (!supabase) return [];
 
+    const contextId = await resolveMemoryContextId(chatId);
+
     const emb = await getEmbeddingsService();
     if (!emb) {
       console.warn('[Memory] EmbeddingsService non disponible, fallback temporel');
-      const { data } = await supabase
-        .from('memories')
-        .select('content, role, created_at')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      return this._formatWithAge((data || []) as MemoryRow[]);
+      return this._fallbackTemporal(contextId, limit);
     }
 
     const vector = await emb.embed(query, 'RETRIEVAL_QUERY');
     if (!vector) {
       console.warn('[Memory] Échec embedding requête, fallback temporel');
-      const { data } = await supabase
-        .from('memories')
-        .select('content, role, created_at')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      return this._formatWithAge((data || []) as MemoryRow[]);
+      return this._fallbackTemporal(contextId, limit);
     }
 
-    let contextId = chatId;
-    try {
-      const resolved = await db.resolveContextFromLegacyId(chatId);
-      if (resolved) {
-        contextId = resolved.context_id;
-      }
-    } catch (e: unknown) {
-      console.warn('[Memory] Résolution context_id échouée, skip recall:', extractErrorMessage(e));
-      return [];
-    }
-
-    const { data, error } = await supabase.rpc('match_memories', {
-      query_embedding: vector,
-      match_context_id: contextId,
-      match_threshold: 0.7,
-      match_count: limit,
-    });
-
-    if (error) {
-      console.error('[Memory] Erreur recall:', error);
-      return [];
-    }
-
-    let globalData: MemoryRow[] = [];
-    try {
-      const { data: gData, error: gError } = await supabase.rpc('match_memories', {
-        query_embedding: vector,
-        match_context_id: 'global',
-        match_threshold: 0.65,
-        match_count: limit,
-      });
-
-      if (!gError && gData) {
-        globalData = gData;
-      }
-    } catch (e: unknown) {
-      console.warn('[Memory] Erreur global recall:', extractErrorMessage(e));
-    }
-
-    const combined = [...((data || []) as MemoryRow[]), ...globalData];
+    const localRows = contextId ? await this._recallContextMemories(contextId, vector, limit) : [];
+    const globalRows = await this._recallGlobalMemories(vector, limit);
+    const combined = [...localRows, ...globalRows];
     const unique = Array.from(new Map(combined.map((item) => [item.id, item])).values());
 
     return this._formatWithAge(unique.slice(0, limit + 2));
+  },
+
+  async _fallbackTemporal(contextId: string | null, limit: number): Promise<FormattedMemory[]> {
+    if (!supabase || !contextId) return [];
+
+    const { data } = await supabase
+      .from('memories')
+      .select('content, role, created_at')
+      .eq('context_id', contextId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return this._formatWithAge((data || []) as MemoryRow[]);
+  },
+
+  async _recallContextMemories(
+    contextId: string,
+    vector: number[],
+    limit: number,
+  ): Promise<MemoryRow[]> {
+    if (!supabase) return [];
+
+    try {
+      const { data, error } = await supabase.rpc('match_memories', {
+        query_embedding: vector,
+        match_context_id: contextId,
+        match_threshold: 0.7,
+        match_count: limit,
+      });
+
+      if (error) {
+        console.error('[Memory] Erreur recall:', error);
+        return [];
+      }
+      return (data || []) as MemoryRow[];
+    } catch (e: unknown) {
+      console.warn('[Memory] Erreur recall local:', extractErrorMessage(e));
+      return [];
+    }
+  },
+
+  async _recallGlobalMemories(vector: number[], limit: number): Promise<MemoryRow[]> {
+    if (!supabase) return [];
+
+    try {
+      const { data, error } = await supabase.rpc('match_memories', {
+        query_embedding: vector,
+        match_context_id: GLOBAL_CONTEXT_ID,
+        match_threshold: 0.65,
+        match_count: limit,
+      });
+      if (error) return [];
+      return (data || []) as MemoryRow[];
+    } catch (e: unknown) {
+      console.warn('[Memory] Erreur global recall:', extractErrorMessage(e));
+      return [];
+    }
   },
 
   _formatWithAge(memories: MemoryRow[]): FormattedMemory[] {
@@ -246,10 +248,13 @@ export const semanticMemory = {
   async getRecentContext(chatId: string, limit = 10): Promise<string> {
     if (!supabase) return '';
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return '';
+
     const { data } = await supabase
       .from('memories')
       .select('content, role')
-      .eq('chat_id', chatId)
+      .eq('context_id', contextId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -265,10 +270,13 @@ export const semanticMemory = {
     if (!supabase) return { success: false, reason: 'Supabase non disponible' };
 
     try {
+      const contextId = await resolveMemoryContextId(chatId);
+      if (!contextId) return { success: false, reason: 'Contexte introuvable' };
+
       const { count } = await supabase
         .from('memories')
         .select('*', { count: 'exact', head: true })
-        .eq('chat_id', chatId);
+        .eq('context_id', contextId);
 
       if (!count || count <= keepLast) {
         return { success: true, reason: 'Pas assez de messages à résumer' };
@@ -278,7 +286,7 @@ export const semanticMemory = {
       const { data: oldMessages } = await supabase
         .from('memories')
         .select('id, content, role, created_at')
-        .eq('chat_id', chatId)
+        .eq('context_id', contextId)
         .order('created_at', { ascending: true })
         .limit(Math.min(toSkip, 100));
 
@@ -345,10 +353,13 @@ Few-shot examples:
   async cleanup(chatId: string, keepLast = 50): Promise<void> {
     if (!supabase) return;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
+
     const { data: toKeep } = await supabase
       .from('memories')
       .select('id')
-      .eq('chat_id', chatId)
+      .eq('context_id', contextId)
       .order('created_at', { ascending: false })
       .limit(keepLast);
 
@@ -359,7 +370,7 @@ Few-shot examples:
     await supabase
       .from('memories')
       .delete()
-      .eq('chat_id', chatId)
+      .eq('context_id', contextId)
       .not('id', 'in', `(${keepIds.join(',')})`);
   },
 };
@@ -368,13 +379,16 @@ export const factsMemory = {
   async remember(chatId: string, key: string, value: string): Promise<void> {
     if (!supabase) return;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
+
     const { error } = await supabase.from('facts').upsert(
       {
-        chat_id: chatId,
+        context_id: contextId,
         key,
         value,
       },
-      { onConflict: 'chat_id,key' },
+      { onConflict: 'context_id,key' },
     );
 
     if (error) console.error('[Facts] Erreur remember:', error);
@@ -383,7 +397,10 @@ export const factsMemory = {
   async getAll(chatId: string): Promise<Record<string, string>> {
     if (!supabase) return {};
 
-    const { data } = await supabase.from('facts').select('key, value').eq('chat_id', chatId);
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return {};
+
+    const { data } = await supabase.from('facts').select('key, value').eq('context_id', contextId);
 
     if (!data) return {};
 
@@ -396,10 +413,13 @@ export const factsMemory = {
   async get(chatId: string, key: string): Promise<string | null> {
     if (!supabase) return null;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return null;
+
     const { data } = await supabase
       .from('facts')
       .select('value')
-      .eq('chat_id', chatId)
+      .eq('context_id', contextId)
       .eq('key', key)
       .single();
 
@@ -409,7 +429,10 @@ export const factsMemory = {
   async forget(chatId: string, key: string): Promise<void> {
     if (!supabase) return;
 
-    await supabase.from('facts').delete().eq('chat_id', chatId).eq('key', key);
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
+
+    await supabase.from('facts').delete().eq('context_id', contextId).eq('key', key);
   },
 
   async format(chatId: string): Promise<string> {

@@ -1,6 +1,8 @@
 import readline from 'readline';
 import { execFile } from 'child_process';
+import { fileURLToPath } from 'url';
 import { supabase } from '../../services/supabase.js';
+import { GLOBAL_CONTEXT_ID } from '../../services/memory/constants.js';
 
 /**
  * Terminal Interface Implementation
@@ -76,7 +78,8 @@ class CliInterface {
 
   private ingestDocs() {
     console.log('⚙️ Starting ingestion script...');
-    execFile(process.execPath, ['scripts/ingest_docs.js'], (error, stdout) => {
+    const scriptPath = fileURLToPath(new URL('../../ingest_docs.js', import.meta.url));
+    execFile(process.execPath, ['--import', 'tsx', scriptPath], (error, stdout) => {
       if (error) console.error(`[Ingest Error] ${error.message}`);
       if (stdout) console.log(stdout);
       console.log('✅ Ingestion process finished.');
@@ -93,7 +96,8 @@ class CliInterface {
     const { error, count } = await supabase
       .from('memories')
       .delete({ count: 'exact' })
-      .eq('chat_id', 'global');
+      .eq('context_id', GLOBAL_CONTEXT_ID)
+      .eq('role', 'system');
 
     if (error) console.error(`❌ Error: ${error.message}`);
     else console.log(`✅ Cleared ${count} items.`);
@@ -107,7 +111,8 @@ class CliInterface {
     const { error, count } = await supabase
       .from('memories')
       .select('*', { count: 'exact', head: true })
-      .eq('chat_id', 'global');
+      .eq('context_id', GLOBAL_CONTEXT_ID)
+      .eq('role', 'system');
 
     if (error) console.error(`❌ Error: ${error.message}`);
     else console.log(`📚 Knowledge Base Status: ${count} documents (chunks).`);
