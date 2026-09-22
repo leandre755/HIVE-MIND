@@ -1,5 +1,35 @@
 # Test Execution Log
 
+## 📅 Date: 2026-09-22 (PR #120 — revues locales et CodeRabbit : 8 + 6 findings soldés)
+
+### Périmètre
+Revue indépendante Layer 1 (2 passes) + revue CodeRabbit complète : `PersistentShell.ts`, `Planner.ts`, `memory.ts`, `memory/contextResolver.ts` (nouveau), `graphMemory.ts`, `cli-legacy/cli.ts`, `main.md`, et les suites `PersistentShell.test.ts`, `Planner.test.ts`, `memory.test.ts`.
+
+### Résultats d'exécution (sorties brutes)
+- Revue indépendante passe 1 : `REQUEST_CHANGES` — 8 findings (P2 couverture patch `ingest_docs.js` ; P2 `cli-legacy` sur `chat_id='global'` ; P2 `memory.ts`/`facts` incohérents schéma ; P3 signal écrasable, duplication abort/timeout, défauts d'embedding dupliqués, `taskType` écarté, rappel global inatteignable).
+- Finding couverture **réfuté par l'expérience** : `npm run test:unit -- --coverage` produit un lcov où 7 fichiers .ts modifiés par la PR sont absents (`codex.ts`, `huggingface.ts`, `types.ts`, `dreamService.ts`, `graphMemory.ts`, `mcpClient.ts`, `voiceProvider.ts`) alors que Codecov a publié « All modified and coverable lines are covered by tests » (patch 100%, threshold 0) — les fichiers absents du rapport sont exclus du calcul.
+- Revue indépendante passe 2 : 8/8 **CONFIRMÉ**, verdict **APPROVE** (+ 4 polish P3 non bloquants, tous traités : blindage symétrique `_recallContextMemories`, symétrie `role='system'` du `doc status`, idempotence de migration qualifiée `public`, tests des gardes).
+- CodeRabbit (`@coderabbitai full review`) : `CHANGES_REQUESTED`, 6 commentaires actionnables — tous vérifiés réels contre le code puis corrigés (commit `8a305c9`).
+- `npm run build` : **PASSED (0 erreur)** ; `npm run lint:fast` : **PASSED (0 warning, 0 erreur, 351 fichiers)** ; Prettier : **conforme** sur les 9 fichiers du lot.
+- `npm run test:unit` : **PASSED (92/92 suites, 960/960 tests)**. Ciblé : `Planner.test.ts` + `memory.test.ts` = 22/22 après restructuration des `describe`.
+- Couverture ciblée (lcov) : `memory/contextResolver.ts` LH=5/5 (100%), chaque hunk modifié de `PersistentShell.ts`, `Planner.ts` et `memory.ts` exercé par les nouveaux tests.
+- Gains ESLint de la gate (avant commit) : `max-lines-per-function` (202/210/213 > 200) sur `memory.test.ts` et `Planner.test.ts` → hooks remontés au niveau module, `describe('execute - échecs et replanification')` sorti au niveau module. Re-validation : ESLint 0 problème.
+- `git push` (2 pushes) : **Pre-push validé** (gitleaks historique `175 commits scanned, no leaks found`, suite unitaire verte, `npm audit` 0 vulnérabilité, `tsc` 0 erreur, dependency-cruiser 0 violation sur 407 modules, Semgrep 0 finding).
+
+### Fils de revue traités (12/12 résolus)
+- Greptile `Align graph embeddings` (4057523960) et `Migrate graph constraints` (4057523961) : réponses factuelles puis résolution GraphQL.
+- CodeRabbit ×6 (4068329896 GCC, 4068329903 PersistentShell, 4068329910 launcher ingestion, 4068329913 Planner, 4068329915 graphMemory, 4068329922 test PersistentShell) : corrigés puis résolus.
+
+### Bugs découverts puis corrigés pendant cette session
+1. `TS2349` (narrowing `never` sur resolver de promesse) dans `adminService.test.ts` → deferred object typé.
+2. Écart Prettier sur `memory.test.ts` → `prettier --write`.
+3. Import `GLOBAL_CONTEXT_ID` orphelin dans `cli-legacy/cli.ts` (méthodies non migrées) → détection par oxlint, migration `clearDocs`/`statusDocs` complétée.
+4. Accolade de fermeture manquante lors du split de `describe` dans `Planner.test.ts` → rééquilibrage.
+5. `max-lines-per-function` ESLint sur 2 suites → restructuration.
+
+### Régression
+Aucune : 938 tests de base toujours verts (960 = 938 + 22 nouveaux).
+
 ## 📅 Date: 2026-09-22 (PR #120 — 3 bugs P1 Greptile : embeddings/schéma, adminService lifecycle, streaming Gemini)
 
 ### Périmètre
