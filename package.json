@@ -114,7 +114,7 @@
     "eslint-plugin-boundaries": "^7.2.0",
     "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-security": "^4.0.1",
-    "eslint-plugin-sonarjs": "^4.2.0",
+    "eslint-plugin-sonarjs": "^4.2.1",
     "jest": "^30.5.1",
     "knip": "^6.33.0",
     "oxlint": "^1.82.0",
