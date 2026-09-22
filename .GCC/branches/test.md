@@ -1,5 +1,13 @@
 # Test Execution Log
 
+## 📅 Date: 2026-09-22 (fin de session — compaction taille PR #120 + validation)
+
+- `npx prettier --write` + `eslint` (5 fichiers) + `npm run build` (tsc 0 erreur) + `npm run lint:fast` (0/0, 351 fichiers) : **PASSED**.
+- `npx jest PersistentShell memory Planner` : **PASSED (3/3 suites, 26/26 tests)**.
+- `npm run test:unit` : **PASSED (92/92 suites, 959/959 tests)** — 1 test à couverture dupliquée retiré (`getRecentContext : vide`, ligne déjà exercée par le cas principal).
+- Taille du diff code (hors .md, `git diff --numstat origin/master`) : `2571` → **`2465`** (plafond gouvernance 2500) par densification des suites de tests neuves (fixtures partagées, casts factorisés, lignes blanches retirées).
+- File de commentaires PR relayée par le mainteneur (misclick) : **non traitée volontairement**, consignée dans `resume.md` §Unfinished Work pour qualification en prochaine session.
+
 ## 📅 Date: 2026-09-22 (PR #120 — revues locales et CodeRabbit : 8 + 6 findings soldés)
 
 ### Périmètre
