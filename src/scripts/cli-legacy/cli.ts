@@ -1,5 +1,6 @@
 import readline from 'readline';
 import { execFile } from 'child_process';
+import { fileURLToPath } from 'url';
 import { supabase } from '../../services/supabase.js';
 import { GLOBAL_CONTEXT_ID } from '../../services/memory/constants.js';
 
@@ -77,7 +78,8 @@ class CliInterface {
 
   private ingestDocs() {
     console.log('⚙️ Starting ingestion script...');
-    execFile(process.execPath, ['scripts/ingest_docs.js'], (error, stdout) => {
+    const scriptPath = fileURLToPath(new URL('../../ingest_docs.js', import.meta.url));
+    execFile(process.execPath, ['--import', 'tsx', scriptPath], (error, stdout) => {
       if (error) console.error(`[Ingest Error] ${error.message}`);
       if (stdout) console.log(stdout);
       console.log('✅ Ingestion process finished.');

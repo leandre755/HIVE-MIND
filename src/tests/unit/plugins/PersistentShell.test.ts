@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, afterAll } from '@jest/globals';
+import { describe, it, jest, expect, afterEach, afterAll } from '@jest/globals';
 import {
   PersistentShell,
   persistentShell,
@@ -55,9 +55,36 @@ describe('PersistentShell Lifecycle & Execution', () => {
     const internal = shell as unknown as {
       isDisposed: boolean;
       shell: { emit: (event: string, code: number) => void };
+      _initShell: () => void;
     };
+    const initSpy = jest.spyOn(internal, '_initShell');
     internal.isDisposed = true;
     internal.shell.emit('exit', 0);
     expect(internal.isDisposed).toBe(true);
+    expect(initSpy).not.toHaveBeenCalled();
+    initSpy.mockRestore();
+  });
+
+  it('rejects the pending execution when the shell exits unexpectedly and stays usable', async () => {
+    shell = new PersistentShell();
+    const internal = shell as unknown as {
+      shell: {
+        emit: (event: string, code: number) => void;
+        removeAllListeners: (event: string) => void;
+        kill: (signal: string) => void;
+      };
+    };
+
+    const previous = internal.shell;
+    const execPromise = shell.execute('sleep 5', 10000);
+    previous.emit('exit', 137);
+    previous.removeAllListeners('exit');
+    previous.kill('SIGKILL');
+
+    await expect(execPromise).rejects.toThrow('Shell exited unexpectedly with code 137');
+
+    const result = await shell.execute('echo recovered', 10000);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('recovered');
   });
 });

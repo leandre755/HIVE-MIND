@@ -1,8 +1,9 @@
 // services/memory.ts
 // Service de mémoire sémantique (RAG) avec pgvector
 
-import { supabase, db } from './supabase.js';
+import { supabase } from './supabase.js';
 import { GLOBAL_CONTEXT_ID } from './memory/constants.js';
+import { resolveMemoryContextId } from './memory/contextResolver.js';
 
 interface EmbeddingsService {
   embed(text: string, taskType: string): Promise<number[] | null>;
@@ -87,16 +88,6 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-async function resolveMemoryContextId(chatId: string): Promise<string | null> {
-  try {
-    const resolved = await db.resolveContextFromLegacyId(chatId);
-    return resolved ? resolved.context_id : null;
-  } catch (e: unknown) {
-    console.warn('[Memory] Résolution context_id échouée:', extractErrorMessage(e));
-    return null;
-  }
-}
-
 export const semanticMemory = {
   async store(
     chatId: string,
@@ -132,16 +123,8 @@ export const semanticMemory = {
       storedAt: new Date().toISOString(),
     };
 
-    let contextId = chatId;
-    try {
-      const { db: dbMod } = await import('./supabase.js');
-      const resolved = await dbMod.resolveContextFromLegacyId(chatId);
-      if (resolved) {
-        contextId = resolved.context_id;
-      }
-    } catch (e: unknown) {
-      console.warn('[Memory] Résolution context_id échouée:', extractErrorMessage(e));
-    }
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
 
     const { error } = await supabase.from('memories').insert({
       context_id: contextId,

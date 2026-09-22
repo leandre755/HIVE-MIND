@@ -52,6 +52,13 @@ export class PersistentShell extends EventEmitter {
 
     this.shell.on('exit', (code) => {
       if (this.isDisposed) return;
+      if (this.executionPromise) {
+        const pending = this.executionPromise;
+        this.executionPromise = null;
+        pending.reject(new Error(`Shell exited unexpectedly with code ${code}`));
+      }
+      this.isExecuting = false;
+      this.outputBuffer = '';
       console.log(`[PersistentShell] Shell exited with code ${code}. Restarting...`);
       this._initShell();
     });

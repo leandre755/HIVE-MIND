@@ -336,18 +336,8 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 - ✅ Done: **Licence Apache-2.0 et attribution `leandre755`** appliquées dans `LICENSE`, `package.json`, son miroir `license` dans `package-lock.json` et `README.md` (`74aefe7`, via le canal documenté `ALLOW_CONFIG_EDIT=1`, gate exécutée) ; **titulaire du copyright** ajouté à l'annexe `LICENSE` l. 190 (`4955cac`) ; **`AGENTS.md` §6 aligné sur les hooks réels**, en anglais (`8564779`) ; **badge et prérequis Node du README** portés à 22 (`3ea25ce`).
 - ✅ Done: **Alignement du workflow de release sur Node.js 22** (`.github/workflows/release.yml`, l. 43) : `node-version: '22'` aligné avec les invariants du projet et validé 7/7 par `python3 .github/scripts/verify_workflows.py`.
 - ✅ Done: **Résolution 100% ANTIBUG, Codecov et Greptile (PR #117, #118, #119, #120)** : Corrections finales des bugs de timers (fuites de promesses/timers), activeTimers, permissions, tests stricts sans istanbul ignore.
-- ⏳ Pending: Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts` via `os.homedir()` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/`.
-
-## 👉 Next Session Direction
-1. Valider le commit du Lot 1 sous l'identité agent `hivemindagent-boop` sur autorisation du mainteneur.
-2. Initialiser le plan et l'implémentation du **Lot 2 : Persistance & Mock Redis** (`src/services/redisClient.ts`, `graphMemory.ts`, `EmbeddingsService.ts`).
-3. Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts`.
 - ✅ Done: **Découplage de la documentation TUI, refonte des READMEs bilingues et neutralisation CVE fast-uri** (PR #22 ouverte, CI 100% verte, retours CodeRabbit et Greptile intégrés).
-- ✅ Done: **Résolution 100% ANTIBUG, Codecov et Greptile (PR #117, #118, #119, #120)** : Corrections finales des bugs de timers (fuites de promesses/timers), activeTimers, permissions, tests stricts sans istanbul ignore.
-- ⏳ Pending: Traiter la dette du chemin personnel dans `src/providers/adapters/codex.ts` via `os.homedir()` ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; implémentation de TinyFish Search (`todo.md`).
-
+- ⏳ Pending (périmètre unique) : dette du chemin personnel dans `src/providers/adapters/codex.ts` (`os.homedir()`) ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; plugin TinyFish Search (`src/plugins/web/tinyfish_search`, Phase 5 / Task 10 de `docs/tasks/todo.md`).
 
 ## 👉 Next Session Direction
-1. Suivre et fusionner la PR #22 après validation du mainteneur humain.
-2. Implémenter le plugin TinyFish Search sous `src/plugins/web/tinyfish_search` et l'intégrer dans `AgentBlueprint.ts` (Phase 5 / Task 10 de `docs/tasks/todo.md`).
-3. Traiter le chemin personnel dans `src/providers/adapters/codex.ts`.
+Vérifier l'état final des PR #120 (qualité atteinte sur `0e5f975` : Codecov patch 100%, Greptile 5/5, revue CodeRabbit soldée ; la fusion relève du mécanisme automatique du mainteneur — un agent ne fusionne jamais) et #22 (validation mainteneur).

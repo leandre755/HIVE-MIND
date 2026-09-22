@@ -205,37 +205,84 @@ describe('ExplicitPlanner', () => {
       expect(result.failed).toContain(99);
       expect(result.completed).not.toContain(99);
     });
+  });
+});
 
-    it('gère une étape déjà marquée en échec sans lever d exception critique', async () => {
-      const planner = new ExplicitPlanner();
-      const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
-      const context = { chatId: 'chat_123', userId: 'user_1' };
-      const executionLog = {
-        completed: [] as number[],
-        failed: [1],
-        results: {},
-      };
-      const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
+describe('execute - échecs et replanification', () => {
+  it('gère une étape déjà marquée en échec sans lever d exception critique', async () => {
+    const planner = new ExplicitPlanner();
+    const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
+    const context = { chatId: 'chat_123', userId: 'user_1' };
+    const executionLog = {
+      completed: [] as number[],
+      failed: [1],
+      results: {},
+    };
+    const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
 
-      (
-        planner as unknown as {
-          _executeStepWithRetry: () => Promise<null>;
-        }
-      )._executeStepWithRetry = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    (
+      planner as unknown as {
+        _executeStepWithRetry: (
+          step: unknown,
+          context: unknown,
+          log: { failed: number[] },
+        ) => Promise<null>;
+      }
+    )._executeStepWithRetry = jest
+      .fn<(step: unknown, context: unknown, log: { failed: number[] }) => Promise<null>>()
+      .mockImplementation(async (_step, _ctx, log) => {
+        log.failed.push(1);
+        return null;
+      });
 
-      await (
-        planner as unknown as {
-          _executeSingleStep: (
-            step: unknown,
-            context: unknown,
-            executionLog: unknown,
-            plan: unknown,
-          ) => Promise<void>;
-        }
-      )._executeSingleStep(step, context, executionLog, plan);
+    await (
+      planner as unknown as {
+        _executeSingleStep: (
+          step: unknown,
+          context: unknown,
+          executionLog: unknown,
+          plan: unknown,
+        ) => Promise<void>;
+      }
+    )._executeSingleStep(step, context, executionLog, plan);
 
-      expect(executionLog.failed).toContain(1);
-    });
+    expect(executionLog.failed).toContain(1);
+    expect(executionLog.completed).not.toContain(1);
+  });
+
+  it('réhabilite une étape replanifiée dont l identifiant figure déjà dans les échecs antérieurs', async () => {
+    const planner = new ExplicitPlanner();
+    const step = { id: 1, action: 'test action', tool: 'test_tool', params: {} };
+    const context = { chatId: 'chat_123', userId: 'user_1' };
+    const executionLog = {
+      completed: [] as number[],
+      failed: [1],
+      results: {} as Record<string, unknown>,
+    };
+    const plan = { id: 'plan_1', steps: [step], goal: 'test goal' };
+
+    (
+      planner as unknown as {
+        _executeStepWithRetry: () => Promise<{ success: boolean } | null>;
+      }
+    )._executeStepWithRetry = jest
+      .fn<() => Promise<{ success: boolean } | null>>()
+      .mockResolvedValue({ success: true });
+
+    await (
+      planner as unknown as {
+        _executeSingleStep: (
+          step: unknown,
+          context: unknown,
+          executionLog: unknown,
+          plan: unknown,
+        ) => Promise<void>;
+      }
+    )._executeSingleStep(step, context, executionLog, plan);
+
+    expect(executionLog.completed).toContain(1);
+    expect(executionLog.failed).not.toContain(1);
+    expect(executionLog.results[1]).toBeDefined();
   });
 });
 

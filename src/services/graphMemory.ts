@@ -3,6 +3,7 @@
 
 import { supabase } from './supabase.js';
 import { EmbeddingsService } from './ai/EmbeddingsService.js';
+import { resolveMemoryContextId } from './memory/contextResolver.js';
 import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -76,6 +77,9 @@ export const graphMemory = {
   async upsertEntity(chatId: string, entity: EntityData): Promise<UpsertEntityResult | null> {
     if (!supabase || !entity.name) return null;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return null;
+
     try {
       const textToEmbed = `${entity.name}: ${entity.description || ''}`;
       const vector = await embeddings?.embed(textToEmbed);
@@ -84,7 +88,7 @@ export const graphMemory = {
         .from('entities')
         .upsert(
           {
-            context_id: chatId,
+            context_id: contextId,
             name: entity.name,
             type: entity.type || 'Concept',
             description: entity.description,
@@ -114,18 +118,21 @@ export const graphMemory = {
   ): Promise<RelationshipResult | null> {
     if (!supabase) return null;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return null;
+
     try {
       const { data: source } = await supabase
         .from('entities')
         .select('id')
-        .eq('context_id', chatId)
+        .eq('context_id', contextId)
         .eq('name', sourceName)
         .single();
 
       const { data: target } = await supabase
         .from('entities')
         .select('id')
-        .eq('context_id', chatId)
+        .eq('context_id', contextId)
         .eq('name', targetName)
         .single();
 
@@ -140,7 +147,7 @@ export const graphMemory = {
         .from('relationships')
         .upsert(
           {
-            context_id: chatId,
+            context_id: contextId,
             source_id: (source as { id: string }).id,
             target_id: (target as { id: string }).id,
             relation_type: relationType,
@@ -163,13 +170,16 @@ export const graphMemory = {
     const resultMap = new Map<string, string>();
     if (!supabase || !entities.length) return resultMap;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return resultMap;
+
     try {
       const rows = await Promise.all(
         entities.map(async (ent) => {
           const textToEmbed = `${ent.name}: ${ent.description || ''}`;
           const vector = await embeddings?.embed(textToEmbed);
           return {
-            context_id: chatId,
+            context_id: contextId,
             name: ent.name,
             type: ent.type || 'Concept',
             description: ent.description,
@@ -201,6 +211,9 @@ export const graphMemory = {
   ): Promise<void> {
     if (!supabase || !relationships.length) return;
 
+    const contextId = await resolveMemoryContextId(chatId);
+    if (!contextId) return;
+
     try {
       const nameSet = new Set<string>();
       relationships.forEach((r) => {
@@ -211,7 +224,7 @@ export const graphMemory = {
       const { data: entities, error: fetchErr } = await supabase
         .from('entities')
         .select('id, name')
-        .eq('context_id', chatId)
+        .eq('context_id', contextId)
         .in('name', Array.from(nameSet));
 
       if (fetchErr) throw fetchErr;
@@ -222,7 +235,7 @@ export const graphMemory = {
       const rows = relationships
         .filter((r) => nameToId.has(r.source) && nameToId.has(r.target))
         .map((r) => ({
-          context_id: chatId,
+          context_id: contextId,
           source_id: nameToId.get(r.source)!,
           target_id: nameToId.get(r.target)!,
           relation_type: r.type,

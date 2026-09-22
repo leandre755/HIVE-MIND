@@ -12,6 +12,12 @@ const mockRpc =
     (fn: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
   >();
 
+jest.unstable_mockModule('../../../services/tagService.js', () => ({
+  tagService: {
+    generateTags: jest.fn<(content: string) => Promise<string[]>>().mockResolvedValue(['tag']),
+  },
+}));
+
 jest.unstable_mockModule('../../../services/supabase.js', () => ({
   supabase: {
     from: mockFrom,
@@ -64,27 +70,27 @@ function useEmbeddings(
   };
 }
 
+let semanticMemory: MemoryModule['semanticMemory'];
+let factsMemory: MemoryModule['factsMemory'];
+const originalContainer = (globalThis as { container?: unknown }).container;
+
+beforeEach(async () => {
+  jest.resetModules();
+  jest.clearAllMocks();
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  const mod: MemoryModule = await import('../../../services/memory.js');
+  semanticMemory = mod.semanticMemory;
+  factsMemory = mod.factsMemory;
+});
+
+afterEach(() => {
+  (globalThis as { container?: unknown }).container = originalContainer;
+  jest.restoreAllMocks();
+});
+
 describe('semanticMemory - alignement context_id', () => {
-  let semanticMemory: MemoryModule['semanticMemory'];
-  let factsMemory: MemoryModule['factsMemory'];
-  const originalContainer = (globalThis as { container?: unknown }).container;
-
-  beforeEach(async () => {
-    jest.resetModules();
-    jest.clearAllMocks();
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    const mod: MemoryModule = await import('../../../services/memory.js');
-    semanticMemory = mod.semanticMemory;
-    factsMemory = mod.factsMemory;
-  });
-
-  afterEach(() => {
-    (globalThis as { container?: unknown }).container = originalContainer;
-    jest.restoreAllMocks();
-  });
-
   it('recall : fallback temporel filtré sur context_id résolu sans embeddings', async () => {
     const chains = installQueryMock(() => ({ data: [{ content: 'a', role: 'user' }] }));
     mockResolveContextFromLegacyId.mockResolvedValueOnce({ context_id: 'uuid-1', type: 'user' });
@@ -302,6 +308,31 @@ describe('semanticMemory - alignement context_id', () => {
     await factsMemory.remember('123@s.whatsapp.net', 'lang', 'fr');
 
     expect(res).toEqual({ success: false, reason: 'Contexte introuvable' });
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('store : insère le souvenir avec le context_id résolu', async () => {
+    const chains = installQueryMock(() => ({ error: null, data: null }));
+    mockResolveContextFromLegacyId.mockResolvedValueOnce({ context_id: 'uuid-12', type: 'user' });
+    useEmbeddings(async () => [0.1, 0.2]);
+
+    await semanticMemory.store('123@s.whatsapp.net', 'un souvenir', 'user', { msgId: 'm1' });
+
+    const insertCall = chains.flat().find((c) => c.method === 'insert');
+    expect(insertCall?.args[0]).toMatchObject({
+      context_id: 'uuid-12',
+      content: 'un souvenir',
+      role: 'user',
+    });
+  });
+
+  it('store : abandonne l insertion quand le contexte est introuvable', async () => {
+    installQueryMock(() => ({ error: null, data: null }));
+    mockResolveContextFromLegacyId.mockResolvedValueOnce(null);
+    useEmbeddings(async () => [0.1, 0.2]);
+
+    await semanticMemory.store('123@s.whatsapp.net', 'un souvenir', 'user');
+
     expect(mockFrom).not.toHaveBeenCalled();
   });
 });

@@ -1037,8 +1037,11 @@ Plan:`;
     }
 
     try {
+      const failedBefore = executionLog.failed.length;
       const finalResult = await this._executeStepWithRetry(step, context, executionLog, plan);
-      if (!executionLog.failed.includes(step.id)) {
+      if (executionLog.failed.length === failedBefore) {
+        const staleIndex = executionLog.failed.indexOf(step.id);
+        if (staleIndex !== -1) executionLog.failed.splice(staleIndex, 1);
         if (finalResult) {
           finalResult.retries = 0;
           executionLog.results[step.id] = finalResult;
