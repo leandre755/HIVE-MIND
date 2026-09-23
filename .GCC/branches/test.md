@@ -691,4 +691,20 @@ Status: **VERIFIED WORKING**
     - Multi Pipeline: Chained proxy operations executed sequentially with `exec()`, list operations within pipeline.
     - Integration WorkingMemory: `switchToMock(redis)` dynamic binding prevents `TypeError: redis.rPush is not a function`, full `workingMemory.addMessage()` and `workingMemory.getContext()` flow executes cleanly on mock fallback.
 
+## 📅 Date: 2026-09-23 (Fix des 6 bugs #20 #23 #27 #33 #36 #37 + Palier 1 #112, PR #127)
+
+- **Périmètre**: `MailboxWatcher.ts`, `StateManager.ts`, `telegram.ts`, `PermissionManager.ts`, `ExecutionLayer.ts`, `providers/index.ts`, `families/**` (GeminiNativeProtocol, XGoogApiKeyHeaders, registry, types), `safeFs.ts`, `readFileInRange.ts` + 8 fichiers migrés + 9 scripts + 6 suites de tests migrées.
+- **Nouvelles suites de régression** (toutes au vert):
+  - `mailboxWatcher.test.ts` (2 tests : rejet avalé+logué, nominal + garde anti-double-démarrage).
+  - `telegramGetMe.test.ts` (2 tests : getMe résolu 1 fois pour 4 événements + self ignoré, reset cache à disconnect).
+  - `permissionManagerTimers.test.ts` (4 tests : purge timer In-Band à l'approbation/au rejet, timer Hub armé+tracké+purgé, auto-purge au timeout INBAND_TIMEOUT_MS).
+  - `geminiNativeProtocol.test.ts` (9 tests : registry, URLs, fail-closed, projection messages/outils/images, lecture réponse/usage, erreurs 429).
+  - `geminiNativeCoverage.test.ts` (3 tests : deltas SSE choices[0].delta + delta.text/ignorages, chemin streaming readFileInRange + safeFstat).
+  - `stateManagerCoverage.test.ts` (34 tests, **StateManager 100% lignes** — round-trip names #27 inclus) et `lockManagerCoverage.test.ts` (17 tests, **LockManager 100% lignes**), produits par sous-agent (issue #112 Palier 1).
+- **Bugs trouvés et corrigés pendant les runs**:
+  - `provider_families.test.ts` D.3/D.4 cassées par les ajouts du registre (`gemini-native`, `x-goog-api-key`) → attentes mises à jour (3 protocoles / 5 en-têtes).
+  - Test Hub initial : `requestCounter` redémarre à 1 par instance → `.approve 4` inconnu ; corrigé en `.approve 1`.
+  - ESLint gate : `no-duplicate-imports` (fusion import type StreamChunk), `no-warning-comments` (mot « stub » retiré), `sonarjs/no-extra-arguments` (défaut `queryResolver` aligné sur sa signature).
+- **Suite complète**: `npm run test:unit` → `Test Suites: 96 passed / Tests: 975 passed` (avant lots de couverture) ; ciblés finaux `21 passed` (lockManagerCoverage + permissionManagerTimers) ; gate pre-commit 8/8 × 9 commits ; gate pre-push complète (gitleaks historique + tests + audit + tsc + depcruise).
+
 
