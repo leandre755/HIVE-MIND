@@ -105,6 +105,71 @@ describe('PermissionManager — purge des timers de requête (#23)', () => {
 
     (pm as unknown as { SECURITY_HUB_ID: string | null }).SECURITY_HUB_ID = null;
   });
+  it('à expiration du timer Hub, escalade en In-Band puis purge au timeout', async () => {
+    (pm as unknown as { SECURITY_HUB_ID: string }).SECURITY_HUB_ID = 'hub_channel';
+
+    const requestPromise = pm.askPermission(
+      'chat-6',
+      'exfiltration de données',
+      'whatsapp',
+      'admin-6@s.whatsapp.net',
+    );
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(jest.getTimerCount()).toBe(1); // timer Hub armé
+
+    // Expiration du timer Hub → le callback escalade en LOGIC 2 (In-Band).
+    await jest.advanceTimersByTimeAsync(10 * 60 * 1000 + 1);
+    expect(jest.getTimerCount()).toBe(1); // le timer In-Band remplace le Hub
+
+    await jest.advanceTimersByTimeAsync(15 * 60 * 1000 + 1);
+    await expect(requestPromise).resolves.toEqual({
+      granted: false,
+      feedback: 'The administrator did not respond in time (Timeout).',
+    });
+    expect(pm.pendingCount).toBe(0);
+    expect(jest.getTimerCount()).toBe(0);
+
+    (pm as unknown as { SECURITY_HUB_ID: string | null }).SECURITY_HUB_ID = null;
+  });
+
+  it('n arme pas le timer Hub si l approbation arrive pendant les envois', async () => {
+    (pm as unknown as { SECURITY_HUB_ID: string }).SECURITY_HUB_ID = 'hub_channel';
+    let releaseSend: () => void = () => undefined;
+    const sendGate = new Promise<void>((resolve) => {
+      releaseSend = resolve;
+    });
+    const { transportManager } = await import('../../../core/transport/TransportManager.js');
+    const sendMock = transportManager.sendText as unknown as jest.Mock<
+      (...args: unknown[]) => Promise<unknown>
+    >;
+    sendMock.mockImplementation(async () => {
+      await sendGate;
+      return {};
+    });
+
+    const requestPromise = pm.askPermission(
+      'chat-7',
+      'dump de credentials',
+      'whatsapp',
+      'admin-7@s.whatsapp.net',
+    );
+    await jest.advanceTimersByTimeAsync(0);
+
+    // Approbation Hub pendant que les envois sont toujours en vol :
+    expect(await pm.handleAdminCommand('.approve 1', 'hub_channel', 'admin-7@s.whatsapp.net')).toBe(
+      true,
+    );
+    releaseSend();
+
+    await requestPromise;
+    await jest.advanceTimersByTimeAsync(0);
+    expect(jest.getTimerCount()).toBe(0); // aucun timer Hub détaché armé
+    expect(pm.pendingCount).toBe(0);
+
+    (pm as unknown as { SECURITY_HUB_ID: string | null }).SECURITY_HUB_ID = null;
+  });
+
   it('n arme aucun timer si la requête est résolue pendant l envoi du prompt', async () => {
     let releaseSend: () => void = () => undefined;
     const sendGate = new Promise<void>((resolve) => {

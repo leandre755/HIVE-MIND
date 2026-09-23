@@ -1200,6 +1200,12 @@ export class PermissionManager {
           )
           .catch(() => {});
 
+        // La requête a pu être résolue (approbation Hub) pendant les envois :
+        // armer le timer ici le détacherait de tout cycle de vie.
+        if (this.pendingRequests.get(requestId) !== pending) {
+          return;
+        }
+
         const hubTimer = setTimeout(() => {
           if (this.pendingRequests.has(requestId)) {
             console.log(
