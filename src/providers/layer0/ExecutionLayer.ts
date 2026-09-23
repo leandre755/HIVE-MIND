@@ -292,6 +292,25 @@ export async function execute(
   return protocol.parseResponse(data, protocolContext);
 }
 
+/** Convertit une part functionCall Gemini (IDs + thoughtSignature préservés). */
+function parseStreamFunctionCallPart(part: Record<string, unknown>): Record<string, unknown> {
+  const fnObj = Reflect.get(part, 'functionCall') as Record<string, unknown>;
+  const providerId = Reflect.get(fnObj, 'id');
+  const call: Record<string, unknown> = {
+    id: typeof providerId === 'string' && providerId.length > 0 ? providerId : generateSafeToolId(),
+    type: 'function',
+    function: {
+      name: Reflect.get(fnObj, 'name'),
+      arguments: JSON.stringify(Reflect.get(fnObj, 'args') ?? {}),
+    },
+  };
+  const thought = Reflect.get(part, 'thoughtSignature');
+  if (typeof thought === 'string') {
+    Reflect.set(call, 'thought_signature', thought);
+  }
+  return call;
+}
+
 /** Extrait les deltas du dialecte Gemini natif (candidates[].content.parts[]). */
 function extractGeminiDeltaFields(parsed: Record<string, unknown>): {
   content?: string;
@@ -314,15 +333,7 @@ function extractGeminiDeltaFields(parsed: Record<string, unknown>): {
       if (typeof partText === 'string') text += partText;
       const fn = Reflect.get(p, 'functionCall');
       if (fn && typeof fn === 'object') {
-        const fnObj = fn as Record<string, unknown>;
-        calls.push({
-          id: generateSafeToolId(),
-          type: 'function',
-          function: {
-            name: Reflect.get(fnObj, 'name'),
-            arguments: JSON.stringify(Reflect.get(fnObj, 'args') ?? {}),
-          },
-        });
+        calls.push(parseStreamFunctionCallPart(p));
       }
     }
   }

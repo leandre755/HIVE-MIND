@@ -45,8 +45,10 @@ interface GeminiPart {
   text?: string;
   inlineData?: { mimeType?: string; data?: string };
   fileData?: { fileUri?: string };
-  functionCall?: { name?: string; args?: unknown };
-  functionResponse?: { name?: string; response?: unknown };
+  /** Signature de pensée Google, préservée telle quelle vers le routeur. */
+  thoughtSignature?: string;
+  functionCall?: { id?: string; name?: string; args?: unknown };
+  functionResponse?: { id?: string; name?: string; response?: unknown };
 }
 
 /** Message filaire Gemini : `user` ou `model`, jamais `system`/`tool`. */
@@ -184,6 +186,7 @@ function mapMessageToContents(
       parts: [
         {
           functionResponse: {
+            id: message.tool_call_id,
             name: message.name ?? 'function',
             response: { content: contentToText(message.content) },
           },
@@ -199,6 +202,7 @@ function mapMessageToContents(
     for (const toolCall of message.tool_calls) {
       parts.push({
         functionCall: {
+          id: toolCall.id,
           name: toolCall.function.name,
           args: parseToolArguments(toolCall.function.arguments),
         },
@@ -209,6 +213,30 @@ function mapMessageToContents(
     parts.push({ text: '' });
   }
   contents.push({ role, parts });
+}
+
+/** Assemble `generationConfig` : wireParams allowlistés > options > défauts. */
+function buildGenerationConfig(
+  ctx: ProtocolContext,
+  protocolOptions: ProtocolOptions,
+): Record<string, unknown> {
+  const generationConfig: Record<string, unknown> = {};
+  for (const key of geminiNativeProtocol.wireParamKeys ?? DEFAULT_WIRE_PARAM_KEYS) {
+    const wireValue = ctx.wireParams ? Reflect.get(ctx.wireParams, key) : undefined;
+    if (wireValue !== undefined) {
+      Reflect.set(generationConfig, key, wireValue);
+    }
+  }
+
+  const temperature = ctx.options.temperature ?? protocolOptions.default_temperature;
+  if (generationConfig.temperature === undefined && typeof temperature === 'number') {
+    generationConfig.temperature = temperature;
+  }
+  const maxOutputTokens = ctx.options.max_tokens ?? protocolOptions.default_max_tokens;
+  if (typeof maxOutputTokens === 'number' && generationConfig.maxOutputTokens === undefined) {
+    generationConfig.maxOutputTokens = maxOutputTokens;
+  }
+  return generationConfig;
 }
 
 /** Convertit la déclaration d'outils routeur en `functionDeclarations` Gemini. */
@@ -226,15 +254,18 @@ function parseFunctionCalls(parts: GeminiPart[]): ToolCall[] | null {
   for (const part of parts) {
     const fn = part.functionCall;
     if (!fn || typeof fn.name !== 'string') continue;
-    const id = generateSafeToolId();
-    calls.push({
-      id,
+    const call: ToolCall = {
+      id: typeof fn.id === 'string' && fn.id.length > 0 ? fn.id : generateSafeToolId(),
       type: 'function',
       function: {
         name: fn.name,
         arguments: JSON.stringify(fn.args ?? {}),
       },
-    });
+    };
+    if (typeof part.thoughtSignature === 'string') {
+      call.thought_signature = part.thoughtSignature;
+    }
+    calls.push(call);
   }
   return calls.length > 0 ? calls : null;
 }
@@ -278,22 +309,7 @@ export const geminiNativeProtocol: ProtocolFamily = {
       mapMessageToContents(message, contents, systemTexts);
     }
 
-    const generationConfig: Record<string, unknown> = {};
-    for (const key of geminiNativeProtocol.wireParamKeys ?? DEFAULT_WIRE_PARAM_KEYS) {
-      const wireValue = ctx.wireParams ? Reflect.get(ctx.wireParams, key) : undefined;
-      if (wireValue !== undefined) {
-        Reflect.set(generationConfig, key, wireValue);
-      }
-    }
-
-    const temperature = ctx.options.temperature ?? protocolOptions.default_temperature;
-    if (typeof temperature === 'number') {
-      generationConfig.temperature = temperature;
-    }
-    const maxOutputTokens = ctx.options.max_tokens ?? protocolOptions.default_max_tokens;
-    if (typeof maxOutputTokens === 'number' && generationConfig.maxOutputTokens === undefined) {
-      generationConfig.maxOutputTokens = maxOutputTokens;
-    }
+    const generationConfig = buildGenerationConfig(ctx, protocolOptions);
 
     const body: Record<string, unknown> = { contents };
     if (systemTexts.length > 0) {

@@ -247,6 +247,7 @@
     "gemini": {
       "nom_affiche": "Google Gemini",
       "protocol_family": "gemini-native",
+      "base_url": "https://generativelanguage.googleapis.com",
       "capacites": {
         "thinking": "gemini-budget",
         "max_tokens_field": "maxOutputTokens",

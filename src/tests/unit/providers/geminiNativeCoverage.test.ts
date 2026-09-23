@@ -10,6 +10,8 @@ import { tmpdir } from 'os';
 import { ModelRegistry } from '../../../providers/layer0/ModelRegistry.js';
 import { executeStream, type StreamChunk } from '../../../providers/layer0/ExecutionLayer.js';
 import { readFileInRangeStreaming } from '../../../utils/readFileInRange.js';
+import { geminiNativeProtocol } from '../../../providers/families/protocols/GeminiNativeProtocol.js';
+import type { ProtocolContext } from '../../../providers/families/types.js';
 import {
   safeMkdtempSync,
   safeRemoveDirectorySync,
@@ -107,5 +109,92 @@ describe('readFileInRange — chemin streaming (#36, safeFstat)', () => {
     expect(result.totalLines).toBe(50);
     expect(typeof result.mtimeMs).toBe('number');
     expect(result.mtimeMs).toBeGreaterThan(0);
+  });
+});
+
+describe('GeminiNativeProtocol — IDs, thoughtSignature, température (revue #127)', () => {
+  const ctxOf = (
+    messages: ProtocolContext['messages'],
+    options: Record<string, unknown> = {},
+    wireParams?: Record<string, unknown>,
+  ): ProtocolContext => ({
+    model: 'gemini-2.5-flash',
+    apiKey: 'k',
+    messages,
+    options: { model: 'gemini-2.5-flash', apiKey: 'k', ...options },
+    familyConfig: { base_url: 'https://generativelanguage.googleapis.com' },
+    wireParams,
+  });
+
+  it('préserve les IDs functionCall/functionResponse à l aller-retour', () => {
+    const body = geminiNativeProtocol.buildBody(
+      ctxOf([
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            { id: 'call_abc', type: 'function', function: { name: 'f', arguments: '{"a":1}' } },
+          ],
+        },
+        { role: 'tool', name: 'f', tool_call_id: 'call_abc', content: 'résultat' },
+      ]),
+    );
+    const contents = body.contents as Array<{ parts: Array<Record<string, unknown>> }>;
+    expect((contents[0].parts[0].functionCall as Record<string, unknown>).id).toBe('call_abc');
+    expect((contents[1].parts[0].functionResponse as Record<string, unknown>).id).toBe('call_abc');
+  });
+
+  it('conserve l ID fournisseur et thoughtSignature dans la réponse', () => {
+    const result = geminiNativeProtocol.parseResponse(
+      {
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  thoughtSignature: 'sig-123',
+                  functionCall: { id: 'provider-42', name: 'f', args: { a: 1 } },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      ctxOf([]),
+    );
+    expect(result.toolCalls?.[0].id).toBe('provider-42');
+    expect(result.toolCalls?.[0].thought_signature).toBe('sig-123');
+  });
+
+  it('la temperature wire allowlistée prime sur options/default_temperature', () => {
+    const body = geminiNativeProtocol.buildBody(
+      ctxOf([{ role: 'user', content: 'x' }], { temperature: 0.9 }, { temperature: 0.2 }),
+    );
+    expect((body.generationConfig as Record<string, unknown>).temperature).toBeCloseTo(0.2);
+  });
+
+  it('stream natif : candidates/parts, IDs et thoughtSignature préservés', async () => {
+    mockFetch.mockResolvedValue(
+      sseResponse([
+        'data: {"candidates":[{"content":{"parts":[{"text":"bon"},{"thoughtSignature":"sig-9","functionCall":{"id":"pcall-1","name":"f","args":{"a":1}}}]}}]}\n\n',
+      ]),
+    );
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of executeStream(
+      'gemini-3.5-flash',
+      { messages: [{ role: 'user', content: 'salut' }] },
+      { apiKey: DUMMY_API_KEY },
+    )) {
+      chunks.push(chunk);
+    }
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain(':streamGenerateContent?alt=sse');
+    expect(String(init.body)).not.toContain('"stream"');
+    expect(chunks.some((c) => c.content === 'bon')).toBe(true);
+    const call = chunks.flatMap((c) => (Array.isArray(c.toolCalls) ? c.toolCalls : []))[0] as
+      Record<string, unknown> | undefined;
+    expect(call?.id).toBe('pcall-1');
+    expect(call?.thought_signature).toBe('sig-9');
+    expect(chunks.at(-1)?.done).toBe(true);
   });
 });

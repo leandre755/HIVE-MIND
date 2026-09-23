@@ -100,10 +100,12 @@ describe('GeminiNativeProtocol — construction de requête', () => {
     expect(contents[0]).toEqual({ role: 'user', parts: [{ text: 'Salut' }] });
     expect(contents[1].role).toBe('model');
     expect(contents[1].parts[0].functionCall).toEqual({
+      id: 'call_1',
       name: 'read_file',
       args: { path: 'a' },
     });
     expect(contents[2].parts[0].functionResponse).toEqual({
+      id: 'call_1',
       name: 'read_file',
       response: { content: 'contenu du fichier' },
     });
