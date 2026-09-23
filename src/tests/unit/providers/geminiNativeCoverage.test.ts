@@ -57,7 +57,7 @@ describe('ExecutionLayer — extraction des deltas SSE (#37)', () => {
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('chat/completions');
-    expect(JSON.stringify(init.body)).toContain('"stream":true');
+    expect(String(init.body)).toContain('"stream":true');
     expect(chunks.some((c) => c.content === 'Hello' && c.thought === 'penser')).toBe(true);
     expect(chunks.at(-1)?.done).toBe(true);
   });
