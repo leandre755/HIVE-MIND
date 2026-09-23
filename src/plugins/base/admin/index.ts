@@ -2,7 +2,7 @@
 // Admin Plugin - User management (soft delete, restore, etc.)
 // Reserved for global admins
 
-import { readFileSync, writeFileSync } from 'fs';
+import { safeReadFileSync, safeWriteFileSync } from '../../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -376,7 +376,7 @@ export default {
   async _setVoiceMode(mode: string) {
     try {
       const configPath = join(__dirname, '..', '..', 'config', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      const config = JSON.parse(safeReadFileSync(configPath, 'utf-8'));
 
       // If "status", just return the current mode
       if (mode === 'status') {
@@ -404,7 +404,7 @@ export default {
       }
       config.voice_transcription.mode = mode;
 
-      writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf-8');
+      safeWriteFileSync(configPath, JSON.stringify(config, null, 4), 'utf-8');
 
       return {
         success: true,

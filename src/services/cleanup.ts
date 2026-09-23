@@ -4,10 +4,10 @@ import {
   safeStatSync,
   safeUnlinkSync,
   resolveWithinRoot,
+  type Stats,
 } from '../utils/safeFs.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { Stats } from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
