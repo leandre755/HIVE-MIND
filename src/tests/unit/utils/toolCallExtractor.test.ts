@@ -21,9 +21,14 @@ describe('extractToolCallsFromText', () => {
 
   it('extrait les appels sys_interaction.name(args) en mode includeSys', () => {
     const matches = extractToolCallsFromText('avant sys_interaction.read_file(path="a.txt") après');
-    expect(matches).toHaveLength(1);
-    expect(matches[0]).toMatchObject({ name: 'read_file', arguments: 'path="a.txt"' });
-    expect(matches[0].raw).toContain('sys_interaction.read_file');
+    expect(matches).toEqual([
+      {
+        name: 'read_file',
+        arguments: 'path="a.txt"',
+        raw: 'sys_interaction.read_file(path="a.txt")',
+        index: 6,
+      },
+    ]);
   });
 
   it('extrait les appels nus name(args) hors includeSys', () => {

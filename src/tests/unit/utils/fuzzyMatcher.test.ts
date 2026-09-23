@@ -96,7 +96,8 @@ describe('findBestMatch', () => {
     expect(prefix.match?.name).toBe('Alexandra');
     const included = findBestMatch('and', [ELODIE, ALEX]);
     expect(included.match).toBe(ALEX);
-    expect(included.score).toBeGreaterThan(0.5);
+    // partScore = 0.7 + (3/9) * 0.15
+    expect(included.score).toBeCloseTo(0.75, 10);
     expect(included.exact).toBe(false);
   });
 
@@ -140,11 +141,12 @@ describe('resolveMentionsInText', () => {
 
   it('remplace la mention par @phone et déduplique les JIDs', () => {
     const res = resolveMentionsInText('@Alex fais ça stp, @Alexandre bis', [ALEX]);
-    expect(res.text).toContain('@111');
-    expect(res.text).not.toContain('@Alex ');
+    // Les deux mentions résolvent vers le même membre : les deux occurrences
+    // sont réécrites et le JID n'apparaît qu'une fois.
+    expect(res.text).toBe('@111 fais ça stp, @111 bis');
     expect(res.mentions).toEqual(['111@s.whatsapp.net']);
-    expect(res.resolved).toHaveLength(1);
-    expect(console.log).toHaveBeenCalled();
+    expect(res.resolved).toEqual([ALEX]);
+    expect(console.log).toHaveBeenCalledTimes(2);
   });
 });
 
