@@ -20,7 +20,9 @@ import { claudeCodeHeaders } from './headers/ClaudeCodeHeaders.js';
 import { standardBearerHeaders } from './headers/StandardBearerHeaders.js';
 import { tokenAuthHeaders } from './headers/TokenAuthHeaders.js';
 import { xApiKeyHeaders } from './headers/XApiKeyHeaders.js';
+import { xGoogApiKeyHeaders } from './headers/XGoogApiKeyHeaders.js';
 import { anthropicCompatibleProtocol } from './protocols/AnthropicCompatibleProtocol.js';
+import { geminiNativeProtocol } from './protocols/GeminiNativeProtocol.js';
 import { openAICompatibleProtocol } from './protocols/OpenAICompatibleProtocol.js';
 
 export type {
@@ -73,6 +75,7 @@ const PROTOCOL_FAMILIES: ReadonlyMap<string, ProtocolFamily> = buildRegistry<Pro
   [
     ['openai-compatible', openAICompatibleProtocol],
     ['anthropic-compatible', anthropicCompatibleProtocol],
+    ['gemini-native', geminiNativeProtocol],
   ],
 );
 
@@ -83,6 +86,7 @@ const HEADER_FAMILIES: ReadonlyMap<string, HeaderFamily> = buildRegistry<HeaderF
     ['standard-bearer', standardBearerHeaders],
     ['standard-token', tokenAuthHeaders],
     ['x-api-key', xApiKeyHeaders],
+    ['x-goog-api-key', xGoogApiKeyHeaders],
     ['claude-code', claudeCodeHeaders],
   ],
 );

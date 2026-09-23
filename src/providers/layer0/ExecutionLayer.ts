@@ -16,6 +16,7 @@ import {
   toWireParams,
 } from '../GenerationParams.js';
 import type { AdapterChatResult, ChatMessage, ToolDefinition } from '../types.js';
+import { generateSafeToolId } from '../toolIds.js';
 import { classifyError } from './classifyError.js';
 import { getModelConfig, ResolvedModelConfig } from './ModelRegistry.js';
 
@@ -41,12 +42,6 @@ export interface StreamChunk {
   toolCalls?: unknown[];
   done?: boolean;
   raw?: unknown;
-}
-
-function ensureProtocolSupported(protocolFamily: string): void {
-  if (protocolFamily === 'gemini-native') {
-    throw new Error('Layer 0: gemini-native non supporté, utiliser adapter gemini.ts Layer 1');
-  }
 }
 
 function resolveApiKey(provider: string, optsApiKey?: string): string {
@@ -234,8 +229,6 @@ export async function execute(
     opts?.effectiveMaxTokens,
   );
 
-  ensureProtocolSupported(modelConfig.protocol_family);
-
   const protocol = getProtocolFamily(modelConfig.protocol_family);
   const headerFamily = getHeaderFamily(modelConfig.header_family);
 
@@ -299,23 +292,80 @@ export async function execute(
   return protocol.parseResponse(data, protocolContext);
 }
 
+/** Extrait les deltas du dialecte Gemini natif (candidates[].content.parts[]). */
+function extractGeminiDeltaFields(parsed: Record<string, unknown>): {
+  content?: string;
+  thought?: string;
+  toolCalls?: unknown[];
+} | null {
+  const candidates = Reflect.get(parsed, 'candidates');
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return null;
+  }
+  const candidate = (candidates[0] ?? {}) as Record<string, unknown>;
+  const content = (Reflect.get(candidate, 'content') ?? {}) as Record<string, unknown>;
+  const parts = Reflect.get(content, 'parts');
+  let text = '';
+  const calls: unknown[] = [];
+  if (Array.isArray(parts)) {
+    for (const part of parts) {
+      const p = (part ?? {}) as Record<string, unknown>;
+      const partText = Reflect.get(p, 'text');
+      if (typeof partText === 'string') text += partText;
+      const fn = Reflect.get(p, 'functionCall');
+      if (fn && typeof fn === 'object') {
+        const fnObj = fn as Record<string, unknown>;
+        calls.push({
+          id: generateSafeToolId(),
+          type: 'function',
+          function: {
+            name: Reflect.get(fnObj, 'name'),
+            arguments: JSON.stringify(Reflect.get(fnObj, 'args') ?? {}),
+          },
+        });
+      }
+    }
+  }
+  return {
+    content: text.length > 0 ? text : undefined,
+    toolCalls: calls.length > 0 ? calls : undefined,
+  };
+}
+
+/** Extrait les deltas du format OpenAI/Groq (choices[0].delta). */
+function extractChoicesDeltaFields(parsed: Record<string, unknown>): {
+  content?: string;
+  thought?: string;
+  toolCalls?: unknown[];
+} | null {
+  const choices = Reflect.get(parsed, 'choices');
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  const choice = choices[0] as Record<string, unknown>;
+  const delta = (Reflect.get(choice, 'delta') ?? {}) as Record<string, unknown>;
+  const content = Reflect.get(delta, 'content');
+  const reasoning = Reflect.get(delta, 'reasoning_content') ?? Reflect.get(delta, 'thought');
+  const calls = Reflect.get(delta, 'tool_calls');
+  return {
+    content: typeof content === 'string' ? content : undefined,
+    thought: typeof reasoning === 'string' ? reasoning : undefined,
+    toolCalls: Array.isArray(calls) ? calls : undefined,
+  };
+}
+
 function extractDeltaFields(parsed: Record<string, unknown>): {
   content?: string;
   thought?: string;
   toolCalls?: unknown[];
 } {
-  const choices = Reflect.get(parsed, 'choices');
-  if (Array.isArray(choices) && choices.length > 0) {
-    const choice = choices[0] as Record<string, unknown>;
-    const delta = (Reflect.get(choice, 'delta') ?? {}) as Record<string, unknown>;
-    const content = Reflect.get(delta, 'content');
-    const reasoning = Reflect.get(delta, 'reasoning_content') ?? Reflect.get(delta, 'thought');
-    const calls = Reflect.get(delta, 'tool_calls');
-    return {
-      content: typeof content === 'string' ? content : undefined,
-      thought: typeof reasoning === 'string' ? reasoning : undefined,
-      toolCalls: Array.isArray(calls) ? calls : undefined,
-    };
+  const geminiDelta = extractGeminiDeltaFields(parsed);
+  if (geminiDelta) {
+    return geminiDelta;
+  }
+  const choicesDelta = extractChoicesDeltaFields(parsed);
+  if (choicesDelta) {
+    return choicesDelta;
   }
   const delta = Reflect.get(parsed, 'delta');
   if (typeof delta === 'object' && delta !== null) {
@@ -417,14 +467,16 @@ export async function* executeStream(
     opts?.effectiveMaxTokens,
   );
 
-  ensureProtocolSupported(modelConfig.protocol_family);
-
   const protocol = getProtocolFamily(modelConfig.protocol_family);
   const headerFamily = getHeaderFamily(modelConfig.header_family);
 
-  const url = protocol.buildUrl(protocolContext);
+  const url = protocol.buildStreamUrl
+    ? protocol.buildStreamUrl(protocolContext)
+    : protocol.buildUrl(protocolContext);
   const body = protocol.buildBody(protocolContext);
-  Reflect.set(body, 'stream', true);
+  if (protocol.streamUsesBodyFlag !== false) {
+    Reflect.set(body, 'stream', true);
+  }
 
   const headers = buildStreamHeaders(modelConfig, protocolContext, apiKey, protocol, headerFamily);
 
