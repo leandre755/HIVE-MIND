@@ -173,6 +173,66 @@ describe('GeminiNativeProtocol — IDs, thoughtSignature, température (revue #1
     expect((body.generationConfig as Record<string, unknown>).temperature).toBeCloseTo(0.2);
   });
 
+  it('joint les parts texte d un system multimodal et tolère un tour assistant vide', () => {
+    const body = geminiNativeProtocol.buildBody(
+      ctxOf([
+        {
+          role: 'system',
+          content: [
+            { type: 'text', text: 'Règle 1. ' },
+            { type: 'text', text: 'Règle 2.' },
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,QQ==' } },
+          ],
+        },
+        { role: 'assistant', content: null },
+      ]),
+    );
+    expect(body.systemInstruction).toEqual({ parts: [{ text: 'Règle 1. Règle 2.' }] });
+    const contents = body.contents as Array<{
+      role: string;
+      parts: Array<Record<string, unknown>>;
+    }>;
+    expect(contents[0].role).toBe('model');
+    expect(contents[0].parts).toEqual([{ text: '' }]);
+  });
+
+  it('préserve les arguments bruts quand un tool_call n est pas du JSON valide', () => {
+    const body = geminiNativeProtocol.buildBody(
+      ctxOf([
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            { id: 'call_x', type: 'function', function: { name: 'f', arguments: '{broken' } },
+          ],
+        },
+      ]),
+    );
+    const contents = body.contents as Array<{ parts: Array<Record<string, unknown>> }>;
+    expect(contents[0].parts[0].functionCall).toEqual({
+      id: 'call_x',
+      name: 'f',
+      args: { raw: '{broken' },
+    });
+  });
+
+  it('accepte les réponses minimales sans usage ni finishReason', () => {
+    const result = geminiNativeProtocol.parseResponse(
+      { candidates: [{ content: { parts: [{ text: 'ok' }] } }] },
+      ctxOf([]),
+    );
+    expect(result.content).toBe('ok');
+    expect(result.toolCalls).toBeNull();
+    expect(result.usage).toBeUndefined();
+    expect(result.finishReason).toBeUndefined();
+    // Réponse sans aucun texte : content reste null (parts vide).
+    const empty = geminiNativeProtocol.parseResponse(
+      { candidates: [{ content: { parts: [] } }] },
+      ctxOf([]),
+    );
+    expect(empty.content).toBeNull();
+  });
+
   it('stream natif : candidates/parts, IDs et thoughtSignature préservés', async () => {
     mockFetch.mockResolvedValue(
       sseResponse([
