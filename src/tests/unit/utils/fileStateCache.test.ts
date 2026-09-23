@@ -1,20 +1,25 @@
 import { describe, beforeAll, afterAll, it, expect } from '@jest/globals';
-import * as fs from 'fs';
 import * as path from 'path';
 import { FileStateCache, fileStateCache } from '../../../utils/fileStateCache.js';
+import {
+  safeExistsSync,
+  safeMkdirSync,
+  safeRemoveDirectorySync,
+  safeWriteFileSync,
+} from '../../../utils/safeFs.js';
 
 describe('FileStateCache', () => {
   const testDir = path.resolve(process.cwd(), 'src/tests/unit/utils/temp_test_state');
 
   beforeAll(() => {
-    if (!fs.existsSync(testDir)) {
-      fs.mkdirSync(testDir, { recursive: true });
+    if (!safeExistsSync(testDir)) {
+      safeMkdirSync(testDir, { recursive: true });
     }
   });
 
   afterAll(() => {
-    if (fs.existsSync(testDir)) {
-      fs.rmSync(testDir, { recursive: true, force: true });
+    if (safeExistsSync(testDir)) {
+      safeRemoveDirectorySync(testDir);
     }
   });
 
@@ -45,7 +50,7 @@ describe('FileStateCache', () => {
   it('should record file state correctly and return it', () => {
     const filePath = path.join(testDir, 'test_record.txt');
     const content = 'hello world';
-    fs.writeFileSync(filePath, content, 'utf8');
+    safeWriteFileSync(filePath, content, 'utf8');
 
     const state = fileStateCache.recordFile(filePath, content);
 

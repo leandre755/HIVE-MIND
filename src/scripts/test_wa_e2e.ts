@@ -10,7 +10,6 @@ import createPinoLogger from 'pino';
 import qrcode from 'qrcode-terminal';
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
-import fs from 'fs';
 import { Boom } from '@hapi/boom';
 import { Command } from 'commander';
 import {
@@ -18,6 +17,7 @@ import {
   safeMkdirSync,
   safeWriteFileSync,
   safeAppendFile,
+  safeReadFileSync,
 } from '../utils/safeFs.js';
 
 // --- CONFIGURATION ---
@@ -33,7 +33,7 @@ const options = program.opts();
 // Default target detection from local session
 let defaultTarget = '2250704414707@s.whatsapp.net';
 try {
-  const creds = JSON.parse(fs.readFileSync('./session/creds.json', 'utf-8'));
+  const creds = JSON.parse(safeReadFileSync('./session/creds.json'));
   if (creds?.me?.id) {
     defaultTarget = creds.me.id.split(':')[0] + '@s.whatsapp.net';
   }

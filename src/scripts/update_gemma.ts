@@ -1,7 +1,19 @@
-import fs from 'fs';
+import { safeReadFileSync, safeWriteFileSync } from '../utils/safeFs.js';
+
+type ModelEntry = {
+  id: string;
+  [key: string]: unknown;
+};
+
+type ModelsConfig = {
+  reglages_generaux: {
+    service_recipes: Record<string, { family: string; model: string }>;
+  };
+  familles: Record<string, { modeles: ModelEntry[] }>;
+};
 
 const path = './config/models_config.json';
-const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+const data = JSON.parse(safeReadFileSync(path)) as ModelsConfig;
 
 // Update service recipes
 data.reglages_generaux.service_recipes.EXECUTOR.family = 'gemini';
@@ -23,5 +35,5 @@ if (!modelExists) {
   });
 }
 
-fs.writeFileSync(path, JSON.stringify(data, null, 4));
+safeWriteFileSync(path, JSON.stringify(data, null, 4));
 console.log('models_config.json updated successfully.');

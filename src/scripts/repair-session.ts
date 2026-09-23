@@ -6,20 +6,25 @@
 // les identifiants principaux (creds.json).
 // À utiliser en cas de "MessageCounterError".
 
-import { existsSync, readdirSync } from 'fs';
 import { resolve } from 'path';
-import { safeStatSync, safeUnlinkSync, resolveWithinRoot } from '../utils/safeFs.js';
+import {
+  resolveWithinRoot,
+  safeExistsSync,
+  safeReaddirSync,
+  safeStatSync,
+  safeUnlinkSync,
+} from '../utils/safeFs.js';
 
 const SESSION_DIR = resolve(process.cwd(), 'session');
 
 console.log('🔧 [Repair] Analyse du dossier session...');
 
-if (!existsSync(SESSION_DIR)) {
+if (!safeExistsSync(SESSION_DIR)) {
   console.error('❌ Dossier session introuvable. Rien à réparer.');
   process.exit(1);
 }
 
-const files = readdirSync(SESSION_DIR);
+const files = safeReaddirSync(SESSION_DIR);
 let cleanedCount = 0;
 
 console.log(`📂 Fichiers trouvés: ${files.length}`);

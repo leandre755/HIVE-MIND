@@ -8,10 +8,10 @@ import {
 } from '@whiskeysockets/baileys';
 import createPinoLogger from 'pino';
 import qrcode from 'qrcode-terminal';
-import fs from 'fs';
 import { join } from 'path';
 import { Boom } from '@hapi/boom';
 import { Command } from 'commander';
+import { safeReadFileSync } from '../utils/safeFs.js';
 
 // --- CONFIGURATION ---
 const program = new Command();
@@ -30,10 +30,10 @@ let defaultBotJid = '2250704414707@s.whatsapp.net';
 let defaultUserJid = '22569456432@s.whatsapp.net'; // Without the session suffix
 
 try {
-  const credsBot = JSON.parse(fs.readFileSync('./session/creds.json', 'utf-8'));
+  const credsBot = JSON.parse(safeReadFileSync('./session/creds.json'));
   if (credsBot?.me?.id) defaultBotJid = credsBot.me.id.split(':')[0] + '@s.whatsapp.net';
 
-  const credsUser = JSON.parse(fs.readFileSync('./session_test_user/creds.json', 'utf-8'));
+  const credsUser = JSON.parse(safeReadFileSync('./session_test_user/creds.json'));
   if (credsUser?.me?.id) defaultUserJid = credsUser.me.id.split(':')[0] + '@s.whatsapp.net';
 } catch (e) {
   console.error('Error reading creds, using defaults:', e);

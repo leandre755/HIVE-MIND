@@ -16,7 +16,6 @@
 //     (`https://api.mistral.ai/v1`) dans models_config.json : plus aucune
 //     injection de configuration dans les tests.
 
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,6 +35,7 @@ import {
   listProtocolFamilies,
 } from '../../../providers/families/registry.js';
 import type { AdapterChatOptions, FamilyConfig } from '../../../providers/types.js';
+import { safeReadFileSync } from '../../../utils/safeFs.js';
 
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch;
@@ -45,7 +45,7 @@ const DUMMY_API_KEY = 'DUMMY_KEY';
 /** Configuration réelle, lue comme le fait le chargeur du routeur. */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const modelsConfig = JSON.parse(
-  readFileSync(join(HERE, '..', '..', '..', 'config', 'models_config.json'), 'utf-8'),
+  safeReadFileSync(join(HERE, '..', '..', '..', 'config', 'models_config.json')),
 ) as { familles: Record<string, Record<string, unknown>> };
 
 /**
@@ -652,17 +652,22 @@ describe('D. Registry fail-closed', () => {
     expect(() => getHeaderFamily('inconnu')).toThrow('HeaderFamily inconnue: inconnu');
   });
 
-  it('D.3 listProtocolFamilies : contenu exact (2 moteurs, ordre d enregistrement)', () => {
-    expect(listProtocolFamilies()).toEqual(['openai-compatible', 'anthropic-compatible']);
+  it('D.3 listProtocolFamilies : contenu exact (3 moteurs, ordre d enregistrement)', () => {
+    expect(listProtocolFamilies()).toEqual([
+      'openai-compatible',
+      'anthropic-compatible',
+      'gemini-native',
+    ]);
     expect(getProtocolFamily('openai-compatible')).toBe(openAICompatibleProtocol);
     expect(getProtocolFamily('anthropic-compatible')).toBe(anthropicCompatibleProtocol);
   });
 
-  it('D.4 listHeaderFamilies : contenu exact (4 moteurs, ordre d enregistrement)', () => {
+  it('D.4 listHeaderFamilies : contenu exact (5 moteurs, ordre d enregistrement)', () => {
     expect(listHeaderFamilies()).toEqual([
       'standard-bearer',
       'standard-token',
       'x-api-key',
+      'x-goog-api-key',
       'claude-code',
     ]);
     expect(getHeaderFamily('standard-bearer')).toBe(standardBearerHeaders);
