@@ -112,4 +112,20 @@ describe('Telegram transport — cache de getMe() (#33)', () => {
     await telegramTransport.connect();
     expect(getMeMock).toHaveBeenCalledTimes(2);
   });
+
+  it('réessaie la résolution après un échec transitoire de getMe (jamais de cache null)', async () => {
+    getMeMock.mockRejectedValueOnce(new Error('flood wait'));
+    getMeMock.mockResolvedValue({ id: 7 });
+
+    await telegramTransport.connect();
+    expect(telegramTransport.selfId).toBeNull();
+    expect(getMeMock).toHaveBeenCalledTimes(1);
+
+    const handler = addEventHandlerMock.mock.calls[0]?.[0] as (event: unknown) => Promise<void>;
+    await handler(makeEvent('7'));
+
+    expect(getMeMock).toHaveBeenCalledTimes(2); // retry après échec
+    await handler(makeEvent('7'));
+    expect(getMeMock).toHaveBeenCalledTimes(2); // succès ensuite mis en cache
+  });
 });

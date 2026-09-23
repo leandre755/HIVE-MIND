@@ -43,10 +43,17 @@ interface TelegramTransport extends ITransport {
  */
 let selfIdPromise: Promise<string | null> | null = null;
 function resolveSelfId(client: TelegramClient): Promise<string | null> {
-  selfIdPromise ??= client
-    .getMe()
-    .then((me) => me?.id?.toString() ?? null)
-    .catch(() => null);
+  if (!selfIdPromise) {
+    selfIdPromise = client
+      .getMe()
+      .then((me) => me?.id?.toString() ?? null)
+      .catch(() => {
+        // Échec transitoire : ne jamais verrouiller le cache sur null —
+        // la prochaine résolution pourra réessayer (single-flight conservé).
+        selfIdPromise = null;
+        return null;
+      });
+  }
   return selfIdPromise;
 }
 
