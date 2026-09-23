@@ -32,6 +32,22 @@ interface TelegramTransport extends ITransport {
   client: TelegramClient | null;
   messageCallback: MessageCallback | null;
   groupEventCallback: GroupEventCallback | null;
+  /** Identifiant du bot, résolu une seule fois via getMe() et mis en cache. */
+  selfId: string | null;
+}
+
+/**
+ * Résout et met en cache l'identifiant du bot.
+ * `getMe()` est un aller-retour réseau : jamais plus d'un appel par connexion,
+ * sans quoi chaque message paierait 50-250 ms de latence et risquerait FLOOD_WAIT.
+ */
+let selfIdPromise: Promise<string | null> | null = null;
+function resolveSelfId(client: TelegramClient): Promise<string | null> {
+  selfIdPromise ??= client
+    .getMe()
+    .then((me) => me?.id?.toString() ?? null)
+    .catch(() => null);
+  return selfIdPromise;
 }
 
 /**
@@ -92,6 +108,7 @@ export const telegramTransport: TelegramTransport = {
   client: null,
   messageCallback: null,
   groupEventCallback: null,
+  selfId: null,
 
   connect: async () => {
     const apiId = parseInt(process.env.TELEGRAM_API_ID || '0');
@@ -123,6 +140,9 @@ export const telegramTransport: TelegramTransport = {
       await client.connect();
     }
 
+    // Résolution unique de l'identité du bot au démarrage du transport.
+    telegramTransport.selfId = await resolveSelfId(client);
+
     // Register message listener
     client.addEventHandler(async (event: NewMessageEvent) => {
       const msg = event.message;
@@ -132,8 +152,8 @@ export const telegramTransport: TelegramTransport = {
       if (!callback) return;
 
       const senderId = msg.senderId?.toString();
-      const me = await client.getMe();
-      if (senderId && senderId === me.id.toString()) return; // Ignore self
+      const selfId = await resolveSelfId(client);
+      if (senderId && selfId && senderId === selfId) return; // Ignore self
 
       callback(await normalizeMessage(msg));
     }, new NewMessage({}));
@@ -144,6 +164,8 @@ export const telegramTransport: TelegramTransport = {
       await telegramTransport.client.disconnect();
       telegramTransport.client = null;
     }
+    telegramTransport.selfId = null;
+    selfIdPromise = null;
   },
 
   sendText: async (chatId: string, text: string, _options: SendTextOptions = {}) => {
