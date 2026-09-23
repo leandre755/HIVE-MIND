@@ -105,6 +105,38 @@ describe('PermissionManager — purge des timers de requête (#23)', () => {
 
     (pm as unknown as { SECURITY_HUB_ID: string | null }).SECURITY_HUB_ID = null;
   });
+  it('n arme aucun timer si la requête est résolue pendant l envoi du prompt', async () => {
+    let releaseSend: () => void = () => undefined;
+    const sendGate = new Promise<void>((resolve) => {
+      releaseSend = resolve;
+    });
+    const { transportManager } = await import('../../../core/transport/TransportManager.js');
+    const sendMock = transportManager.sendText as unknown as jest.Mock<
+      (...args: unknown[]) => Promise<unknown>
+    >;
+    sendMock.mockImplementation(async () => {
+      await sendGate;
+      return {};
+    });
+
+    const requestPromise = pm.askPermission(
+      'chat-5',
+      'déploiement en prod',
+      'whatsapp',
+      'admin-5@s.whatsapp.net',
+    );
+    await jest.advanceTimersByTimeAsync(0);
+
+    // Réponse pendant que sendText est toujours en vol :
+    expect(pm.handleUserResponse('oui', 'chat-5', 'admin-5@s.whatsapp.net')).toBe(true);
+    releaseSend();
+
+    await requestPromise;
+    await jest.advanceTimersByTimeAsync(0);
+    expect(jest.getTimerCount()).toBe(0); // aucun timer détaché armé après résolution
+    expect(pm.pendingCount).toBe(0);
+  });
+
   it('le timer In-Band résout et se purge de lui-même au bout de INBAND_TIMEOUT_MS', async () => {
     const requestPromise = pm.askPermission(
       'chat-3',

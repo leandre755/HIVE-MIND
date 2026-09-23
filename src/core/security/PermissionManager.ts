@@ -1427,6 +1427,12 @@ export class PermissionManager {
     try {
       await transportManager.sendText(targetChat, promptMessage, {}, targetChannel);
 
+      // La requête a pu être résolue (réponse utilisateur/Hub) pendant l'envoi :
+      // armer un timer ici le détacherait de tout cycle de vie.
+      if (this.pendingRequests.get(requestId) !== pending) {
+        return;
+      }
+
       const inBandTimer = setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           console.log(`[Permission] ⏰ In-Band timeout for #${numericId}. Action blocked.`);
