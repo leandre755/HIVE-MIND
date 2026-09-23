@@ -83,6 +83,8 @@ interface PendingRequest {
   readonly sourceChannel: string;
   readonly createdAt: number;
   resolve: (result: PermissionResult) => void;
+  /** Timers actifs (timeout Hub / In-Band) : purgés par _cleanup à la résolution. */
+  readonly timers: Set<NodeJS.Timeout>;
 }
 
 function extractErrorMessage(error: unknown): string {
@@ -1122,6 +1124,7 @@ export class PermissionManager {
         sourceChannel,
         createdAt: Date.now(),
         resolve: resolvePromise,
+        timers: new Set<NodeJS.Timeout>(),
         targetChat: this.SECURITY_HUB_ID ? this.SECURITY_HUB_ID : chatId,
         allowedApproverJid: initialApprover,
       };
@@ -1197,14 +1200,16 @@ export class PermissionManager {
           )
           .catch(() => {});
 
-        setTimeout(() => {
+        const hubTimer = setTimeout(() => {
           if (this.pendingRequests.has(requestId)) {
             console.log(
               `[Permission] ⏰ Hub timeout for #${numericId}, escalating to LOGIC 2 (In-Band)`,
             );
             this._startInBandFallback(pending, false).catch(() => {});
           }
-        }, this.HUB_TIMEOUT_MS).unref();
+        }, this.HUB_TIMEOUT_MS);
+        hubTimer.unref();
+        pending.timers.add(hubTimer);
 
         return;
       } catch (hubErr) {
@@ -1422,7 +1427,7 @@ export class PermissionManager {
     try {
       await transportManager.sendText(targetChat, promptMessage, {}, targetChannel);
 
-      setTimeout(() => {
+      const inBandTimer = setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           console.log(`[Permission] ⏰ In-Band timeout for #${numericId}. Action blocked.`);
           transportManager
@@ -1439,7 +1444,9 @@ export class PermissionManager {
             feedback: 'The administrator did not respond in time (Timeout).',
           });
         }
-      }, this.INBAND_TIMEOUT_MS).unref();
+      }, this.INBAND_TIMEOUT_MS);
+      inBandTimer.unref();
+      pending.timers.add(inBandTimer);
     } catch (error) {
       console.error('[Permission] ❌ Failed to send In-Band request:', error);
       this._cleanup(requestId, numericId);
@@ -1583,6 +1590,12 @@ export class PermissionManager {
   // =========================================================================
 
   private _cleanup(requestId: string, numericId: number): void {
+    const pending = this.pendingRequests.get(requestId);
+    const timers = pending?.timers;
+    if (timers) {
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
+    }
     this.pendingRequests.delete(requestId);
     this.numericIdMap.delete(numericId);
   }
