@@ -34,12 +34,7 @@
 
 ## 🎯 Objective
 
-Mission de remédiation et validation séquentielle des 5 Pull Requests (#42, #43, #44, #45, #46) sur HIVE-MIND :
-- PR #42 (`fix(baileys)-alert-autofix-4`) : FUSIONNÉE (MERGED).
-- PR #45 (`fix/workflow-hygiene-eslint-greetings`) : FUSIONNÉE (MERGED).
-- PR #46 (`ci/codecov-integration`) : FUSIONNÉE (MERGED).
-- PR #43 (`fix/embeddings-clear-text-logging`) : 100% VALIDÉE & VÉRIFIÉE (13/13 checks CI verts, 9/9 fils résolus, Greptile 5/5, 0 finding CodeRabbit).
-- PR #44 (`fix/user-service-weak-crypto`) : EN COURS DE FINALISATION (résolution audit Greptile Review 11 : contraintes d'unicité SQL `users_hash_key` et `users_jid_key`, retry automatique sur violation d'unicité, détection collision post-upsert en cas de Redis absent, libération atomique des réservations candidates en mémoire et Redis, 47/47 tests unitaires passés : userService 32, identityMap 15, 0 finding CodeRabbit).
+Session nocturne autonome (consigne mainteneur : « jusqu'à la PR et valider 5/5 partout » + « valider l'issue 112 ») : remédiation des 6 bugs restants (#20 #23 #27 #33 #36 #37) livrée en **PR #127** (`fix/remaining-bugs-and-coverage`) et avancée du Palier 1 de l'épopée couverture #112 livrée en **PR #128** (`test/coverage-palier1-batch2`). Merge réservé au mainteneur.
 
 ## 🧠 Decisions Made
 
@@ -325,6 +320,8 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 
 ## 📈 Current Status
 
+- ✅ Done: **Fix des 6 bugs restants + PRs #127/#128 (session nocturne 2026-09-23)** : #20 (try/catch callback MailboxWatcher), #27 (names JSON round-trip StateManager), #33 (cache `getMe` Telegram single-flight), #23 (clearTimeout centralisé des timers de permission), #36 (migration safeFs complète : 9 prod + 9 scripts + 6 tests, `safeFstat`), #37 (`GeminiNativeProtocol` + `x-goog-api-key` + purge `Function('return import(...)')`). Revue CodeRabbit 4/4 findings corrigés avec preuves (course timer In-Band, retry getMe, IDs/thoughtSignature, prééminence temperature). Couverture #112 Palier 1 : StateManager 100%, LockManager 100%, toolCallExtractor 98,8%, fuzzyMatcher 98,7% de lignes. 15 commits atomiques, gates pre-commit/pre-push jamais contournées, 1030+ tests au vert.
+
 - ✅ Done: **Vérification médico-légale des fixes de bugs & triage des issues (session du 2026-09-22)** : 24 issues ANTIBUG/bugs vérifiées une à une contre le code de `master` @ `8792a7a` (preuve miroir : PoC d'origine réfuté par l'extrait de code corrigé `fichier:lignes`). 18 issues ouvertes fermées avec preuve (#2, #16, #19, #21, #67, #68, #69, #70, #72, #85, #88, #89, #90, #91, #92, #93, #100, #106) ; 4 issues fermées à tort par auto-close de la PR #120 réouvertes avec preuve de persistance (#27 `String(v)` aplatit `names`, #33 `getMe()` par message sans cache, #36 I/O `fs` direct dans 15 fichiers, #37 `gemini-native` toujours rejeté + `Function('return import(...)')` dans `providers/index.ts:48`) ; 2 laissées ouvertes avec preuve (#20 rejet non géré MailboxWatcher, #23 timers de permission jamais `clearTimeout`) ; 17 fermetures historiques confirmées. Aucune ligne de code source modifiée.
 
 - ✅ Done: **Nettoyage complet du poste local post-merge (session du 2026-09-22)** : PRs #115–#120 confirmées MERGED par le mainteneur, 6 branches locales `fix/*` supprimées après preuve de fusion (`gh pr list --state merged`), worktrees ramenés à l'unique dépôt principal (`git worktree prune`), `master` fast-forwardé sur `8792a7a` et synchronisé avec `origin/master` (arbre propre), `node_modules` et cache npm (`~/.npm/_cacache`) supprimés à la demande (« conserve que le code »), artefacts régénérables purgés (`push*.log`, `tsc.log`, `coverage/`, `temp/`, `graphify-out/`, `scratch/`) — données et fichiers sensibles/politiques intacts et vérifiés. Conséquence assumée : toute reprise de développement exige `npm install && npm rebuild hnswlib-node`.
@@ -350,4 +347,4 @@ Finaliser la livraison de la branche `docs/tui-decoupling-and-readme-rework` (PR
 - ⏳ Pending (périmètre unique) : dette du chemin personnel dans `src/providers/adapters/codex.ts` (`os.homedir()`) ; suppression ou câblage des 2 scripts morts de `.githooks/_common/` ; plugin TinyFish Search (`src/plugins/web/tinyfish_search`, Phase 5 / Task 10 de `docs/tasks/todo.md`).
 
 ## 👉 Next Session Direction
-PRs #115–#120 fusionnées et poste nettoyé (branches/worktrees/cache/npm/artefacts purgés, `master` à jour sur `8792a7a`). Reprise : `npm install && npm rebuild hnswlib-node` (node_modules supprimé, approbation humaine requise), puis qualifier la file de commentaires PR #120 non vérifiée (StateManager `names`, `close`/`error` PersistentShell, `Function('return import(...)')`, cache `getMe()` Telegram, `gemini-native` ExecutionLayer, issue #36 safeFs) en PR de suivi — chaque item vérifié contre le code avant tout correctif. **L'approbation et la fusion restent l'autorité exclusive du mainteneur humain** — un agent ne fusionne jamais.
+Clôturer les revues des PR #127 et #128 (re-review CodeRabbit après les 4 correctifs, re-scan Greptile, `codecov/patch` après `4732ce5`) jusqu'au 5/5, attendre l'approbation du mainteneur pour merge (un agent ne fusionne jamais), fermer #36 avec preuve après merge, puis reprendre le Palier 1 restant de #112 (`logger.ts`, `startup.ts`, `WakeSystem.ts` ≥85-90% — le sous-agent dédié est resté bloqué et a été stoppé) et ajuster `coverageThreshold`.
