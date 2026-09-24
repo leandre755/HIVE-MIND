@@ -233,6 +233,18 @@ describe('GeminiNativeProtocol — IDs, thoughtSignature, température (revue #1
     expect(empty.content).toBeNull();
   });
 
+  it('tolère un message tool sans contenu (contentToText sur contenu absent)', () => {
+    const body = geminiNativeProtocol.buildBody(
+      ctxOf([{ role: 'tool', name: 'f', tool_call_id: 'c1', content: null }]),
+    );
+    expect(body.contents).toEqual([
+      {
+        role: 'user',
+        parts: [{ functionResponse: { id: 'c1', name: 'f', response: { content: '' } } }],
+      },
+    ]);
+  });
+
   it('stream natif : candidates/parts, IDs et thoughtSignature préservés', async () => {
     mockFetch.mockResolvedValue(
       sseResponse([
