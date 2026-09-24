@@ -1,5 +1,5 @@
-import fs from 'fs';
 import sysInteraction from '../plugins/base/sys_interaction/index.js';
+import { safeUnlinkSync, safeWriteFileSync } from '../utils/safeFs.js';
 
 async function testSendFile() {
   let sentMedia: {
@@ -26,24 +26,24 @@ async function testSendFile() {
   };
 
   console.log('Testing Markdown file...');
-  fs.writeFileSync('test.md', '# Hello');
+  safeWriteFileSync('test.md', '# Hello');
   await sysInteraction.execute(
     { filePath: 'test.md' },
     context as unknown as Parameters<typeof sysInteraction.execute>[1],
     'send_file',
   );
   console.log(sentMedia);
-  fs.unlinkSync('test.md');
+  safeUnlinkSync('test.md');
 
   console.log('\nTesting PDF file...');
-  fs.writeFileSync('test.pdf', '%PDF-');
+  safeWriteFileSync('test.pdf', '%PDF-');
   await sysInteraction.execute(
     { filePath: 'test.pdf' },
     context as unknown as Parameters<typeof sysInteraction.execute>[1],
     'send_file',
   );
   console.log(sentMedia);
-  fs.unlinkSync('test.pdf');
+  safeUnlinkSync('test.pdf');
 }
 
 testSendFile().catch(console.error);

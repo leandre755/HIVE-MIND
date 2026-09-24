@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
-import { readFileSync } from 'fs';
+
+import { safeReadFileSync } from '../../../utils/safeFs.js';
 
 type Recipe = {
   readonly primary?: string;
@@ -19,7 +20,7 @@ type ModelsConfig = {
 const disallowedSmallChatModels = new Set<string>([]);
 
 const readModelsConfig = (): ModelsConfig => {
-  const rawConfig = readFileSync('src/config/models_config.json', 'utf-8');
+  const rawConfig = safeReadFileSync('src/config/models_config.json');
   return JSON.parse(rawConfig) as ModelsConfig;
 };
 

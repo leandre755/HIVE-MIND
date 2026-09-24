@@ -236,7 +236,14 @@ export const StateManager = {
   _flattenForRedis(obj: Record<string, unknown>): Record<string, string> {
     const flat: Record<string, string> = {};
     for (const [k, v] of Object.entries(obj)) {
-      if (v !== null && v !== undefined) Reflect.set(flat, k, String(v));
+      if (v === null || v === undefined) continue;
+      // Les tableaux/objets (ex. `names`) doivent garder leur structure :
+      // String(v) aplatissait ['Alex'] en 'Alex' puis devenait 'A' après hSet.
+      if (Array.isArray(v) || typeof v === 'object') {
+        Reflect.set(flat, k, JSON.stringify(v));
+      } else {
+        Reflect.set(flat, k, String(v));
+      }
     }
     return flat;
   },
@@ -247,11 +254,34 @@ export const StateManager = {
       interaction_count: parseInt(obj.interaction_count || '0', 10),
       // ajouter d'autres conversions de type si nécessaire
     };
+    // Compteur corrompu : jamais de NaN dans un profil utilisateur.
+    if (!Number.isFinite(result.interaction_count)) {
+      result.interaction_count = 0;
+    }
     // Conversion last_seen si num
     if (obj.last_seen && !isNaN(Number(obj.last_seen))) {
       result.last_seen = parseInt(obj.last_seen, 10);
     }
+    if (obj.names !== undefined) {
+      result.names = this._parseNames(obj.names);
+    }
     return result;
+  },
+  _parseNames(raw: string): string[] {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((n): n is string => typeof n === 'string');
+      }
+      if (typeof parsed === 'string') return [parsed];
+    } catch {
+      // Valeurs legacy (pré-fix) : chaîne unique ou liste jointe par virgules.
+      return raw
+        .split(',')
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0);
+    }
+    return ['Inconnu'];
   },
   /**
    * Incrémente l'activité d'un utilisateur DANS un groupe spécifique

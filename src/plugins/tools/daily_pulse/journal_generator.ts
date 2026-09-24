@@ -85,12 +85,12 @@ Si le chat est vide ou ennuyeux, moque-toi du silence.
     try {
       const { createGeminiLiveProvider, HD_VOICES } =
         await import('../../../providers/geminiLive.js');
-      const { readFileSync } = await import('fs');
+      const { safeReadFileSync } = await import('../../../utils/safeFs.js');
       const { join } = await import('path');
 
       // Charger les credentials
       const credPath = join(process.cwd(), 'config', 'credentials.json');
-      const credentials = JSON.parse(readFileSync(credPath, 'utf-8'));
+      const credentials = JSON.parse(safeReadFileSync(credPath, 'utf-8'));
 
       // Initialiser le provider
       // On choisit une voix "Radio Host" (ex: Zephyr ou Puck)

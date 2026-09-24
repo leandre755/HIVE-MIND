@@ -1,7 +1,6 @@
 // src/utils/readFileInRange.ts
 
-import { createReadStream, fstat } from 'fs';
-import { safeStat, safeReadFile, safeCreateReadStream } from './safeFs.js';
+import { safeFstat, safeStat, safeReadFile, safeCreateReadStream } from './safeFs.js';
 
 const FAST_PATH_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -142,7 +141,7 @@ function readFileInRangeFast(
 }
 
 interface StreamState {
-  stream: ReturnType<typeof createReadStream>;
+  stream: ReturnType<typeof safeCreateReadStream>;
   offset: number;
   endLine: number;
   maxBytes: number | undefined;
@@ -161,7 +160,7 @@ interface StreamState {
 }
 
 function streamOnOpen(this: StreamState, fd: number): void {
-  fstat(fd, (err, stats) => {
+  safeFstat(fd, (err, stats) => {
     this.resolveMtime(err ? 0 : stats.mtimeMs);
   });
 }

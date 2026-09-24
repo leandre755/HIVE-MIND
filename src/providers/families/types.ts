@@ -96,6 +96,14 @@ export interface ProtocolFamily {
   name: string;
   /** Construit l'URL complète de l'endpoint de chat pour cette requête. */
   buildUrl(ctx: ProtocolContext): string;
+  /**
+   * URL de streaming dédiée quand le dialecte ne stream pas par le champ
+   * `stream` du corps mais par un endpoint distinct (Gemini
+   * `:streamGenerateContent?alt=sse`). Absent : `buildUrl` + champ `stream`.
+   */
+  buildStreamUrl?(ctx: ProtocolContext): string;
+  /** `false` interdit l'injection de `{ stream: true }` dans le corps. */
+  streamUsesBodyFlag?: boolean;
   /** Construit le corps JSON de la requête (sans sérialisation). */
   buildBody(ctx: ProtocolContext): Record<string, unknown>;
   /** Convertit la réponse brute en `AdapterChatResult` du contrat routeur. */

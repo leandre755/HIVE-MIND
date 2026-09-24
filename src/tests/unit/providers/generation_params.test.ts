@@ -16,7 +16,6 @@
 // là où le plan exige des formes hors JSON (surcharge modèle, erreurs de
 // forme, natifs sans champ protocol_family).
 
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,6 +39,7 @@ import type { ChatMessage } from '../../../providers/types.js';
 import openaiAdapter from '../../../providers/adapters/openai.js';
 import anthropicAdapter from '../../../providers/adapters/anthropic.js';
 import geminiAdapter from '../../../providers/adapters/gemini.js';
+import { safeReadFileSync } from '../../../utils/safeFs.js';
 
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch;
@@ -49,7 +49,7 @@ const DUMMY_API_KEY = 'DUMMY_KEY';
 /** Configuration réelle, lue comme le fait le chargeur du routeur. */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const modelsConfig = JSON.parse(
-  readFileSync(join(HERE, '..', '..', '..', 'config', 'models_config.json'), 'utf-8'),
+  safeReadFileSync(join(HERE, '..', '..', '..', 'config', 'models_config.json')),
 ) as { familles: Record<string, Record<string, unknown>> };
 
 const ANTHROPIC_ENTRY = modelsConfig.familles['anthropic'];

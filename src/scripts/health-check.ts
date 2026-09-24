@@ -1,9 +1,10 @@
 // scripts/health-check.js
 import { ServiceContainer } from '../core/ServiceContainer.js';
 import { providerRouter } from '../providers/index.js';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { safeReadFileSync } from '../utils/safeFs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -28,10 +29,10 @@ function checkConfigSection(report: HealthReport): void {
   console.log('--- 1. Configuration & Credentials ---');
   try {
     const modelsConfig = JSON.parse(
-      readFileSync(join(__dirname, '..', 'config', 'models_config.json'), 'utf-8'),
+      safeReadFileSync(join(__dirname, '..', 'config', 'models_config.json')),
     );
     const credentials = JSON.parse(
-      readFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
+      safeReadFileSync(join(__dirname, '..', 'config', 'credentials.json')),
     );
 
     report.config.status = '✅ Loaded';

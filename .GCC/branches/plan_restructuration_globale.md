@@ -864,10 +864,10 @@ Contrôles passés :
 | `src/scripts/ingest_docs.js` | `src/ops/codegen/ingest_docs.js` | Ingestion de documentation |
 | `src/scripts/ping_bot.ts` | `src/ops/cli/ping_bot.ts` | Sonde de disponibilité |
 | `src/scripts/ping_bot_user.ts` | `src/ops/cli/ping_bot_user.ts` | Sonde côté utilisateur |
-| `src/scripts/rename_gm.js` | `src/ops/codegen/rename_gm.js` | Renommage de masse |
+| `src/scripts/rename_gm.ts` | `src/ops/codegen/rename_gm.ts` | Renommage de masse |
 | `src/scripts/repair-session.ts` | `src/ops/cli/repair-session.ts` | Réparation de session (script npm) |
 | `src/scripts/repair-test-sessions.ts` | `src/ops/cli/repair-test-sessions.ts` | Réparation de sessions de test |
-| `src/scripts/update_gemma.js` | `src/ops/codegen/update_gemma.js` | Mise à jour de modèle |
+| `src/scripts/update_gemma.ts` | `src/ops/codegen/update_gemma.ts` | Mise à jour de modèle |
 
 ### Lot 16 — 91 fichiers
 
@@ -894,7 +894,7 @@ Contrôles passés :
 | `src/scripts/test_fixes.ts` | `src/tests/manual/regression/test_fixes.ts` | Sonde de régression |
 | `src/scripts/test_fixes2.ts` | `src/tests/manual/regression/test_fixes2.ts` | Sonde de régression (2) |
 | `src/scripts/test_full_page_screenshot.ts` | `src/tests/manual/tools/test_full_page_screenshot.ts` | Sonde de capture d’écran |
-| `src/scripts/test_models.js` | `src/tests/manual/llm/test_models.js` | Sonde de modèles |
+| `src/scripts/test_models.ts` | `src/tests/manual/llm/test_models.ts` | Sonde de modèles |
 | `src/scripts/test_plugins_e2e.ts` | `src/tests/manual/e2e/test_plugins_e2e.ts` | E2E plugins manuel |
 | `src/scripts/test_remaining_e2e.ts` | `src/tests/manual/e2e/test_remaining_e2e.ts` | E2E résiduel manuel |
 | `src/scripts/test_wa_e2e.ts` | `src/tests/manual/e2e/test_wa_e2e.ts` | E2E WhatsApp manuel |

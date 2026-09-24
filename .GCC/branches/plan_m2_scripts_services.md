@@ -9,7 +9,7 @@
 
 ### Step 1: Fix `src/scripts/` (13 files)
 
-- [ ] **Action**: Refactor all 13 files in `src/scripts/` (`check-redis.ts`, `cli-legacy/cli.ts`, `ingest_docs.js`, `ping_bot.ts`, `ping_bot_user.ts`, `repair-session.ts`, `test-config.js`, `test_10_10.js`, `test_fixes2.ts`, `test_full_page_screenshot.ts`, `test_models.js`, `test_remaining_e2e.ts`, `update_gemma.cjs`). Remove explicit `any` / `as any`, fix command path, object injections, non-literal fs, and imports.
+- [ ] **Action**: Refactor all 13 files in `src/scripts/` (`check-redis.ts`, `cli-legacy/cli.ts`, `ingest_docs.js`, `ping_bot.ts`, `ping_bot_user.ts`, `repair-session.ts`, `test-config.js`, `test_10_10.js`, `test_fixes2.ts`, `test_full_page_screenshot.ts`, `test_models.ts`, `test_remaining_e2e.ts`, `update_gemma.ts`). Remove explicit `any` / `as any`, fix command path, object injections, non-literal fs, and imports.
 - [ ] **Verify**: `npx eslint src/scripts`
 
 ### Step 2: Fix Simple & Low-Complexity Services (19 files)

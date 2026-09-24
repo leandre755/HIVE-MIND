@@ -43,8 +43,8 @@
 <text x="435.0" y="628.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/cli-legacy/transport-cli.ts</text>
 <text x="435.0" y="645.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/generate-blueprint.js</text>
 <text x="435.0" y="662.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/ingest_docs.js</text>
-<text x="435.0" y="679.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/rename_gm.js</text>
-<text x="435.0" y="696.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/update_gemma.cjs</text>
+<text x="435.0" y="679.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/rename_gm.ts</text>
+<text x="435.0" y="696.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/update_gemma.ts</text>
 <text x="435.0" y="713.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/run_cli_battery.ts</text>
 <text x="435.0" y="730.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_10_10.js</text>
 <text x="435.0" y="756.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
@@ -76,7 +76,7 @@
 <text x="1055.0" y="521.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_fixes.ts</text>
 <text x="1055.0" y="538.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_fixes2.ts</text>
 <text x="1055.0" y="555.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_full_page_screenshot.ts</text>
-<text x="1055.0" y="572.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_models.js</text>
+<text x="1055.0" y="572.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_models.ts</text>
 <text x="1055.0" y="589.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_plugins_e2e.ts</text>
 <text x="1055.0" y="605.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_remaining_e2e.ts</text>
 <text x="1055.0" y="622.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/scripts/test_wa_e2e.ts</text>

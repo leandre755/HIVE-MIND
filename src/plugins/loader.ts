@@ -4,9 +4,8 @@
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { timingSafeEqual } from 'crypto';
-import { safeReaddir, resolveWithinRoot } from '../utils/safeFs.js';
+import { safeReaddir, resolveWithinRoot, type Dirent } from '../utils/safeFs.js';
 import { eventBus, BotEvents } from '../core/events.js';
-import type { Dirent } from 'fs';
 import type { OpenAIToolDefinition } from '../services/ptc/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

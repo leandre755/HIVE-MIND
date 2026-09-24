@@ -1,4 +1,4 @@
-import fs from 'fs';
+import { safeUnlinkSync, safeWriteFileSync } from '../utils/safeFs.js';
 
 console.log('--- TEST THOUGHT TAG REGEX ---');
 
@@ -111,7 +111,7 @@ async function testSendFile() {
   console.log('Result Invalid Local:', res);
 
   console.log('\n3. Testing valid local file...');
-  fs.writeFileSync('test_exists.txt', 'hello');
+  safeWriteFileSync('test_exists.txt', 'hello');
   res = await sysInteraction.execute(
     {
       filePath: 'test_exists.txt',
@@ -121,7 +121,7 @@ async function testSendFile() {
   );
   console.log('Result Valid Local:', res);
   console.log('SentMedia:', sentMedia);
-  fs.unlinkSync('test_exists.txt');
+  safeUnlinkSync('test_exists.txt');
 }
 
 testSendFile().catch(console.error);

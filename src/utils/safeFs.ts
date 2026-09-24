@@ -217,3 +217,18 @@ export function safeSymlinkSync(target: string, path: string): void {
 export function safeRmSync(path: string, options?: fs.RmOptions): void {
   fs.rmSync(path, options);
 }
+
+/** `fstat` sur descripteur : aucun chemin à résoudre (flux déjà ouverts). */
+export function safeFstat(
+  fd: number,
+  callback: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void,
+): void {
+  fs.fstat(fd, callback);
+}
+
+// Re-exports de types : permet aux appelants de se passer d'un import `fs`
+// direct (invariant « toute I/O via safeFs » du dépôt).
+export type Stats = fs.Stats;
+export type Dirent = fs.Dirent;
+export type ReadStream = fs.ReadStream;
+export type WriteStream = fs.WriteStream;

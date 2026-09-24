@@ -3,7 +3,7 @@
 // Porte le skill Python "google-ai-researcher" en tant que tool natif HIVE-MIND.
 // Renvoie des réponses synthétisées + sourcées par l'IA de Google.
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { safeExistsSync, safeReadFileSync, safeWriteFileSync } from '../../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -64,9 +64,9 @@ function extractErrorMessage(error: unknown): string {
  * Charge le token de conversation sauvegardé (mode stateful)
  */
 function loadConversationToken(): string | null {
-  if (!existsSync(CONTEXT_FILE)) return null;
+  if (!safeExistsSync(CONTEXT_FILE)) return null;
   try {
-    const data = JSON.parse(readFileSync(CONTEXT_FILE, 'utf-8')) as {
+    const data = JSON.parse(safeReadFileSync(CONTEXT_FILE, 'utf-8')) as {
       subsequent_request_token?: string;
     };
     return data.subsequent_request_token || null;
@@ -80,7 +80,7 @@ function loadConversationToken(): string | null {
  */
 function saveConversationToken(token: string): void {
   try {
-    writeFileSync(CONTEXT_FILE, JSON.stringify({ subsequent_request_token: token }));
+    safeWriteFileSync(CONTEXT_FILE, JSON.stringify({ subsequent_request_token: token }));
   } catch (error: unknown) {
     console.warn(`[GoogleAI] ⚠️ Erreur sauvegarde contexte: ${extractErrorMessage(error)}`);
   }

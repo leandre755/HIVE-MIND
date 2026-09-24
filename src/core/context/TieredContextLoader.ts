@@ -16,8 +16,13 @@
 
 import { container } from '../ServiceContainer.js';
 import { botIdentity } from '../../utils/botIdentity.js';
-import { safeReadFileSync, safeReadFile, resolveWithinRoot } from '../../utils/safeFs.js';
-import { readdir } from 'node:fs/promises';
+import {
+  safeReadFileSync,
+  safeReadFile,
+  safeReaddir,
+  resolveWithinRoot,
+  type Dirent,
+} from '../../utils/safeFs.js';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { permissionManager } from '../security/PermissionManager.js';
@@ -746,7 +751,7 @@ ${steps || 'None yet'}
     const survivalDir = path.join(process.cwd(), 'skills', 'survival');
     let output = '';
     try {
-      const entries = await readdir(survivalDir, { withFileTypes: true });
+      const entries = (await safeReaddir(survivalDir, { withFileTypes: true })) as Dirent[];
       const directories = entries.filter((e) => e.isDirectory());
 
       for (const dir of directories) {

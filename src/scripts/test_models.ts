@@ -1,23 +1,39 @@
-// scripts/test_models.js
-import fs from 'fs';
+// scripts/test_models.ts
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { providerRouter } from '../providers/index.js';
+import { safeReadFileSync } from '../utils/safeFs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+type ModelEntry = {
+  id: string;
+  types?: string[];
+};
+
+type ModelsConfig = {
+  familles: Record<string, { modeles?: ModelEntry[] }>;
+};
+
+type ModelTestResult = {
+  family: string;
+  model: string;
+  status: 'SUCCESS' | 'WARNING' | 'FAILED';
+  error?: string;
+};
+
 // Charger la config pour avoir le détail des modèles (types)
 const modelsConfig = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', 'config', 'models_config.json'), 'utf-8'),
-);
+  safeReadFileSync(path.join(__dirname, '..', 'config', 'models_config.json')),
+) as ModelsConfig;
 
-function getStatusIcon(status) {
+function getStatusIcon(status: ModelTestResult['status']): string {
   if (status === 'SUCCESS') return '✅';
   if (status === 'WARNING') return '⚠️ ';
   return '❌';
 }
 
-async function testSingleModel(familyId, model) {
+async function testSingleModel(familyId: string, model: ModelEntry): Promise<ModelTestResult> {
   console.log(`🚀 [${familyId}] Test du modèle: ${model.id}...`);
   try {
     const response = await providerRouter.chat(
@@ -42,12 +58,13 @@ async function testSingleModel(familyId, model) {
       error: 'Empty response',
     };
   } catch (error) {
-    console.error(`❌ [${familyId}] ${model.id}: Échec: ${error.message}`);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`❌ [${familyId}] ${model.id}: Échec: ${message}`);
     return {
       family: familyId,
       model: model.id,
       status: 'FAILED',
-      error: error.message,
+      error: message,
     };
   }
 }
@@ -56,7 +73,7 @@ async function runTests() {
   console.log('🔍 [Diagnostic] Démarrage du test COMPLET des modèles...\n');
 
   const families = providerRouter.listFamilies();
-  const results = [];
+  const results: ModelTestResult[] = [];
 
   for (const familyInfo of families) {
     if (!familyInfo.hasApiKey) {
@@ -67,7 +84,7 @@ async function runTests() {
     const familyConfig = modelsConfig.familles[familyInfo.id];
     if (!familyConfig || !familyConfig.modeles) continue;
 
-    const chatModels = familyConfig.modeles.filter((m) => m.types?.includes('chat'));
+    const chatModels = familyConfig.modeles.filter((m: ModelEntry) => m.types?.includes('chat'));
     if (chatModels.length === 0) {
       console.log(`⚪ [${familyInfo.id}] Aucun modèle de type 'chat' à tester.`);
       continue;

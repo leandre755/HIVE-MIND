@@ -1,6 +1,12 @@
 import { describe, beforeAll, afterAll, it, expect, jest } from '@jest/globals';
-import * as fs from 'fs';
 import * as path from 'path';
+
+import {
+  safeExistsSync,
+  safeMkdirSync,
+  safeRemoveDirectorySync,
+  safeWriteFileSync,
+} from '../../../utils/safeFs.js';
 
 // Mock explicit for permissionManager and TreeSitterService
 jest.unstable_mockModule('../../../core/security/PermissionManager.js', () => ({
@@ -16,8 +22,8 @@ describe('LSPTool', () => {
   const testFile = path.join(testDir, 'helper.ts');
 
   beforeAll(() => {
-    if (!fs.existsSync(testDir)) {
-      fs.mkdirSync(testDir, { recursive: true });
+    if (!safeExistsSync(testDir)) {
+      safeMkdirSync(testDir, { recursive: true });
     }
     // Create a simple TS file for parsing
     const code = `
@@ -33,12 +39,12 @@ export function globalUtil(): void {
     console.log("Util call");
 }
 `;
-    fs.writeFileSync(testFile, code, 'utf8');
+    safeWriteFileSync(testFile, code, 'utf8');
   });
 
   afterAll(() => {
-    if (fs.existsSync(testDir)) {
-      fs.rmSync(testDir, { recursive: true, force: true });
+    if (safeExistsSync(testDir)) {
+      safeRemoveDirectorySync(testDir);
     }
   });
 
