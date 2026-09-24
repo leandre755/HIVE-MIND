@@ -254,6 +254,10 @@ export const StateManager = {
       interaction_count: parseInt(obj.interaction_count || '0', 10),
       // ajouter d'autres conversions de type si nécessaire
     };
+    // Compteur corrompu : jamais de NaN dans un profil utilisateur.
+    if (!Number.isFinite(result.interaction_count)) {
+      result.interaction_count = 0;
+    }
     // Conversion last_seen si num
     if (obj.last_seen && !isNaN(Number(obj.last_seen))) {
       result.last_seen = parseInt(obj.last_seen, 10);

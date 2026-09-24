@@ -101,13 +101,13 @@ describe('StateManager — sérialisation names (#27)', () => {
     expect(restored.interaction_count).toBe(5);
     expect(restored.last_seen).toBe(1700000000000);
 
-    // Valeurs non numériques : pas de conversion (interaction_count -> NaN de
-    // parseInt, last_seen conservé tel quel par le spread).
+    // Valeurs non numériques : interaction_count rejeté (repli 0, jamais de
+    // NaN dans un profil), last_seen non numérique conservé tel quel.
     const corrupted = helpers._unflattenFromRedis({
       interaction_count: 'non-numérique',
       last_seen: 'nan',
     }) as unknown as { interaction_count: number; last_seen: string };
-    expect(corrupted.interaction_count).toBeNaN();
+    expect(corrupted.interaction_count).toBe(0);
     expect(corrupted.last_seen).toBe('nan');
   });
 });
