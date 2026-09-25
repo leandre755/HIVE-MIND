@@ -1,5 +1,5 @@
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { safeReadFileSync } from './safeFs.js';
 
 export interface PersonaConfig {
@@ -15,7 +15,7 @@ function parseLine(line: string, key: string, defaultValue: string): string {
   let val = line.substring(key.length + 1).trim();
   if (val.startsWith('"') && val.endsWith('"')) {
     val = val.substring(1, val.length - 1);
-    val = val.replaceAll('\\"', '"');
+    val = val.replaceAll(String.raw`\"`, '"');
   } else if (val.startsWith("'") && val.endsWith("'")) {
     val = val.substring(1, val.length - 1);
     val = val.replaceAll("''", "'");

@@ -3,9 +3,9 @@
 
 import { randomInt } from 'node:crypto';
 import { safeUnlinkSync, safeUnlink, safeMkdir, safeWriteFile } from '../utils/safeFs.js';
-import { dirname } from 'path';
+import { dirname } from 'node:path';
 
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 import { orchestrator } from './orchestrator.js';
 import { eventBus, BotEvents } from './events.js';
 import { transportManager } from './transport/TransportManager.js';
@@ -120,13 +120,6 @@ const persona: { name: string; role: string; interests: string[] } = {
   role: loadedPersona.role,
   interests: [],
 };
-
-const refusalPrompt = `You are {{name}}, {{role}}.
-Your language and behavior style is defined as:
-{{language_style}}
-
-Based strictly on this style, politely refuse the user's request for the following reason:
-{{reason}}`;
 
 /**
  * Noyau principal du bot
@@ -3402,31 +3395,6 @@ ${textToCompress}`,
         gracefulDegradation: true,
       };
     }
-  }
-
-  /**
-   * Génère un refus humanisé
-   */
-  async _generateRefusal(originalMessage: string, reason: string) {
-    // Construction du prompt via le template chargé
-    const prompt = refusalPrompt
-      .replaceAll('{{name}}', persona.name)
-      .replaceAll('{{reason}}', reason)
-      .replaceAll('{{role}}', persona.role || 'Assistant')
-      .replaceAll('{{language_style}}', loadedPersona.languageStyle);
-
-    const response = await providerRouter.chat(
-      [
-        {
-          role: 'system',
-          content: prompt,
-        },
-        { role: 'user', content: originalMessage },
-      ],
-      { temperature: 0.9, family: 'google' },
-    ); // Optimisation : on force Google pour les tâches simples (rapide/gratuit)
-
-    return response.content;
   }
 
   /**

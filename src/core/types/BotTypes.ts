@@ -34,7 +34,6 @@ export interface BotEvent {
 export interface ContextData {
   systemPrompt: string;
   messages: unknown[];
-  refusalPrompt?: string;
 }
 
 export interface ToolCall {

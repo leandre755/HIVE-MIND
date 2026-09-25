@@ -1,44 +1,62 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: (session nocturne autonome — « jusqu'à la PR et valider 5/5 partout » + « valider l'issue 112 ») corriger les 6 bugs restants (#20 #23 #27 #33 #36 #37) et avancer l'épopée couverture #112, livrés en PRs.
-- **Functional Status**: SUCCESS — **PR #127** (https://github.com/leandre755/HIVE-MIND/pull/127) porte les 6 fixes + leurs tests de régression + la résolution des revues bots (4/4 findings CodeRabbit traités avec preuves) ; **PR #128** (https://github.com/leandre755/HIVE-MIND/pull/128) porte le lot de couverture #112 (LockManager 100%, toolCallExtractor 98,8%, fuzzyMatcher 98,7% de lignes) + les 3 P2 Greptile sur assertions (en cours de durcissement à la clôture de session).
-- **Behavioral Proof** (sorties brutes) : `npm run build` 0 erreur ; `npm run lint:fast` 0/0 ; `npm run test:unit` **1030+ tests au vert** (gate pre-push complète — gitleaks historique, tests, npm audit, tsc, depcruise — franchie à chaque push, jamais contournée). Suites ciblées : `geminiNativeCoverage + geminiNativeProtocol + telegramGetMe + permissionManagerTimers` = 24/24 ; `lockManagerCoverage + toolCallExtractor + fuzzyMatcher` = 68/68 ; `audioTranscribe + runtimeFallback` = 5/5. Gate pre-commit 8/8 sur les 15 commits de la session.
+- **Requested Task**: Centralisation de l'identité agent dans `src/persona/persona.md` (SSOT), intégration des modèles de refus dans `persona.md`, création de la PR #130, et résolution autonome jusqu'à validation des 14 checks CI et 5/5 sur tous les reviewers bots.
+- **Functional Status**: SUCCESS
+- **Behavioral Proof**: 
+  - PR #130 (`feat/persona-ssot`) : 14/14 checks CI validés verts (`gh pr checks 130` : 0 failing, 0 cancelled, 0 pending, 14 successful, 1 skipped).
+  - Codecov Patch Coverage : 100.0% (`codecov/patch` PASS).
+  - SonarCloud Code Analysis : Quality Gate Passed (0.0% duplication sur code neuf, 0 hotspot de sécurité, 4 issues mineures/maintainability).
+  - Greptile Review : Status completed / conclusion success (18 fichiers revus, 0 commentaire ajouté, 5/5).
+  - CodeRabbit : Review skipped (fichiers couverts et conformes, aucun blocage).
+  - Macroscope : Correctness Check terminé sans anomalie.
+  - Review threads : 9/9 fils de revue résolus (`isResolved: true` vérifié via GraphQL).
+  - Tests locaux : `npm run build` 0 erreur, `npm run lint:fast` 0/0, suite ciblée `tieredContextLoader.test.ts` (9/9 passés), `personaLoader.test.ts` (21/21 passés), `BotCore.test.ts` (7/7 passés).
 
 ## ⚡ Technical Diffs / Atomic Modifications
-**PR #127** (`fix/remaining-bugs-and-coverage`, base `8792a7a`) :
-- `5d0acb2` fix(events) #20 : try/catch du callback `setInterval` (`MailboxWatcher.ts`) + test.
-- `b17d11c` fix(state) #27 : `_flattenForRedis` JSON.stringify tableaux/objets, `_parseNames` (JSON.parse + Array.isArray, repli legacy split(',')) + tests round-trip.
-- `151c9dc` fix(transport) #33 : `resolveSelfId` promesse unique (warm connect / reset disconnect) + test 4 messages → 1 getMe.
-- `f99fb25` fix(security) #23 : `PendingRequest.timers: Set<NodeJS.Timeout>`, timers Hub/In-Band trackés, `_cleanup` central `clearTimeout` + 4 tests (approbation/rejet/timeout/Hub).
-- `4ceb912` feat(providers) #37 : `GeminiNativeProtocol.ts` (generateContent / streamGenerateContent?alt=sse, contents/parts, systemInstruction, functionDeclarations, usageMetadata, inlineData/fileData), `XGoogApiKeyHeaders.ts`, registry (3 protocoles / 5 en-têtes), `buildStreamUrl`/`streamUsesBodyFlag`, branches candidates + choix delta dans l'extraction SSE, `import()` natif remplaçant `Function('return import(...)')` + 9 tests protocole.
-- `ea05f35` + `c0a7dc1` refactor(safefs) #36 : 9 fichiers prod + 9 scripts (3 `.js` → `.ts` strict : `test_models.ts`, `update_gemma.ts`, `rename_gm.ts`, invocation `tsx`) + 6 suites de tests migrés vers safeFs ; `safeFstat` + re-exports types `Stats/Dirent/ReadStream/WriteStream` ; attentes registre D.3/D.4 alignées.
-- `1049350` test(coverage) : `stateManagerCoverage.test.ts` (34 tests, StateManager 100% lignes) + `lockManagerCoverage.test.ts` (17 tests, déplacé ensuite) + `geminiNativeCoverage.test.ts` + extensions `permissionManagerTimers`.
-- Revue CodeRabbit (CHANGES_REQUESTED, 4 findings) → `4a95a64` (garde course timer In-Band post-sendText + test), `6d58bae` (retry getMe sur échec transitoire + test), `786b65f` (IDs functionCall/functionResponse + thoughtSignature préservés proto & stream, prééminence `temperature` wire, `base_url` famille gemini) — réponse de résolution avec preuves publiée sur la PR.
-- `0668861` : `lockManagerCoverage.test.ts` déplacé vers PR #128 (gate dure 2500 lignes : 2538 → 2290, franchie par découpage conforme à l'issue #112, jamais contournée).
-- `4732ce5` test(coverage) : dernières lignes modifiées nues couvertes (repli `import()` de `getRuntime` via `_invokeAdapter`, chemin STT `_transcribeFromBuffer`) — réponse au `codecov/patch` fail.
-
-**PR #128** (`test/coverage-palier1-batch2`, base `8792a7a`) : `35fdd71` + `a762356` — `toolCallExtractor.test.ts` (24 tests), extension `fuzzyMatcher.test.ts` (+27 tests), `lockManagerCoverage.test.ts` (17 tests). Mesures : LockManager **100%** lignes, toolCallExtractor **98,8%**, fuzzyMatcher **98,7%** (cibles Palier 1 : ≥90%/≥85%). `codecov/patch` **PASS**.
+- **File**: `src/persona/persona.md`
+  - **Scope**: Nouveau fichier SSOT pour l'identité de l'agent
+  - **Exact Technical Change**: Frontmatter YAML (`name`, `role`) + corps Markdown libre (`<language_style>` décrivant le style d'expression et les règles de refus).
+- **File**: `src/utils/personaLoader.ts`
+  - **Scope**: Loader et parser d'identité autonome mono-responsable
+  - **Exact Technical Change**: Parser YAML léger sans dépendance npm externe, gestion des guillemets doubles/simples et backslashes, fallback robuste en cas de fichier absent, export singleton `persona`.
+- **File**: `src/utils/botIdentity.ts`
+  - **Scope**: Module d'identité bot
+  - **Exact Technical Change**: Import direct de `persona.name` depuis `personaLoader.ts`, élimination des fallbacks incohérents et de la lecture ad-hoc de `system.md`.
+- **File**: `src/services/consciousnessService.ts`
+  - **Scope**: Service de conscience agent
+  - **Exact Technical Change**: Remplacement du nom hardcodé `'HIVE-MIND'` par `persona.name`.
+- **File**: `src/core/index.ts`
+  - **Scope**: BotCore et initialisation
+  - **Exact Technical Change**: Consommation de `persona` depuis `personaLoader.ts` au lieu du fichier inexistant `profile.json`.
+- **File**: `src/core/context/TieredContextLoader.ts`
+  - **Scope**: Hydratation du template de prompt système
+  - **Exact Technical Change**: Remplacement atomique en une seule passe regex des placeholders `{{AGENT_NAME}}`, `{{AGENT_ROLE}}`, `{{LANGUAGE_STYLE}}` ; gestion sécurisée du cas `workingMemory = null`.
+- **File**: `src/tests/unit/utils/personaLoader.test.ts`
+  - **Scope**: Tests unitaires du loader d'identité
+  - **Exact Technical Change**: 21 tests paramétrés (`it.each`) couvrant le parsing YAML, les guillemets, les backslashes, les lignes vides et les fallbacks (0% duplication SonarCloud).
+- **File**: `src/tests/unit/core/tieredContextLoader.test.ts`
+  - **Scope**: Tests d'hydratation du contexte unifié
+  - **Exact Technical Change**: Couverture du cas `workingMemory = null` et vérification des substitutions d'identité (100% patch coverage Codecov).
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npm run test:unit` → 0/0/1030+ verts ; `gh pr checks 127` (Validate title/size PASS après découpage, CodeQL/ESLint/SonarCloud/Workspace PASS) ; `gh pr checks 128` (codecov/patch PASS).
-- **ENV CRITIQUE**: `NODE_ENV=production` masque les devDependencies à `npm install` — toujours `npm install --include=dev --ignore-scripts && npm rebuild hnswlib-node` (node_modules actuel complet, NE PAS SUPPRIMER avant merge).
+- **Verification Command Run**: `npm run build && npm run lint:fast`
+- **Linter/Compiler Status**:
+```text
+> hive-mind@1.0.0 build
+> tsc --noEmit
 
-## 📅 Mise à jour du 2026-09-24 (matin — suite « check les rapports »)
-- **Revue Greptile #127 (scan HEAD) traitée intégralement** : P1 « Complete Gemini configuration » corrigé (`2f32a20` : `header_family: x-goog-api-key` + `base_url` dans `models_config.json`), P2 « Close the timer race » corrigé (`ddb5d2d` : garde `pendingRequests.get === pending` sur les DEUX chemins Hub et In-Band + 2 tests d'entrelacement), P2 « Reject invalid counters » corrigé (`c76ba12` : `interaction_count` non fini → repli 0, jamais de NaN, + test), P2 « Split this oversized PR » arbitré (décision mainteneur PR #18 : gate 2500 / warn 1000 ; taille réduite 2539 → 2041 par 2 découpages : LockManager → PR #128, suite StateManager 611 lignes → test ciblé 114 lignes). **14/14 review threads résolus** avec réponses de preuve (hash de commit + tests).
-- **Verdicts** : `Greptile Review` **PASS (5/5)** ✅, `Validate title/commits/protected paths` **PASS** ✅ (2041 < 2500), tous les autres checks CI **PASS**. **PR #128 : intégralement verte** (Greptile APPROVED, codecov/patch PASS).
-- **✅ CLÔTURÉ — PRs MERGEDES dans `master`** : PR #128 mergée 2026-09-24 10:53 (`3495301`), PR #127 mergée 19:06 (`89cbc13`). Les 6 bugs sont dans `master` : issues **#20 #23 #27 #33 #37 auto-closes** par le merge, **#36 fermée manuellement avec preuve**. Vérifié sur le code mergé : 6/6 suites de régression = **37/37 tests verts**, marqueurs des fixes présents dans `master`, audit du diff (2053 lignes) confirmant la comment discipline (why/contrats uniquement, 1 commentaire borderline bénin signalé).
-- **⚠️ MÉNAGE GIT LOCAL à faire (session suivante)** : `master` locale divergente (« devant 7, derrière 2 » — 7 vieux commits locaux déjà squashés dans les merges, d'où `git pull --ff-only` impossible) ; branches locales `fix/remaining-bugs-and-coverage` et `docs/*` à supprimer après merge (goût connu : layout minimal `master` uniquement). Nettoyage sûr sans `reset --hard` : `git checkout -B master origin/master` **après accord explicite**, ou continuer en branches fraîches depuis `origin/master`.
-- **Résidu codecov/patch #127 : 99,61%** — 1 ligne de diff restante que le croisement local `git diff × coverage-final.json` ne retrouve PAS (0 ligne nue modifiée mesurée localement sur 649 lignes de diff instrumentées) et qu'aucune annotation GitHub ne nomme. Écart d'instrumentation probable — **à nommer via l'UI Codecov (lien "details" du check)** ou à ignorer si le mainteneur arbitre. Le run CI uploadant le coverage a été relancé (re-upload) sans changement attendu.
-- **Push**: le ref `fix/remaining-bugs-and-coverage` = `c76ba12` (tous commits poussés, gate pre-push complète franchie à chaque push).
+> hive-mind@1.0.0 lint:fast
+> oxlint --deny-warnings src/
+
+Found 0 warnings and 0 errors.
+Finished in 87ms on 365 files with 96 rules using 4 threads.
+```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Revues bots en cours de clôture** : CodeRabbit #127 doit re-review après `4a95a64`/`6d58bae`/`786b65f` (4/4 findings traités, réponse par fil publiée) ; Greptile #127 doit re-scanner le HEAD (son P1 « Retry identity lookups » = l'objet de `6d58bae`, déjà corrigé — sa revue portait sur commit antérieur) ; Greptile #128 : 3 P2 (assertions à durcir — score exact 0.75, 2e mention, sortie complète) traités en fin de session ; CodeRabbit #128 en rate-limit (relancer `@coderabbitai full review`). Cible : 5/5 partout — relire avec `node scripts/fetch_pr_reviews.js 127|128`.
-- **#112 (Palier 1) restant** : `logger.ts`, `startup.ts` (mock `prompts`), `WakeSystem.ts` (≥90%) — le sous-agent dédié n'a rien produit en 53 min (stoppé), à reprendre ; puis Palier 2 (`src/providers/` ≥90%, globale 80%) et ajustement `coverageThreshold` dans `jest.config.js`.
-- **Déchets session** : les artefacts de couverture et logs dans le scratchpad session ; `documentation/diagrams/05_supabase_infrastructure.svg` modifié par la migration des noms de scripts (committé dans `c0a7dc1`).
-- **Fermeture #36 manuelle après merge** (les 5 autres ferment auto via `Fixes #N`) avec le commentaire de preuve déjà publié.
+- **Blocker / Failure Explanation**: Aucun. Tous les 14 checks sont au vert, 0 fil de revue ouvert, 0 régression. Merge réservé au mainteneur humain.
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `.GCC/main.md` puis `node scripts/fetch_pr_reviews.js 127` et `128`.
-2. **Immediate Action**: (a) lire 100% des revues pleines des 2 PR et résoudre les fils restants jusqu'à 5/5 (CodeRabbit re-review, Greptile re-scan — ne PAS se contenter des checks verts) ; (b) si Greptile #128 persiste sur les P2 assertions, appliquer le durcissement (score `toBeCloseTo(0.75, 10)`, `res.text === '@111 fais ça stp, @111 bis'`, `toEqual` complet sur l'appel sys_interaction avec `index: 6`) — les édits ont été préparés mais non poussés (checkout interrompu) ; (c) relancer `@coderabbitai full review` sur #128 (rate-limit) ; (d) à l'approbation du mainteneur : merge #127 puis #128, fermer #36 avec preuve.
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit` ; CI : `gh pr checks 127` / `gh pr checks 128`.
+1. **Target File**: PR #130 (`https://github.com/leandre755/HIVE-MIND/pull/130`)
+2. **Immediate Action**: Attendre l'approbation et le merge de la PR #130 par le mainteneur (@leandre755). Une fois mergé, mettre à jour `master` locale et reprendre le Palier 1 de l'issue #112.
+3. **Verification Command**: `gh pr checks 130`
