@@ -2,14 +2,8 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import {
-  safeReadFileSync,
-  safeUnlinkSync,
-  safeUnlink,
-  safeMkdir,
-  safeWriteFile,
-} from '../utils/safeFs.js';
-import { dirname, join } from 'path';
+import { safeUnlinkSync, safeUnlink, safeMkdir, safeWriteFile } from '../utils/safeFs.js';
+import { dirname } from 'path';
 
 import { fileURLToPath } from 'url';
 import { orchestrator } from './orchestrator.js';
@@ -32,6 +26,7 @@ import { mailboxWatcher } from '../services/events/MailboxWatcher.js';
 import { startupDisplay } from '../utils/startup.js';
 
 import { botIdentity } from '../utils/botIdentity.js';
+import { persona as loadedPersona } from '../utils/personaLoader.js';
 import { extractNumericId, jidMatch } from '../utils/jidHelper.js';
 
 // DTC Refactor: Inclusion du ServiceContainer
@@ -120,25 +115,18 @@ export async function getMediaSearch(): Promise<
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-let persona: { name: string; traits?: string[]; interests?: string[]; role?: string };
-try {
-  persona = JSON.parse(safeReadFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
-} catch {
-  persona = { name: 'Bot', traits: [], interests: [] };
-}
+const persona: { name: string; role: string; interests: string[] } = {
+  name: loadedPersona.name,
+  role: loadedPersona.role,
+  interests: [],
+};
 
-// Charger le prompt système
-let refusalPrompt: string;
-try {
-  safeReadFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
-  // Charger le template de refus s'il existe
-  refusalPrompt = safeReadFileSync(
-    join(__dirname, '..', 'persona', 'prompts', 'refusal.md'),
-    'utf-8',
-  );
-} catch {
-  refusalPrompt = 'You are {{name}}. Politely refuse because: {{reason}}.';
-}
+const refusalPrompt = `You are {{name}}, {{role}}.
+Your language and behavior style is defined as:
+{{language_style}}
+
+Based strictly on this style, politely refuse the user's request for the following reason:
+{{reason}}`;
 
 /**
  * Noyau principal du bot
@@ -3422,9 +3410,10 @@ ${textToCompress}`,
   async _generateRefusal(originalMessage: string, reason: string) {
     // Construction du prompt via le template chargé
     const prompt = refusalPrompt
-      .replace('{{name}}', persona.name)
-      .replace('{{reason}}', reason)
-      .replace('{{role}}', persona.role || 'Assistant');
+      .replaceAll('{{name}}', persona.name)
+      .replaceAll('{{reason}}', reason)
+      .replaceAll('{{role}}', persona.role || 'Assistant')
+      .replaceAll('{{language_style}}', loadedPersona.languageStyle);
 
     const response = await providerRouter.chat(
       [

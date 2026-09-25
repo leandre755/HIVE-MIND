@@ -15,7 +15,7 @@
 // ============================================================================
 
 import { container } from '../ServiceContainer.js';
-import { botIdentity } from '../../utils/botIdentity.js';
+import { persona } from '../../utils/personaLoader.js';
 import {
   safeReadFileSync,
   safeReadFile,
@@ -164,7 +164,7 @@ export class TieredContextLoader {
     this.browser = null;
 
     this.localCache = {
-      botIdentity: { name: botIdentity.fullName },
+      botIdentity: { name: persona.name },
       systemPromptTemplate,
     };
 
@@ -495,6 +495,10 @@ export class TieredContextLoader {
     const now = new Date();
 
     let prompt = this.localCache.systemPromptTemplate;
+
+    // 0. Replace static identity and style placeholders (replaceAll: multiple occurrences in template)
+    prompt = prompt.replaceAll('{{AGENT_NAME}}', persona.name);
+    prompt = prompt.replaceAll('{{LANGUAGE_STYLE}}', persona.languageStyle);
 
     // 1. Replace dynamic context placeholders
     prompt = prompt.replace('{{CURRENT_CHANNEL}}', data.channel);
