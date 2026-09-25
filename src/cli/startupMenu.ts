@@ -286,10 +286,12 @@ function renderStatusPanel(): void {
  */
 async function checkShouldAutoSkip(): Promise<boolean> {
   const isHeadless =
+    process.env.NODE_ENV === 'test' ||
     !process.stdout.isTTY ||
     !process.stdin.isTTY ||
     process.env.CI === 'true' ||
-    process.env.HEADLESS === 'true';
+    process.env.HEADLESS === 'true' ||
+    process.env.NODE_ENV === 'test';
 
   if (isHeadless) return true;
 

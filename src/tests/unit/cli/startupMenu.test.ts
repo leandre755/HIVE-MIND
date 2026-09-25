@@ -100,3 +100,7 @@ describe('Startup Options Menu CLI & Session Manager', () => {
     });
   });
 });
+
+afterAll(() => {
+  if (process.stdin) process.stdin.destroy();
+});

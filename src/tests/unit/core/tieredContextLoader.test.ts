@@ -1,5 +1,13 @@
 import { describe, it, beforeEach, jest, expect } from '@jest/globals';
 
+jest.unstable_mockModule('../../../utils/personaLoader.js', () => ({
+  persona: {
+    name: 'CustomBot',
+    role: 'CyberAssistant',
+    languageStyle: 'Speaks in ones and zeros.',
+  },
+}));
+
 // 1. Mock fs readFileSync and existsSync
 import * as fsActual from 'fs';
 import * as fsPromisesActual from 'fs/promises';
@@ -8,7 +16,7 @@ jest.unstable_mockModule('fs', () => ({
   readFileSync: jest.fn((path: unknown, options: unknown) => {
     const pathStr = String(path);
     if (pathStr.includes('system.md')) {
-      return 'System Template: {{CURRENT_CHANNEL}} | {{CURRENT_TIMESTAMP}} | {{USER_PASSPORT}} | {{SCRATCHPAD}} | {{ACTION_HISTORY}}';
+      return 'System Template: {{CURRENT_CHANNEL}} | {{CURRENT_TIMESTAMP}} | {{USER_PASSPORT}} | {{SCRATCHPAD}} | {{ACTION_HISTORY}} | {{AGENT_NAME}} | {{AGENT_ROLE}} | {{LANGUAGE_STYLE}}';
     }
     return Reflect.apply(fsActual.readFileSync, fsActual, [
       String(path),
@@ -231,6 +239,29 @@ describe('TieredContextLoader (MindOS & Constraints Integration)', () => {
       });
 
       expect(context.systemPrompt).not.toContain('<skills>');
+    });
+  });
+
+  describe('Identity Substitutions', () => {
+    it('should correctly substitute AGENT_NAME, AGENT_ROLE, and LANGUAGE_STYLE in the prompt', async () => {
+      const context = await tieredContextLoader.load('group123@g.us', {
+        sender: 'user123',
+        senderName: 'John',
+        sourceChannel: 'whatsapp',
+      });
+      expect(context.systemPrompt).toContain('CustomBot');
+      expect(context.systemPrompt).toContain('CyberAssistant');
+      expect(context.systemPrompt).toContain('Speaks in ones and zeros.');
+    });
+
+    it('should correctly fallback and hydrate the fallback prompt', () => {
+      const fallback = tieredContextLoader._buildFallbackContext('group123@g.us', {
+        sender: 'user123',
+      });
+      expect(fallback.systemPrompt).toContain('CustomBot');
+      expect(fallback.systemPrompt).toContain('CyberAssistant');
+      expect(fallback.systemPrompt).toContain('Speaks in ones and zeros.');
+      expect(fallback.systemPrompt).not.toContain('{{AGENT_NAME}}');
     });
   });
 });

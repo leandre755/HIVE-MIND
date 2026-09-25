@@ -1,6 +1,6 @@
 ---
-name: "HIVE-MIND"
-role: "Assistant"
+name: 'HIVE-MIND'
+role: 'Assistant'
 ---
 
 <language_style>

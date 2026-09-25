@@ -495,22 +495,26 @@ export class TieredContextLoader {
     const now = new Date();
 
     let prompt = this.localCache.systemPromptTemplate;
+    // 0. Build replacement map
+    const replacements: Record<string, string> = {
+      '{{AGENT_NAME}}': persona.name,
+      '{{AGENT_ROLE}}': persona.role,
+      '{{LANGUAGE_STYLE}}': persona.languageStyle,
+      '{{CURRENT_CHANNEL}}': data.channel,
+      '{{CURRENT_TIMESTAMP}}': now.toISOString(),
+      '{{USER_PASSPORT}}': this.workingMemory
+        ? this.workingMemory.formatPassport(data.passport)
+        : '',
+      '{{SCRATCHPAD}}': data.scratchpad,
+      '{{ACTION_HISTORY}}': data.actionHistory,
+    };
 
-    // 0. Replace static identity and style placeholders (replaceAll: multiple occurrences in template)
-    prompt = prompt.replaceAll('{{AGENT_NAME}}', persona.name);
-    prompt = prompt.replaceAll('{{LANGUAGE_STYLE}}', persona.languageStyle);
-
-    // 1. Replace dynamic context placeholders
-    prompt = prompt.replace('{{CURRENT_CHANNEL}}', data.channel);
-    prompt = prompt.replace('{{CURRENT_TIMESTAMP}}', now.toISOString());
-    if (this.workingMemory) {
-      prompt = prompt.replace(
-        '{{USER_PASSPORT}}',
-        this.workingMemory.formatPassport(data.passport),
-      );
-    }
-    prompt = prompt.replace('{{SCRATCHPAD}}', data.scratchpad);
-    prompt = prompt.replace('{{ACTION_HISTORY}}', data.actionHistory);
+    // 1. Replace all placeholders in one pass to prevent injection
+    prompt = prompt.replace(
+      /\{\{(AGENT_NAME|AGENT_ROLE|LANGUAGE_STYLE|CURRENT_CHANNEL|CURRENT_TIMESTAMP|USER_PASSPORT|SCRATCHPAD|ACTION_HISTORY)\}\}/g,
+      (match) =>
+        Reflect.get(replacements, match) !== undefined ? Reflect.get(replacements, match) : match,
+    );
 
     // 2. Build user model XML (Anthropic V3 user passport)
     const userModel = `
@@ -726,7 +730,10 @@ ${steps || 'None yet'}
    */
   _buildFallbackContext(_chatId: string, message: { sender: string }): UnifiedContext {
     return {
-      systemPrompt: this.localCache.systemPromptTemplate,
+      systemPrompt: this.localCache.systemPromptTemplate
+        .replaceAll('{{AGENT_NAME}}', persona.name)
+        .replaceAll('{{AGENT_ROLE}}', persona.role)
+        .replaceAll('{{LANGUAGE_STYLE}}', persona.languageStyle),
       recentMessages: [],
       history: [],
       authority: {

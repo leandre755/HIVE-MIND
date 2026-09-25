@@ -13,8 +13,12 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 function parseLine(line: string, key: string, defaultValue: string): string {
   if (!line.startsWith(`${key}:`)) return defaultValue;
   let val = line.substring(key.length + 1).trim();
-  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+  if (val.startsWith('"') && val.endsWith('"')) {
     val = val.substring(1, val.length - 1);
+    val = val.replaceAll('\\"', '"');
+  } else if (val.startsWith("'") && val.endsWith("'")) {
+    val = val.substring(1, val.length - 1);
+    val = val.replaceAll("''", "'");
   }
   return val;
 }
@@ -34,13 +38,27 @@ function parseFrontmatter(frontmatter: string): { name: string; role: string } {
 }
 
 function parsePersonaContent(content: string): PersonaConfig {
-  const frontmatterStart = content.indexOf('---');
-  const frontmatterEnd =
-    frontmatterStart !== -1 ? content.indexOf('---', frontmatterStart + 3) : -1;
+  const lines = content.split('\n');
+  let frontmatterStart = -1;
+  let frontmatterEnd = -1;
 
-  if (frontmatterStart !== -1 && frontmatterEnd !== -1) {
-    const frontmatter = content.substring(frontmatterStart + 3, frontmatterEnd);
-    const markdownBody = content.substring(frontmatterEnd + 3).trim();
+  for (let i = 0; i < lines.length; i++) {
+    if (lines.at(i)?.trim() === '---') {
+      if (frontmatterStart === -1) {
+        frontmatterStart = i;
+      } else if (frontmatterEnd === -1) {
+        frontmatterEnd = i;
+        break;
+      }
+    }
+  }
+
+  if (frontmatterStart !== -1 && frontmatterEnd !== -1 && frontmatterStart < frontmatterEnd) {
+    const frontmatter = lines.slice(frontmatterStart + 1, frontmatterEnd).join('\n');
+    const markdownBody = lines
+      .slice(frontmatterEnd + 1)
+      .join('\n')
+      .trim();
     const parsed = parseFrontmatter(frontmatter);
 
     return {
