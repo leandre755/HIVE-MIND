@@ -512,7 +512,7 @@ export class TieredContextLoader {
     // 1. Replace all placeholders in one pass to prevent injection
     prompt = prompt.replace(
       /\{\{(AGENT_NAME|AGENT_ROLE|LANGUAGE_STYLE|CURRENT_CHANNEL|CURRENT_TIMESTAMP|USER_PASSPORT|SCRATCHPAD|ACTION_HISTORY)\}\}/g,
-      (match) => (Reflect.get(replacements, match) ?? match) as string,
+      (match) => Reflect.get(replacements, match) as string,
     );
 
     // 2. Build user model XML (Anthropic V3 user passport)

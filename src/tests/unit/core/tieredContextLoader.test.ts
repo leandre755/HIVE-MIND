@@ -263,5 +263,26 @@ describe('TieredContextLoader (MindOS & Constraints Integration)', () => {
       expect(fallback.systemPrompt).toContain('Speaks in ones and zeros.');
       expect(fallback.systemPrompt).not.toContain('{{AGENT_NAME}}');
     });
+
+    it('should format passport when workingMemory is present', async () => {
+      tieredContextLoader.workingMemory = {
+        formatPassport: jest.fn(() => '<passport>VIP_USER</passport>'),
+        formatActionHistory: jest.fn(() => ''),
+        getContext: jest.fn(async () => []),
+        getPassport: jest.fn(async () => null),
+        getScratchpad: jest.fn(async () => ''),
+        getActionHistory: jest.fn(async () => ''),
+        getActiveAction: jest.fn(async () => null),
+      } as unknown as typeof tieredContextLoader.workingMemory;
+
+      const context = await tieredContextLoader.load('group123@g.us', {
+        sender: 'user123',
+        senderName: 'John',
+        sourceChannel: 'whatsapp',
+      });
+
+      expect(context.systemPrompt).toContain('<passport>VIP_USER</passport>');
+      tieredContextLoader.workingMemory = null;
+    });
   });
 });
