@@ -284,5 +284,43 @@ describe('TieredContextLoader (MindOS & Constraints Integration)', () => {
       expect(context.systemPrompt).toContain('<passport>VIP_USER</passport>');
       tieredContextLoader.workingMemory = null;
     });
+
+    it('handles falsy workingMemory when hydrating template', async () => {
+      tieredContextLoader.workingMemory = null;
+      const hydrated = await (
+        tieredContextLoader as unknown as {
+          _hydrateTemplate: (d: Record<string, unknown>) => Promise<string>;
+        }
+      )._hydrateTemplate({
+        channel: 'whatsapp',
+        passport: {
+          name: 'Unknown',
+          lang: 'auto',
+          tz: 'auto',
+          topFacts: [],
+          maple: { facts: [], prefs: [], goals: [] },
+        },
+        scratchpad: '',
+        actionHistory: '',
+        userSnapshot: { name: 'Unknown' },
+        chatId: 'group123@g.us',
+        blueprint: {
+          metadata: { id: 'fallback', name: 'Safe Fallback', version: '0.1.0' },
+          mindos: { drives: [] },
+          action_space: { allowed_tools: [] },
+          constraints: { read_only_fs: false, max_budget_usd: 1.0, max_iterations: 10 },
+        },
+        authority: {
+          isSuperUser: false,
+          isGlobalAdmin: false,
+          isGroupAdmin: false,
+          isBotAdmin: false,
+          level: 0,
+        },
+        groupBasics: null,
+        userQuery: '',
+      });
+      expect(hydrated).not.toContain('{{AGENT_NAME}}');
+    });
   });
 });
