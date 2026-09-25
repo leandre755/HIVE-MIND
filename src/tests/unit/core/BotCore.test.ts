@@ -204,5 +204,22 @@ describe('BotCore (Orchestration Core Integration)', () => {
       mockDownload.mockRestore();
       jest.useRealTimers();
     });
+
+    it('generates a personalized refusal message', async () => {
+      const { providerRouter } = await import('../../../providers/index.js');
+      const chatSpy = jest.spyOn(providerRouter, 'chat').mockResolvedValueOnce({
+        content: 'Polite refusal content',
+      } as unknown as Awaited<ReturnType<typeof providerRouter.chat>>);
+
+      const res = await (
+        bot as unknown as {
+          _generateRefusal: (msg: string, reason: string) => Promise<string>;
+        }
+      )._generateRefusal('Bad prompt', 'Security policy violation');
+
+      expect(res).toBe('Polite refusal content');
+      expect(chatSpy).toHaveBeenCalled();
+      chatSpy.mockRestore();
+    });
   });
 });

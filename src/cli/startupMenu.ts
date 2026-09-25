@@ -290,8 +290,7 @@ async function checkShouldAutoSkip(): Promise<boolean> {
     !process.stdout.isTTY ||
     !process.stdin.isTTY ||
     process.env.CI === 'true' ||
-    process.env.HEADLESS === 'true' ||
-    process.env.NODE_ENV === 'test';
+    process.env.HEADLESS === 'true';
 
   if (isHeadless) return true;
 

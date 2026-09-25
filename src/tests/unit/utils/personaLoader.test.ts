@@ -1,71 +1,46 @@
-import { jest } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 describe('personaLoader', () => {
   beforeEach(() => {
     jest.resetModules();
   });
 
-  it('should parse valid frontmatter with double quotes and unescape them', async () => {
-    await jest.unstable_mockModule('../../../utils/safeFs.js', () => ({
-      safeReadFileSync: jest.fn(
-        () => `---
-name: "Custom \\"Bot\\""
-role: "Expert \\"AI\\""
----
-Custom language style`,
-      ),
-    }));
-
-    const { loadPersona } = await import('../../../utils/personaLoader.js');
-    const config = loadPersona();
-
-    expect(config.name).toBe('Custom "Bot"');
-    expect(config.role).toBe('Expert "AI"');
-    expect(config.languageStyle).toBe('Custom language style');
-  });
-
-  it('should parse valid frontmatter with single quotes and unescape them', async () => {
-    await jest.unstable_mockModule('../../../utils/safeFs.js', () => ({
-      safeReadFileSync: jest.fn(
-        () => `---
-name: 'Custom ''Bot'''
-role: 'Expert \\"AI\\"'
----
-Single quote style`,
-      ),
-    }));
-
-    const { loadPersona } = await import('../../../utils/personaLoader.js');
-    const config = loadPersona();
-
-    expect(config.name).toBe("Custom 'Bot'");
-    expect(config.role).toBe('Expert \\"AI\\"');
-    expect(config.languageStyle).toBe('Single quote style');
-  });
-
-  it('should fallback to defaults when frontmatter is missing or invalid', async () => {
-    await jest.unstable_mockModule('../../../utils/safeFs.js', () => ({
-      safeReadFileSync: jest.fn(() => `Just markdown content without frontmatter`),
-    }));
-
-    const { loadPersona } = await import('../../../utils/personaLoader.js');
-    const config = loadPersona();
-
-    expect(config.name).toBe('HIVE-MIND');
-    expect(config.role).toBe('Assistant');
-    expect(config.languageStyle).toBe('Just markdown content without frontmatter');
-  });
-
-  it('should use default fallback when safeReadFileSync throws an error', async () => {
+  const setupMockAndLoad = async (contentOrError: string | Error) => {
     await jest.unstable_mockModule('../../../utils/safeFs.js', () => ({
       safeReadFileSync: jest.fn(() => {
-        throw new Error('File not found');
+        if (contentOrError instanceof Error) throw contentOrError;
+        return contentOrError;
       }),
     }));
-
     const { loadPersona } = await import('../../../utils/personaLoader.js');
-    const config = loadPersona();
+    return loadPersona();
+  };
 
+  it.each([
+    [
+      'double-quotes',
+      '---\nname: "Custom \\"Bot\\""\nrole: "Expert \\"AI\\""\n---\nStyle A',
+      'Custom "Bot"',
+      'Expert "AI"',
+      'Style A',
+    ],
+    [
+      'single-quotes',
+      "---\nname: 'Custom ''Bot'''\nrole: 'Expert \\\"AI\\\"'\n---\nStyle B",
+      "Custom 'Bot'",
+      'Expert \\"AI\\"',
+      'Style B',
+    ],
+    ['no-frontmatter', 'Plain body style', 'HIVE-MIND', 'Assistant', 'Plain body style'],
+  ])('handles %s properly', async (_desc, rawYaml, expName, expRole, expStyle) => {
+    const config = await setupMockAndLoad(rawYaml);
+    expect(config.name).toBe(expName);
+    expect(config.role).toBe(expRole);
+    expect(config.languageStyle).toBe(expStyle);
+  });
+
+  it('uses default fallback on file read error', async () => {
+    const config = await setupMockAndLoad(new Error('File not found'));
     expect(config.name).toBe('HIVE-MIND');
     expect(config.role).toBe('Assistant');
     expect(config.languageStyle).toContain('You communicate in a neutral');
