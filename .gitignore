@@ -75,6 +75,7 @@ excalidraw/
 llm_as_validator/
 llm_as_juge/
 /.lake
+coverage/
 
 # ============================================================
 # Research corpus (local-only, never committed)

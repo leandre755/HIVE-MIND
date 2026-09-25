@@ -4,11 +4,7 @@
  * Centralise le nom et génère automatiquement les variantes
  */
 
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-import { safeReadFileSync } from './safeFs.js';
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
+import { persona } from './personaLoader.js';
 
 export interface BotProfile {
   name: string;
@@ -32,27 +28,13 @@ export class BotIdentity {
   constructor() {}
 
   /**
-   * Extrait le nom dynamiquement depuis system.md
+   * Charge le profil depuis persona.md via personaLoader
    */
   private _loadProfile(): BotProfile {
     if (this._profile) return this._profile;
 
-    let botName = 'HIVE-MIND'; // Fallback
-    try {
-      const promptPath = join(currentDir, '..', 'persona', 'prompts', 'system.md');
-      const promptContent = safeReadFileSync(promptPath, 'utf-8');
-
-      // Extraction dynamique via la balise XML <name>
-      const nameMatch = promptContent.match(/<name>([\s\S]*?)<\/name>/);
-      if (nameMatch && nameMatch[1]) {
-        botName = nameMatch[1].trim();
-      }
-    } catch (e) {
-      console.warn('[BotIdentity] Erreur lecture system.md pour extraire le nom:', e);
-    }
-
     this._profile = {
-      name: botName,
+      name: persona.name,
     };
 
     return this._profile;

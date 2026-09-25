@@ -1,5 +1,13 @@
 import { describe, it, beforeEach, jest, expect } from '@jest/globals';
 
+jest.unstable_mockModule('../../../utils/personaLoader.js', () => ({
+  persona: {
+    name: 'CustomBot',
+    role: 'CyberAssistant',
+    languageStyle: 'Speaks in ones and zeros.',
+  },
+}));
+
 // 1. Mock fs readFileSync and existsSync
 import * as fsActual from 'fs';
 import * as fsPromisesActual from 'fs/promises';
@@ -8,7 +16,7 @@ jest.unstable_mockModule('fs', () => ({
   readFileSync: jest.fn((path: unknown, options: unknown) => {
     const pathStr = String(path);
     if (pathStr.includes('system.md')) {
-      return 'System Template: {{CURRENT_CHANNEL}} | {{CURRENT_TIMESTAMP}} | {{USER_PASSPORT}} | {{SCRATCHPAD}} | {{ACTION_HISTORY}}';
+      return 'System Template: {{CURRENT_CHANNEL}} | {{CURRENT_TIMESTAMP}} | {{USER_PASSPORT}} | {{SCRATCHPAD}} | {{ACTION_HISTORY}} | {{AGENT_NAME}} | {{AGENT_ROLE}} | {{LANGUAGE_STYLE}}';
     }
     return Reflect.apply(fsActual.readFileSync, fsActual, [
       String(path),
@@ -231,6 +239,88 @@ describe('TieredContextLoader (MindOS & Constraints Integration)', () => {
       });
 
       expect(context.systemPrompt).not.toContain('<skills>');
+    });
+  });
+
+  describe('Identity Substitutions', () => {
+    it('should correctly substitute AGENT_NAME, AGENT_ROLE, and LANGUAGE_STYLE in the prompt', async () => {
+      const context = await tieredContextLoader.load('group123@g.us', {
+        sender: 'user123',
+        senderName: 'John',
+        sourceChannel: 'whatsapp',
+      });
+      expect(context.systemPrompt).toContain('CustomBot');
+      expect(context.systemPrompt).toContain('CyberAssistant');
+      expect(context.systemPrompt).toContain('Speaks in ones and zeros.');
+    });
+
+    it('should correctly fallback and hydrate the fallback prompt', () => {
+      const fallback = tieredContextLoader._buildFallbackContext('group123@g.us', {
+        sender: 'user123',
+      });
+      expect(fallback.systemPrompt).toContain('CustomBot');
+      expect(fallback.systemPrompt).toContain('CyberAssistant');
+      expect(fallback.systemPrompt).toContain('Speaks in ones and zeros.');
+      expect(fallback.systemPrompt).not.toContain('{{AGENT_NAME}}');
+    });
+
+    it('should format passport when workingMemory is present', async () => {
+      tieredContextLoader.workingMemory = {
+        formatPassport: jest.fn(() => '<passport>VIP_USER</passport>'),
+        formatActionHistory: jest.fn(() => ''),
+        getContext: jest.fn(async () => []),
+        getPassport: jest.fn(async () => null),
+        getScratchpad: jest.fn(async () => ''),
+        getActionHistory: jest.fn(async () => ''),
+        getActiveAction: jest.fn(async () => null),
+      } as unknown as typeof tieredContextLoader.workingMemory;
+
+      const context = await tieredContextLoader.load('group123@g.us', {
+        sender: 'user123',
+        senderName: 'John',
+        sourceChannel: 'whatsapp',
+      });
+
+      expect(context.systemPrompt).toContain('<passport>VIP_USER</passport>');
+      tieredContextLoader.workingMemory = null;
+    });
+
+    it('handles falsy workingMemory when hydrating template', async () => {
+      tieredContextLoader.workingMemory = null;
+      const hydrated = await (
+        tieredContextLoader as unknown as {
+          _hydrateTemplate: (d: Record<string, unknown>) => Promise<string>;
+        }
+      )._hydrateTemplate({
+        channel: 'whatsapp',
+        passport: {
+          name: 'Unknown',
+          lang: 'auto',
+          tz: 'auto',
+          topFacts: [],
+          maple: { facts: [], prefs: [], goals: [] },
+        },
+        scratchpad: '',
+        actionHistory: '',
+        userSnapshot: { name: 'Unknown' },
+        chatId: 'group123@g.us',
+        blueprint: {
+          metadata: { id: 'fallback', name: 'Safe Fallback', version: '0.1.0' },
+          mindos: { drives: [] },
+          action_space: { allowed_tools: [] },
+          constraints: { read_only_fs: false, max_budget_usd: 1.0, max_iterations: 10 },
+        },
+        authority: {
+          isSuperUser: false,
+          isGlobalAdmin: false,
+          isGroupAdmin: false,
+          isBotAdmin: false,
+          level: 0,
+        },
+        groupBasics: null,
+        userQuery: '',
+      });
+      expect(hydrated).not.toContain('{{AGENT_NAME}}');
     });
   });
 });

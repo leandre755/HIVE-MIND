@@ -2,16 +2,10 @@
 // Orchestrateur principal du bot - Cerveau central
 
 import { randomInt } from 'node:crypto';
-import {
-  safeReadFileSync,
-  safeUnlinkSync,
-  safeUnlink,
-  safeMkdir,
-  safeWriteFile,
-} from '../utils/safeFs.js';
-import { dirname, join } from 'path';
+import { safeUnlinkSync, safeUnlink, safeMkdir, safeWriteFile } from '../utils/safeFs.js';
+import { dirname } from 'node:path';
 
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 import { orchestrator } from './orchestrator.js';
 import { eventBus, BotEvents } from './events.js';
 import { transportManager } from './transport/TransportManager.js';
@@ -32,6 +26,7 @@ import { mailboxWatcher } from '../services/events/MailboxWatcher.js';
 import { startupDisplay } from '../utils/startup.js';
 
 import { botIdentity } from '../utils/botIdentity.js';
+import { persona as loadedPersona } from '../utils/personaLoader.js';
 import { extractNumericId, jidMatch } from '../utils/jidHelper.js';
 
 // DTC Refactor: Inclusion du ServiceContainer
@@ -120,25 +115,11 @@ export async function getMediaSearch(): Promise<
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-let persona: { name: string; traits?: string[]; interests?: string[]; role?: string };
-try {
-  persona = JSON.parse(safeReadFileSync(join(__dirname, '..', 'persona', 'profile.json'), 'utf-8'));
-} catch {
-  persona = { name: 'Bot', traits: [], interests: [] };
-}
-
-// Charger le prompt système
-let refusalPrompt: string;
-try {
-  safeReadFileSync(join(__dirname, '..', 'persona', 'prompts', 'system.md'), 'utf-8');
-  // Charger le template de refus s'il existe
-  refusalPrompt = safeReadFileSync(
-    join(__dirname, '..', 'persona', 'prompts', 'refusal.md'),
-    'utf-8',
-  );
-} catch {
-  refusalPrompt = 'You are {{name}}. Politely refuse because: {{reason}}.';
-}
+const persona: { name: string; role: string; interests: string[] } = {
+  name: loadedPersona.name,
+  role: loadedPersona.role,
+  interests: [],
+};
 
 /**
  * Noyau principal du bot
@@ -3414,30 +3395,6 @@ ${textToCompress}`,
         gracefulDegradation: true,
       };
     }
-  }
-
-  /**
-   * Génère un refus humanisé
-   */
-  async _generateRefusal(originalMessage: string, reason: string) {
-    // Construction du prompt via le template chargé
-    const prompt = refusalPrompt
-      .replace('{{name}}', persona.name)
-      .replace('{{reason}}', reason)
-      .replace('{{role}}', persona.role || 'Assistant');
-
-    const response = await providerRouter.chat(
-      [
-        {
-          role: 'system',
-          content: prompt,
-        },
-        { role: 'user', content: originalMessage },
-      ],
-      { temperature: 0.9, family: 'google' },
-    ); // Optimisation : on force Google pour les tâches simples (rapide/gratuit)
-
-    return response.content;
   }
 
   /**

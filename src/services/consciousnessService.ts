@@ -46,7 +46,7 @@ class ConsciousnessService {
 
   constructor() {
     this.identity = {
-      name: 'HIVE-MIND',
+      name: personaName,
       jid: null,
       lid: null,
       phoneNumber: null,
