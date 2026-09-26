@@ -4,7 +4,7 @@
 
 ## 📋 Target Invariant & Pre-requisites
 
-- **Target Invariant**: après chaque étape, le comportement runtime reste inchangé tandis que l'application cesse de dépendre de l'arbre source et de `process.cwd()`/`__dirname` pour ses configurations, ses espaces de données et ses adapters. `credentials.json` reste exclusivement utilisateur (jamais dans les defaults, jamais empaqueté, jamais lu par l'agent).
+- **Target Invariant**: chaque étape préserve scrupuleusement le comportement runtime existant. L'invariant d'émancipation complète de l'arbre source et de portabilité globale (absence de dépendance à `process.cwd()` et `__dirname` pour configurations, espaces de données et adapters) sera pleinement effectif à l'issue de l'étape 5, une fois l'ensemble des migrations complétées. `credentials.json` reste exclusivement utilisateur (jamais dans les defaults, jamais empaqueté, jamais lu par l'agent).
 - **Pre-requisites**:
   - Sous-issues #131-#135 créées et rattachées à #96 (fait le 2026-09-25).
   - Dépendances : #134 et #135 exigent #133 mergée ; #131 et #132 sont indépendantes.

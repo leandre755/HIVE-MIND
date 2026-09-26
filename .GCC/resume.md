@@ -53,9 +53,9 @@ Time:        50.985 s
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun sur #131. Étape 1/5 complétée et vérifiée. Reste à livrer en Pull Request dédiée pour #131, vérifier les 14/14 checks CI, puis enchaîner sur l'étape 2 (#132 registre statique).
+- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #131. PR #136 ouverte et vérifiée. Reste la validation des checks CI sur PR #136, puis enchaîner sur l'étape 2 (#132 registre statique des providers).
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (puis sous-issue #132).
-2. **Immediate Action**: Créer la PR pour #131 avec le gabarit de PR, vérifier les 14/14 checks CI distants, puis attaquer #132 (`refactor/providers-static-registry`) selon l'étape 2 du plan.
+2. **Immediate Action**: Vérifier les checks CI distants sur la PR #136 pour l'issue #131, puis attaquer #132 (`refactor/providers-static-registry`) selon l'étape 2 du plan.
 3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
