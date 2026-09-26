@@ -30,9 +30,14 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    ['HIVE_CONFIG_DIR', 'HIVE_DEFAULTS_CONFIG_DIR'].forEach((k) =>
-      Reflect.deleteProperty(process.env, k),
-    );
+    Object.keys(process.env)
+      .filter(
+        (k) =>
+          k.startsWith('HIVE_CONFIG_') ||
+          k === 'HIVE_DEFAULTS_CONFIG_DIR' ||
+          k === 'HIVE_LEGACY_CONFIG_DIR',
+      )
+      .forEach((k) => Reflect.deleteProperty(process.env, k));
   });
   afterEach(() => {
     process.env = { ...originalEnv };
@@ -164,6 +169,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
   it('Priority 5: should strictly reject falling back to defaults for credentials.json', () => {
     const env = createTempEnvironment();
     process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
     applyEnv(env);
     safeWriteFileSync(join(env.defaultsDir, 'credentials.json'), '{"apiKey":"fake"}');
     expect(resolveConfigPath('credentials.json')).toBe(
@@ -174,6 +180,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
   it('Priority 5: should fall back to embedded DEFAULTS_CONFIG_DIR when HIVE_DEFAULTS_CONFIG_DIR is incomplete', () => {
     const env = createTempEnvironment();
     process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
     applyEnv(env);
     const resolved = resolveConfigPath('models_config.json');
     expect(safeExistsSync(resolved) && resolved.endsWith('models_config.json')).toBe(true);

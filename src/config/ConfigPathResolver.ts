@@ -50,6 +50,10 @@ export const resolveDefaultsConfigDir = (): string =>
   process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim()
     ? resolve(process.env.HIVE_DEFAULTS_CONFIG_DIR.trim())
     : DEFAULTS_CONFIG_DIR;
+export const resolveLegacyConfigDir = (): string =>
+  process.env.HIVE_LEGACY_CONFIG_DIR?.trim()
+    ? resolve(process.env.HIVE_LEGACY_CONFIG_DIR.trim())
+    : dirname(DEFAULTS_CONFIG_DIR);
 
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
   const envVal = Reflect.get(
@@ -88,7 +92,7 @@ export function resolveConfigPath(filename: string): string {
   if (safeExistsSync(xdgCandidate)) return xdgCandidate;
 
   // 4.b Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
-  const legacyDir = dirname(resolveDefaultsConfigDir());
+  const legacyDir = resolveLegacyConfigDir();
   try {
     const legacyCandidate = resolveWithinRoot(legacyDir, cleanName);
     if (safeExistsSync(legacyCandidate)) {
