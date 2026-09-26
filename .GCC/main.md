@@ -38,6 +38,10 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-26] **Arbitrage Mainteneur sur le Budget LoC vs Propreté et Lisibilité**
+  - **Context**: Directive explicite du mainteneur : la limite indicative de 2500 LoC ne doit pas induire de compression artificielle préjudiciable à la lisibilité et à l'expressivité du code. Tant qu'il n'y a pas de surplus injustifié, de code mort ou de duplication inutile, un volume dépassant 2500 LoC est parfaitement recevable en revue.
+  - **Rationale**: Priorité absolue à la maintenabilité, à l'absence de duplication et à la robustesse architecturale sur une contrainte comptable stricte.
+
 - [2026-09-26] **Protection de Scheduler.json par HIVE_TRUST_PROJECT_CONFIG & Routage Unifié de ServiceRegistry (#133 / PR #138)**
   - **Context**: Retours d'analyse Greptile sur la PR #138 : (1) Finding P1 ID 4113327061 (Security) : un projet non approuvé pouvait programmer arbitrairement des tâches critiques (`dbCleanup` -> `cleanup_old_data`) via `./config/scheduler.json` sans opt-in ; (2) Finding P1 ID 4113327068 : `ServiceRegistry.defaultServicesConfigPath()` continuait de lire le fichier source en dur au lieu de `resolveConfigPath('services_config.json')`, causant une divergence entre la validation des modèles et les recettes exécutées au runtime ; (3) Finding P2 ID 4113327074 : le guide de distribution omettait de mentionner l'exigence d'opt-in `HIVE_TRUST_PROJECT_CONFIG` pour `models_config.json` et `scheduler.json`.
   - **Discarded Options**: Laisser `./config/scheduler.json` accessible sans confiance (rejeté : risque d'altération destructrice de base de données par un checkout malveillant) ; conserver des résolutions locales dans `ServiceRegistry` (rejeté : brise les surcharges d'environnement et la portabilité hors source).
