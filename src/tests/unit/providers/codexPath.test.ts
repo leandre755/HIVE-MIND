@@ -32,7 +32,53 @@ import {
   safeRemoveDirectorySync,
 } from '../../../utils/safeFs.js';
 
-describe('Codex Auth File Path Resolution & Credentials (#131)', () => {
+describe('Codex Auth File Path Resolution (#131)', () => {
+  const originalAuthPath = process.env.CODEX_AUTH_PATH;
+
+  beforeEach(() => {
+    delete process.env.CODEX_AUTH_PATH;
+  });
+
+  afterEach(() => {
+    if (originalAuthPath !== undefined) {
+      process.env.CODEX_AUTH_PATH = originalAuthPath;
+    } else {
+      delete process.env.CODEX_AUTH_PATH;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it('résout le chemin auth.json dynamiquement à partir de os.homedir()', () => {
+    const mockHome = '/home/test-agent-user';
+    jest.spyOn(os, 'homedir').mockReturnValue(mockHome);
+
+    const resolved = getCodexAuthFilePath();
+    expect(resolved).toBe(path.join(mockHome, '.codex', 'auth.json'));
+    expect(resolved).not.toContain('/home/omni');
+  });
+
+  it('gère les chemins avec séparateurs système standards (POSIX ou Windows)', () => {
+    const mockHome = path.sep === '\\' ? 'C:\\Users\\MockUser' : '/var/users/mockuser';
+    jest.spyOn(os, 'homedir').mockReturnValue(mockHome);
+
+    const resolved = getCodexAuthFilePath();
+    expect(resolved).toBe(path.join(mockHome, '.codex', 'auth.json'));
+    expect(resolved.endsWith(path.join('.codex', 'auth.json'))).toBe(true);
+  });
+
+  it('priorise la variable d environnement CODEX_AUTH_PATH si définie', () => {
+    process.env.CODEX_AUTH_PATH = '/custom/isolated/codex-credentials.json';
+
+    const resolved = getCodexAuthFilePath();
+    expect(resolved).toBe('/custom/isolated/codex-credentials.json');
+  });
+
+  it('exporte AUTH_FILE_PATH résolu lors du chargement du module', () => {
+    expect(AUTH_FILE_PATH).toBe(originalAuthPath || path.join(os.homedir(), '.codex', 'auth.json'));
+  });
+});
+
+describe('Codex Credentials & Persistence (#131)', () => {
   const originalAuthPath = process.env.CODEX_AUTH_PATH;
   const originalRefreshToken = process.env.CODEX_REFRESH_TOKEN;
   const originalAccessToken = process.env.CODEX_ACCESS_TOKEN;
@@ -98,39 +144,6 @@ describe('Codex Auth File Path Resolution & Credentials (#131)', () => {
     }
 
     jest.restoreAllMocks();
-  });
-
-  describe('Path resolution', () => {
-    it('résout le chemin auth.json dynamiquement à partir de os.homedir()', () => {
-      const mockHome = '/home/test-agent-user';
-      jest.spyOn(os, 'homedir').mockReturnValue(mockHome);
-
-      const resolved = getCodexAuthFilePath();
-      expect(resolved).toBe(path.join(mockHome, '.codex', 'auth.json'));
-      expect(resolved).not.toContain('/home/omni');
-    });
-
-    it('gère les chemins avec séparateurs système standards (POSIX ou Windows)', () => {
-      const mockHome = path.sep === '\\' ? 'C:\\Users\\MockUser' : '/var/users/mockuser';
-      jest.spyOn(os, 'homedir').mockReturnValue(mockHome);
-
-      const resolved = getCodexAuthFilePath();
-      expect(resolved).toBe(path.join(mockHome, '.codex', 'auth.json'));
-      expect(resolved.endsWith(path.join('.codex', 'auth.json'))).toBe(true);
-    });
-
-    it('priorise la variable d environnement CODEX_AUTH_PATH si définie', () => {
-      process.env.CODEX_AUTH_PATH = '/custom/isolated/codex-credentials.json';
-
-      const resolved = getCodexAuthFilePath();
-      expect(resolved).toBe('/custom/isolated/codex-credentials.json');
-    });
-
-    it('exporte AUTH_FILE_PATH résolu lors du chargement du module', () => {
-      expect(AUTH_FILE_PATH).toBe(
-        originalAuthPath || path.join(os.homedir(), '.codex', 'auth.json'),
-      );
-    });
   });
 
   describe('loadCredentials()', () => {
@@ -254,7 +267,10 @@ describe('Codex Auth File Path Resolution & Credentials (#131)', () => {
     });
 
     it('capture l erreur d écriture sans lever d exception si writeFileSync échoue', () => {
-      process.env.CODEX_AUTH_PATH = '/dev/null/impossible_file_path.json';
+      // testDir est un répertoire existant : tenter d'y écrire comme un fichier
+      // déclenche universellement une erreur d'écriture système (EISDIR/EPERM)
+      // de manière 100% portable sans dépendre de mocks fs ou de chemins /dev/null.
+      process.env.CODEX_AUTH_PATH = testDir;
 
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const tokens: CodexAuthTokens = {
