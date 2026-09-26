@@ -47,7 +47,7 @@ describe('Codex Auth File Path Resolution (#131)', () => {
     expect(resolved).toBe('/custom/isolated/codex-credentials.json');
   });
 
-  it('exporte AUTH_FILE_PATH cohérent avec la structure attendue (.codex/auth.json)', () => {
-    expect(AUTH_FILE_PATH.endsWith(path.join('.codex', 'auth.json'))).toBe(true);
+  it('exporte AUTH_FILE_PATH résolu lors du chargement du module', () => {
+    expect(AUTH_FILE_PATH).toBe(originalEnv || path.join(os.homedir(), '.codex', 'auth.json'));
   });
 });
