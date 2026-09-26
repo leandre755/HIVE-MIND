@@ -1,7 +1,8 @@
 // scripts/test_codex_connection.ts
+import { getCodexAuthFilePath } from '../providers/adapters/codex.js';
 import { safeExistsSync, safeReadFileSync } from '../utils/safeFs.js';
 
-const AUTH_FILE_PATH = '/home/omni/.codex/auth.json';
+const AUTH_FILE_PATH = getCodexAuthFilePath();
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
 type TokenPair = {

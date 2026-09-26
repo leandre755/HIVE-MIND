@@ -9,6 +9,8 @@ import {
 } from '../../utils/safeFs.js';
 import { Buffer } from 'buffer';
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
 import type {
   AdapterChatOptions,
   AdapterChatResult,
@@ -27,7 +29,15 @@ import {
   type CodexResponsesPayload,
 } from './codexProtocol.js';
 
-const AUTH_FILE_PATH = '/home/omni/.codex/auth.json';
+/**
+ * Résout le chemin du fichier d'authentification Codex CLI dans le dossier personnel de l'utilisateur
+ * ou selon la variable d'environnement optionnelle CODEX_AUTH_PATH.
+ */
+export function getCodexAuthFilePath(): string {
+  return process.env.CODEX_AUTH_PATH || path.join(os.homedir(), '.codex', 'auth.json');
+}
+
+export const AUTH_FILE_PATH = getCodexAuthFilePath();
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
 /** Marge avant expiration en deçà de laquelle le jeton est rafraîchi (secondes). */
@@ -107,12 +117,13 @@ function loadCredentials(): CodexCredentials {
     authData: null,
   };
 
-  if (fromEnv.refreshToken || !existsSync(AUTH_FILE_PATH)) {
+  const authFilePath = getCodexAuthFilePath();
+  if (fromEnv.refreshToken || !existsSync(authFilePath)) {
     return fromEnv;
   }
 
   try {
-    const authData = JSON.parse(readFileSync(AUTH_FILE_PATH, 'utf8')) as CodexAuthFile;
+    const authData = JSON.parse(readFileSync(authFilePath, 'utf8')) as CodexAuthFile;
     if (!authData?.tokens) {
       return { ...fromEnv, authData };
     }
@@ -152,11 +163,12 @@ function needsRefresh(accessToken: string | undefined): boolean {
  * pour la durée du processus. L'échec est signalé, jamais avalé.
  */
 function persistTokens(authData: CodexAuthFile | null, tokens: CodexAuthTokens): void {
-  if (!existsSync(AUTH_FILE_PATH) && !authData) return;
+  const authFilePath = getCodexAuthFilePath();
+  if (!existsSync(authFilePath) && !authData) return;
 
   try {
     const updatedAuthData: CodexAuthFile = { ...authData, tokens };
-    writeFileSync(AUTH_FILE_PATH, JSON.stringify(updatedAuthData, null, 4), 'utf8');
+    writeFileSync(authFilePath, JSON.stringify(updatedAuthData, null, 4), 'utf8');
     console.log('[Codex] Tokens mis à jour sauvegardés dans auth.json.');
   } catch (err) {
     console.warn(
