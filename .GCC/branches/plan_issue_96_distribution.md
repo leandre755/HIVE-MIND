@@ -135,9 +135,9 @@ Tests:       25 passed, 25 total
 Snapshots:   0 total
 Time:        4.848 s
 
-PR #138 : Commits f2bec36, aa32eb0, b7d873a, 92743a6, 9012ba6, diff stabilisé à 2495 lignes (< 2500 max).
-Résolution des retours Macroscope Critical ID 4112513858 (frontière de confiance isProjectConfigAllowed avec opt-in explicite HIVE_TRUST_PROJECT_CONFIG pour models_config.json), Macroscope High ID 4112382929 & 4112510386 (priorité de HIVE_DEFAULTS_CONFIG_DIR sur le fallback legacy), Greptile P1 (ID 4112620315 - réhabilitation de ./config/credentials.json sans opt-in pour éviter les 401 tout en maintenant le confinement strict de models_config.json), et couverture Codecov 100% sur ConfigPathResolver.ts (100% Stmts/Branch/Funcs/Lines).
-Homologué APPROVE 100% Production-Grade par Fix-Verifier (ID 26e8a663-2016-43ff-870a-850396922763).
+PR #138 : Commits f2bec36, aa32eb0, b7d873a, 92743a6, 9012ba6, e8af1e1, ef1dee9, diff stabilisé à 2495 lignes (< 2500 max).
+Résolution des retours Macroscope Critical ID 4112513858 (frontière de confiance isProjectConfigAllowed avec opt-in explicite HIVE_TRUST_PROJECT_CONFIG pour models_config.json), Macroscope High ID 4112382929 & 4112510386 (priorité de HIVE_DEFAULTS_CONFIG_DIR sur le fallback legacy), Greptile P1 (ID 4112620315 & ID 4112726099 - fusion intelligente des clés de projet ./config/credentials.json sur ~/.hivemind/config/credentials.json et repli gracieux sur clés utilisateur si fichier corrompu/vide), purge définitive du repli XDG Linux (~/.config/hive-mind/) sur arbitrage utilisateur, confinement de storage et storage_hm dans ~/.sandbox1/storage_hm, et couverture Codecov 100% sur ConfigPathResolver.ts (100% Stmts/Branch/Funcs/Lines) et index.ts (100% Funcs/Lines).
+Homologué APPROVE 100% Production-Grade par Fix-Verifier.
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)
