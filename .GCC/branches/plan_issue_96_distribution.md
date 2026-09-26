@@ -16,7 +16,7 @@
 
 ### Step 1: #131 — Chemins utilisateur en dur → `os.homedir()` (critère 2)
 
-- [x] **Action**: `src/providers/adapters/codex.ts:30` et `src/scripts/test_codex_connection.ts:4` : `'/home/omni/.codex/auth.json'` → `path.join(os.homedir(), '.codex', 'auth.json')`. Audit global `grep -rn '/home/omni' --exclude-dir={node_modules,.git}` (fixtures de tests `helpers.test.ts`, `bashTool.test.ts` intentionnelles, à exclure). Ajouter un test de résolution avec `os.homedir()` mocké (`src/tests/unit/providers/codexPath.test.ts`). Branche : `fix/distribution-hardcoded-paths`. PR : [#136](https://github.com/leandre755/HIVE-MIND/pull/136).
+- [x] **Action**: `src/providers/adapters/codex.ts:30` et `src/scripts/test_codex_connection.ts:4` : `'/home/omni/.codex/auth.json'` → `path.join(os.homedir(), '.codex', 'auth.json')`. Audit ciblé code et scripts `grep -rn '/home/omni' src/` (fixtures de tests `helpers.test.ts`, `bashTool.test.ts` intentionnelles, à exclure). Ajouter un test de résolution avec `os.homedir()` mocké, fixtures isolées dans un dossier temporaire et couverture 100% patch (`src/tests/unit/providers/codexPath.test.ts`). Branche : `fix/distribution-hardcoded-paths`. PR : [#136](https://github.com/leandre755/HIVE-MIND/pull/136).
 - [x] **Verify**: `npm run build && npm run lint:fast && npm run test:unit`
 - **Verification Proof**:
 ```text
@@ -27,22 +27,32 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 72ms on 366 files with 96 rules using 4 threads.
+Finished in 95ms on 366 files with 96 rules using 4 threads.
 
 npx jest src/tests/unit/providers/codexPath.test.ts
 PASS src/tests/unit/providers/codexPath.test.ts
-  Codex Auth File Path Resolution (#131)
-    ✓ résout le chemin auth.json dynamiquement à partir de os.homedir() (5 ms)
-    ✓ gère les chemins avec séparateurs système standards (POSIX ou Windows) (1 ms)
-    ✓ exporte AUTH_FILE_PATH cohérent avec la structure attendue (.codex/auth.json) (1 ms)
+  Codex Auth File Path Resolution & Credentials (#131)
+    Path resolution
+      ✓ résout le chemin auth.json dynamiquement à partir de os.homedir() (14 ms)
+      ✓ gère les chemins avec séparateurs système standards (POSIX ou Windows) (4 ms)
+      ✓ priorise la variable d environnement CODEX_AUTH_PATH si définie (1 ms)
+      ✓ exporte AUTH_FILE_PATH résolu lors du chargement du module (1 ms)
+    loadCredentials()
+      ✓ retourne directement fromEnv si CODEX_REFRESH_TOKEN est défini (13 ms)
+      ✓ retourne fromEnv si le fichier auth.json n existe pas (4 ms)
+      ✓ charge les tokens depuis auth.json lorsque le fichier existe (2 ms)
+      ✓ retourne fromEnv avec authData si auth.json ne contient pas de tokens (1 ms)
+      ✓ capture l erreur et retourne fromEnv si auth.json contient du JSON invalide (6 ms)
+    persistTokens()
+      ✓ retourne sans écrire si authData est null et le fichier n existe pas (1 ms)
+      ✓ sauvegarde les tokens mis à jour dans auth.json en préservant les métadonnées (2 ms)
+      ✓ capture l erreur d écriture sans lever d exception si writeFileSync échoue (2 ms)
 Test Suites: 1 passed, 1 total
-Tests:       3 passed, 3 total
+Tests:       12 passed, 12 total
 
 npm run test:unit
 Test Suites: 104 passed, 104 total
-Tests:       1057 passed, 1057 total
-Snapshots:   0 total
-Time:        50.985 s
+Tests:       1066 passed, 1066 total
 ```
 
 ### Step 2: #132 — Registre statique des adapters providers (critère 1)

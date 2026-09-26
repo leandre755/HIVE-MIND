@@ -1,13 +1,13 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Exécuter la sous-issue #131 (étape 1/5 du plan de distribution #96) : supprimer les chemins utilisateur `/home/omni/...` écrits en dur dans le code source et les scripts, et les remplacer par `path.join(os.homedir(), ...)` avec validation complète et audit global repo.
+- **Requested Task**: Exécuter la sous-issue #131 (étape 1/5 du plan de distribution #96) : supprimer les chemins utilisateur `/home/omni/...` écrits en dur dans le code source et les scripts, et les remplacer par `path.join(os.homedir(), ...)` avec validation complète, fixtures de test isolées en dossier temporaire et PR #136.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `npx jest src/tests/unit/providers/codexPath.test.ts` : 3/3 tests passés (résolution dynamique basée sur `os.homedir()`, gestion des séparateurs système POSIX/Windows, `AUTH_FILE_PATH` exporté cohérent).
+  - `npx jest src/tests/unit/providers/codexPath.test.ts` : 12/12 tests passés (résolution dynamique basée sur `os.homedir()`, gestion des séparateurs système POSIX/Windows, `AUTH_FILE_PATH` résolu, `loadCredentials` et `persistTokens` testés exhaustivement, fixtures isolées dans `safeMkdtempSync(path.join(os.tmpdir(), 'hive-mind-codex-test-'))` et nettoyées en `afterAll`).
   - `grep -rn '/home/omni' src/` : 0 occurrence résiduelle dans le code de production ou les scripts ; seules les fixtures de test intentionnelles (`bashTool.test.ts`, `helpers.test.ts`) et l'assertion anti-omni dans `codexPath.test.ts` subsistent.
-  - `npm run test:unit` : 104 suites passées, 1057 tests passés, 0 échec.
-  - `coderabbit review --uncommitted --include-untracked` : 0 finding sur le code source (`codex.ts`, `test_codex_connection.ts`, `codexPath.test.ts`).
+  - `npm run test:unit` : 104 suites passées, 1066 tests passés, 0 échec.
+  - `PR #136` : checks CI validés (Codecov 100% patch coverage, SonarCloud Passed, CodeQL Passed, Greptile 5/5).
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/providers/adapters/codex.ts`
@@ -18,7 +18,7 @@
   - **Exact Technical Change**: Import de `node:os` et `node:path` et résolution de `AUTH_FILE_PATH` via `path.join(os.homedir(), '.codex', 'auth.json')`.
 - **File**: `src/tests/unit/providers/codexPath.test.ts`
   - **Scope**: Suite de tests unitaires pour la portabilité de la résolution auth.json
-  - **Exact Technical Change**: Nouveaux tests validant la résolution dynamique sans mention de `/home/omni`, le comportement sur différents répertoires personnels et la cohérence de l'export `AUTH_FILE_PATH`.
+  - **Exact Technical Change**: 12 tests validant la résolution dynamique sans mention de `/home/omni`, le comportement sur différents répertoires personnels, la cohérence de l'export `AUTH_FILE_PATH`, la couverture 100% de `loadCredentials` et `persistTokens`, et isolation totale des fixtures via dossier temporaire dédié (`safeMkdtempSync`).
 - **File**: `src/tests/unit/core/BotCoreMedia.test.ts`
   - **Scope**: Isolation des tests unitaires de flux média
   - **Exact Technical Change**: Suppression explicite de `GEMINI_API_KEY` et `GOOGLE_API_KEY` de l'environnement de test pour éviter tout appel réseau externe ou initialisation intempestive de MediaDB/HNSW sous faux minuteurs Jest.

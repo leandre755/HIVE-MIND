@@ -2,7 +2,16 @@
 // Vérifie que l'adaptateur Codex résout le chemin auth.json de manière dynamique
 // et portable via os.homedir() sans aucun chemin utilisateur en dur (#131, parent #96),
 // et garantit une couverture complète de la résolution de credentials et de la persistance.
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  jest,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from '@jest/globals';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -19,6 +28,8 @@ import {
   safeUnlinkSync,
   safeReadFileSync,
   safeMkdirSync,
+  safeMkdtempSync,
+  safeRemoveDirectorySync,
 } from '../../../utils/safeFs.js';
 
 describe('Codex Auth File Path Resolution & Credentials (#131)', () => {
@@ -27,8 +38,23 @@ describe('Codex Auth File Path Resolution & Credentials (#131)', () => {
   const originalAccessToken = process.env.CODEX_ACCESS_TOKEN;
   const originalAccountId = process.env.CODEX_ACCOUNT_ID;
 
-  const testDir = path.join(process.cwd(), 'hm_storage', 'tmp_test_codex');
-  const testAuthFile = path.join(testDir, 'test_auth.json');
+  let testDir: string;
+  let testAuthFile: string;
+
+  beforeAll(() => {
+    testDir = safeMkdtempSync(path.join(os.tmpdir(), 'hive-mind-codex-test-'));
+    testAuthFile = path.join(testDir, 'test_auth.json');
+  });
+
+  afterAll(() => {
+    if (testDir && safeExistsSync(testDir)) {
+      try {
+        safeRemoveDirectorySync(testDir);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
+  });
 
   beforeEach(() => {
     delete process.env.CODEX_AUTH_PATH;
