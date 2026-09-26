@@ -16,7 +16,7 @@
 
 ### Step 1: #131 — Chemins utilisateur en dur → `os.homedir()` (critère 2)
 
-- [x] **Action**: `src/providers/adapters/codex.ts:30` et `src/scripts/test_codex_connection.ts:4` : `'/home/omni/.codex/auth.json'` → `path.join(os.homedir(), '.codex', 'auth.json')`. Audit global `grep -rn '/home/omni' --exclude-dir={node_modules,.git}` (fixtures de tests `helpers.test.ts`, `bashTool.test.ts` intentionnelles, à exclure). Ajouter un test de résolution avec `os.homedir()` mocké (`src/tests/unit/providers/codexPath.test.ts`). Branche : `fix/distribution-hardcoded-paths`.
+- [x] **Action**: `src/providers/adapters/codex.ts:30` et `src/scripts/test_codex_connection.ts:4` : `'/home/omni/.codex/auth.json'` → `path.join(os.homedir(), '.codex', 'auth.json')`. Audit global `grep -rn '/home/omni' --exclude-dir={node_modules,.git}` (fixtures de tests `helpers.test.ts`, `bashTool.test.ts` intentionnelles, à exclure). Ajouter un test de résolution avec `os.homedir()` mocké (`src/tests/unit/providers/codexPath.test.ts`). Branche : `fix/distribution-hardcoded-paths`. PR : [#136](https://github.com/leandre755/HIVE-MIND/pull/136).
 - [x] **Verify**: `npm run build && npm run lint:fast && npm run test:unit`
 - **Verification Proof**:
 ```text

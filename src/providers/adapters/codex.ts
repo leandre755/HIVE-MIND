@@ -57,7 +57,7 @@ interface CodexJwtPayload {
 }
 
 /** Bloc `tokens` du fichier `auth.json` écrit par la CLI Codex. */
-interface CodexAuthTokens {
+export interface CodexAuthTokens {
   access_token?: string;
   refresh_token?: string;
   account_id?: string;
@@ -68,7 +68,7 @@ interface CodexAuthTokens {
  * préservées à la réécriture via la signature d'index : les écraser ferait
  * perdre l'état de la CLI officielle qui partage ce fichier.
  */
-interface CodexAuthFile {
+export interface CodexAuthFile {
   tokens?: CodexAuthTokens;
   [key: string]: unknown;
 }
@@ -80,7 +80,7 @@ interface OAuthTokenResponse {
 }
 
 /** Jeu d'identifiants résolu, avant toute décision de rafraîchissement. */
-interface CodexCredentials {
+export interface CodexCredentials {
   accessToken?: string;
   refreshToken?: string;
   accountId?: string;
@@ -109,7 +109,7 @@ function decodeJwt(token: string): CodexJwtPayload | null {
  * Résout les identifiants depuis l'environnement (production Railway) puis,
  * à défaut de jeton de rafraîchissement, depuis `auth.json` (développement).
  */
-function loadCredentials(): CodexCredentials {
+export function loadCredentials(): CodexCredentials {
   const fromEnv: CodexCredentials = {
     accessToken: process.env.CODEX_ACCESS_TOKEN,
     refreshToken: process.env.CODEX_REFRESH_TOKEN,
@@ -162,7 +162,7 @@ function needsRefresh(accessToken: string | undefined): boolean {
  * fichiers en lecture seule (conteneur), les jetons restent valides en mémoire
  * pour la durée du processus. L'échec est signalé, jamais avalé.
  */
-function persistTokens(authData: CodexAuthFile | null, tokens: CodexAuthTokens): void {
+export function persistTokens(authData: CodexAuthFile | null, tokens: CodexAuthTokens): void {
   const authFilePath = getCodexAuthFilePath();
   if (!existsSync(authFilePath) && !authData) return;
 
