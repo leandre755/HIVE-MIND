@@ -64,6 +64,10 @@ describe('Provider Router Adapter Loading (#132)', () => {
     }
   });
 
+  it('enregistre les familles configurées sans adaptateur natif via GenericProviderAdapter', () => {
+    expect(providerRouter.adapters.has('mistral')).toBe(true);
+  });
+
   it('est idempotent lors d appels répétés à loadAdapters()', async () => {
     const firstCall = loadAdapters();
     const secondCall = loadAdapters();
@@ -80,6 +84,7 @@ describe('Provider Router Adapter Loading (#132)', () => {
     // Vérifie qu'aucun pathToFileURL ni import calculé sur adapters n'existe
     expect(content).not.toContain('pathToFileURL');
     expect(content).not.toMatch(/join\(__dirname,\s*['"]adapters['"]/);
-    expect(content).not.toMatch(/import\(\s*adapterUrl\s*\)/);
+    // Rejette tout import() dynamique dont l'argument n'est pas une chaîne littérale statique
+    expect(content).not.toMatch(/import\(\s*(?!['"][^'"]+['"]\s*\))/);
   });
 });
