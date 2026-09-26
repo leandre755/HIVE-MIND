@@ -61,44 +61,45 @@ Tests:       1066 passed, 1066 total
 - [x] **Verify**: `npm run build && npm run lint:fast && npm test -- src/tests/unit/providers && npm run test:unit`
 - **Verification Proof**:
 ```text
-npm run build
 > hive-mind@1.0.0 build
 > tsc --noEmit
-(0 erreur)
 
-npm run lint:fast
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
+
 Found 0 warnings and 0 errors.
+Finished in 100ms on 368 files with 96 rules using 4 threads.
 
 npm test -- src/tests/unit/providers/adapterRegistry.test.ts
 PASS src/tests/unit/providers/adapterRegistry.test.ts
   Adapter Static Registry (#132)
-    ✓ expose exactement les 8 adaptateurs natifs attendus
-    ✓ est immuable via Object.freeze
-    ✓ fournit un adaptateur conforme pour la famille openai
-    ✓ fournit un adaptateur conforme pour la famille gemini
-    ✓ fournit un adaptateur conforme pour la famille anthropic
-    ✓ fournit un adaptateur conforme pour la famille groq
-    ✓ fournit un adaptateur conforme pour la famille huggingface
-    ✓ fournit un adaptateur conforme pour la famille cohere
-    ✓ fournit un adaptateur conforme pour la famille cloudflare
-    ✓ fournit un adaptateur conforme pour la famille modal
-    ✓ inclut la méthode embed pour les adaptateurs compatibles
+    ✓ expose exactement les 8 adaptateurs natifs attendus (7 ms)
+    ✓ est immuable via Object.freeze (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille openai (2 ms)
+    ✓ fournit un adaptateur conforme pour la famille gemini (2 ms)
+    ✓ fournit un adaptateur conforme pour la famille anthropic (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille groq (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille huggingface (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille cohere (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille cloudflare (1 ms)
+    ✓ fournit un adaptateur conforme pour la famille modal (2 ms)
+    ✓ inclut la méthode embed pour les adaptateurs compatibles (1 ms)
   Provider Router Adapter Loading (#132)
-    ✓ enregistre tous les adaptateurs du registre statique dans providerRouter.adapters
-    ✓ est idempotent lors d appels répétés à loadAdapters()
-    ✓ garantit l absence d import dynamique calculé sur adapters/ dans src/providers/index.ts
+    ✓ enregistre tous les adaptateurs du registre statique dans providerRouter.adapters (2 ms)
+    ✓ enregistre les familles configurées sans adaptateur natif via GenericProviderAdapter (1 ms)
+    ✓ est idempotent lors d appels répétés à loadAdapters() (1 ms)
+    ✓ garantit l absence d import dynamique calculé sur adapters/ dans src/providers/index.ts (2 ms)
+
 Test Suites: 1 passed, 1 total
-Tests:       14 passed, 14 total
+Tests:       15 passed, 15 total
+Snapshots:   0 total
+Time:        2.118 s
+Ran all test suites matching src/tests/unit/providers/adapterRegistry.test.ts.
 
-npm test -- src/tests/unit/providers
-Test Suites: 12 passed, 12 total
-Tests:       200 passed, 200 total
-
-npm run test:unit
 Test Suites: 105 passed, 105 total
-Tests:       1080 passed, 1080 total
+Tests:       1081 passed, 1081 total
+Snapshots:   0 total
+Time:        73.239 s
 ```
 
 ### Step 3: #133 — ConfigPathResolver + defaults embarqués (critères 3-4, fondation)

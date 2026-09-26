@@ -52,9 +52,9 @@ Time:        73.239 s
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #132. Code audité et tests au vert. Reste à créer le commit, pousser la branche sous surveillance, ouvrir la PR pour l'issue #132 et s'assurer des 14/14 checks CI et reviews bots.
+- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #132. Code implémenté, validé, PR #137 ouverte sur GitHub (13/14 checks passés, 15/15 tests unitaires du registre). CodeRabbit et Greptile ont fourni des retours d'amélioration documentaire et de tests pris en compte. Attente de la validation finale des revues sur la PR #137 avant passage à l'étape 3 (#133).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (puis sous-issue #133).
-2. **Immediate Action**: Commiter les modifications sous `refactor(distribution): introduce static provider adapter registry (#132)`, pousser la branche `refactor/providers-static-registry` avec `schedule`, ouvrir la PR et vérifier 14/14 checks CI.
+1. **Target PR / File**: PR #137 (https://github.com/leandre755/HIVE-MIND/pull/137) et `.GCC/branches/plan_issue_96_distribution.md`.
+2. **Immediate Action**: Vérifier le passage à SUCCESS de CodeRabbit et Greptile sur la PR #137 suite aux commits `651163e` et aux ajustements documentaires. Une fois la PR #137 fusionnée par le mainteneur, démarrer l'Étape 3 (#133 — `ConfigPathResolver`).
 3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
