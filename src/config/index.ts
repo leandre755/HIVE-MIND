@@ -11,6 +11,7 @@ import {
   resolveConfigPath,
   resolveUserConfigDir,
   resolveProjectConfigDir,
+  sanitizeFilename,
 } from './ConfigPathResolver.js';
 import {
   AppConfigSchema,
@@ -78,7 +79,7 @@ function parseJsonSafe(filePath: string): Record<string, unknown> {
 export function loadJsonConfig(filename: string): Record<string, unknown> {
   const filePath = resolveConfigPath(filename);
   const mainConfig = parseJsonSafe(filePath);
-  if (filename !== 'credentials.json') return mainConfig;
+  if (sanitizeFilename(filename).toLowerCase() !== 'credentials.json') return mainConfig;
 
   const projectPath = resolve(join(resolveProjectConfigDir(), 'credentials.json'));
   if (filePath !== projectPath) return mainConfig;

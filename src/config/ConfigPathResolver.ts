@@ -16,9 +16,7 @@ export const DEFAULTS_CONFIG_DIR = resolveWithinRoot(__dirname, 'defaults');
 
 const warnedLegacyPaths = new Set<string>();
 
-export function clearLegacyWarningsCache(): void {
-  warnedLegacyPaths.clear();
-}
+export const clearLegacyWarningsCache = (): void => warnedLegacyPaths.clear();
 
 function warnLegacyLocation(path: string): void {
   if (!warnedLegacyPaths.has(path)) {
@@ -52,7 +50,8 @@ function getFileSpecificEnvPath(cleanName: string): string | undefined {
 }
 
 function isProjectConfigAllowed(cleanName: string): boolean {
-  if (cleanName.toLowerCase() !== 'models_config.json') return true;
+  const name = cleanName.toLowerCase();
+  if (name !== 'models_config.json' && name !== 'scheduler.json') return true;
   return ['true', '1'].includes(process.env.HIVE_TRUST_PROJECT_CONFIG?.trim().toLowerCase() ?? '');
 }
 

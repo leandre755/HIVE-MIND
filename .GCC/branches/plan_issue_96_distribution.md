@@ -135,8 +135,8 @@ Tests:       25 passed, 25 total
 Snapshots:   0 total
 Time:        4.848 s
 
-PR #138 : Commits f2bec36, aa32eb0, b7d873a, 92743a6, 9012ba6, e8af1e1, ef1dee9, 9c57ffa, c1707fa, 10952a3, diff stabilisé à 2494 lignes (< 2500 max).
-Résolution intégrale de toutes les discussions Greptile : P1 ID 4112939992 (isolation stricte des surcharges explicites de credentials, fusion réservée au projet local ./config/credentials.json sur user config), P1 ID 4112939996 (résilience parseJsonSafe contre JSON null/primitives), P1 ID 4111598716 (migration effective de ModelRegistry.defaultModelsConfigPath, defaultServicesConfigPath, src/providers/index.ts et src/scheduler/index.ts vers resolveConfigPath), P2 ID 4112939999 (guide distribution actualisé vers ~/.hivemind/config/), P2 ID 4111598723 (clarification des artefacts defaults). Couverture Codecov 100% sur ConfigPathResolver.ts (100% Stmts/Branch/Funcs/Lines) et index.ts (100% Funcs/Lines). 108/108 suites de tests unitaires passées.
+PR #138 : Commits f2bec36, aa32eb0, b7d873a, 92743a6, 9012ba6, e8af1e1, ef1dee9, 9c57ffa, c1707fa, 10952a3, 7803852, 271a2b9, 523e5d0, diff stabilisé à 2488 lignes (< 2500 max).
+Résolution intégrale de toutes les discussions Greptile : P1 ID 4112939992 (isolation explicite credentials), P1 ID 4112939996 (résilience JSON nul), P1 ID 4111598716 (migration consommateurs config), P2 ID 4112939999 (guide distribution actualisé), P2 ID 4111598723 (clarification des artefacts defaults), P1 ID 4113327061 (protection de ./config/scheduler.json via HIVE_TRUST_PROJECT_CONFIG pour empêcher les tâches non approuvées), P1 ID 4113327068 (routage unifié de defaultServicesConfigPath dans ServiceRegistry via resolveConfigPath('services_config.json')), P2 ID 4113327074 (documentation de l'opt-in dans le guide de distribution). Couverture 100% sur ConfigPathResolver.ts et index.ts. 108/108 suites de tests unitaires passées (1095 tests).
 Homologué APPROVE 100% Production-Grade par Fix-Verifier.
 ```
 

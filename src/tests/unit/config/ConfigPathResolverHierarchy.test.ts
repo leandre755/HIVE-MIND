@@ -48,9 +48,9 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
   }
 
   it('Priority 1: should prioritize env vars (file-specific over HIVE_CONFIG_DIR)', () => {
-    const e = createEnv();
-    const spec = join(e.envDir, 'custom_models.json');
-    const cfg = join(e.envDir, 'config.json');
+    const e = createEnv(),
+      spec = join(e.envDir, 'custom_models.json'),
+      cfg = join(e.envDir, 'config.json');
     safeFs.safeWriteFileSync(spec, '{"s":1}');
     safeFs.safeWriteFileSync(cfg, '{"s":1}');
     process.env.HIVE_CONFIG_MODELS_CONFIG_JSON = spec;
@@ -59,22 +59,21 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     expect(resolveConfigPath('config.json')).toBe(resolve(cfg));
   });
 
-  it('Priority 2: should prioritize project ./config/ and enforce trust opt-in', () => {
-    const e = createEnv();
-    const prjSched = join(e.prjCfg, 'scheduler.json');
-    const prjCred = join(e.prjCfg, 'credentials.json');
-    const prjMod = join(e.prjCfg, 'models_config.json');
-    safeFs.safeWriteFileSync(prjSched, '{"s":1}');
-    safeFs.safeWriteFileSync(prjCred, '{"k":1}');
-    safeFs.safeWriteFileSync(prjMod, '{"m":1}');
-    expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjSched));
+  it('Priority 2: should prioritize project ./config/ and enforce trust opt-in for models and scheduler', () => {
+    const e = createEnv(),
+      prjSched = join(e.prjCfg, 'scheduler.json'),
+      prjCred = join(e.prjCfg, 'credentials.json'),
+      prjMod = join(e.prjCfg, 'models_config.json');
+    [prjSched, prjCred, prjMod].forEach((f) => safeFs.safeWriteFileSync(f, '{"s":1}'));
     expect(resolveConfigPath('credentials.json')).toBe(resolve(prjCred));
 
     process.env.HIVE_LEGACY_CONFIG_DIR = e.envDir;
     process.env.HIVE_DEFAULTS_CONFIG_DIR = e.defDir;
     expect(resolveConfigPath('models_config.json')).not.toBe(resolve(prjMod));
+    expect(resolveConfigPath('scheduler.json')).not.toBe(resolve(prjSched));
     process.env.HIVE_TRUST_PROJECT_CONFIG = 'true';
     expect(resolveConfigPath('models_config.json')).toBe(resolve(prjMod));
+    expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjSched));
   });
 
   it('Priority 3 & 4: should prioritize user config then fallback to legacy with warning', () => {
@@ -97,11 +96,11 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
   });
 
   it('Priority 5: should handle defaults overrides and reject credentials in defaults', () => {
-    const e = createEnv();
-    const custDef = join(e.defDir, 'config.json');
+    const e = createEnv(),
+      custDef = join(e.defDir, 'config.json'),
+      probe = join(e.defDir, `prb_${randomUUID()}.json`);
     safeFs.safeWriteFileSync(custDef, '{"def":1}');
     safeFs.safeWriteFileSync(join(e.envDir, 'config.json'), '{"leg":1}');
-    const probe = join(e.defDir, `prb_${randomUUID()}.json`);
     safeFs.safeWriteFileSync(probe, '{"prb":1}');
     process.env.HIVE_DEFAULTS_CONFIG_DIR = e.defDir;
     process.env.HIVE_LEGACY_CONFIG_DIR = e.envDir;

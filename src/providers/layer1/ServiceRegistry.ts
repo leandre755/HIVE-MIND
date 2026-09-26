@@ -5,9 +5,8 @@
  * services_config.json and models_config.json. Resolves model fallback chains.
  */
 
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { safeExistsSync, safeReadFileSync } from '../../utils/safeFs.js';
+import { safeReadFileSync } from '../../utils/safeFs.js';
+import { resolveConfigPath } from '../../config/index.js';
 import { ModelRegistry } from '../layer0/ModelRegistry.js';
 
 export interface ReliabilityDefaults {
@@ -37,14 +36,8 @@ const DEFAULT_RELIABILITY: ReliabilityDefaults = {
   failure_ratio_threshold: 0.5,
 };
 
-const moduleDirname = dirname(fileURLToPath(import.meta.url));
-
 export function defaultServicesConfigPath(): string {
-  const relPath = join(moduleDirname, '../../config/services_config.json');
-  if (safeExistsSync(relPath)) return relPath;
-  const rootPath = join(process.cwd(), 'src/config/services_config.json');
-  if (safeExistsSync(rootPath)) return rootPath;
-  return relPath;
+  return resolveConfigPath('services_config.json');
 }
 
 export class ServiceRegistry {

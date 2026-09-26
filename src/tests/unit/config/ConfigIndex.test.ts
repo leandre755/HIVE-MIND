@@ -35,17 +35,9 @@ describe('src/config/index.ts Integration', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const tempDir = safeMkdtempSync(join(tmpdir(), `hive-cfg-all-${randomUUID()}-`));
-    const appCfg = {
-      name: 'test-custom-app',
-      backlog_protection: {
-        enabled: true,
-        message_stale_threshold_seconds: 42,
-        cooldown_between_responses_ms: 1000,
-        max_messages_on_startup: 5,
-      },
-      voice_transcription: { mode: 'restricted' as const },
-    };
-    safeWriteFileSync(join(tempDir, 'config.json'), JSON.stringify(appCfg));
+    const validCfg =
+      '{"name":"test-custom-app","backlog_protection":{"enabled":true,"message_stale_threshold_seconds":42,"cooldown_between_responses_ms":1000,"max_messages_on_startup":5},"voice_transcription":{"mode":"restricted"}}';
+    safeWriteFileSync(join(tempDir, 'config.json'), validCfg);
     safeWriteFileSync(join(tempDir, 'custom.json'), JSON.stringify({ customKey: 'customVal' }));
     safeWriteFileSync(join(tempDir, 'corrupted.json'), '{ invalid: json');
     safeWriteFileSync(join(tempDir, 'invalid_schema.json'), '{"name": 123}');
@@ -88,29 +80,19 @@ describe('src/config/index.ts Integration', () => {
     process.env.HIVE_HOME_DIR = join(tempBase, 'user', '.hivemind');
     process.chdir(join(tempBase, 'project'));
     try {
-      expect(loadJsonConfig('credentials.json')).toMatchObject({
-        default_provider: 'gemini',
-        project_id: 'p1',
-        familles_ia: { gemini: 'u-gemini', openai: 'p-openai' },
-      });
+      const chk = (c: object) => expect(loadJsonConfig('credentials.json')).toMatchObject(c);
+      const fam1 = { gemini: 'u-gemini', openai: 'p-openai' };
+      chk({ default_provider: 'gemini', project_id: 'p1', familles_ia: fam1 });
       safeWriteFileSync(join(prjCfgDir, 'credentials.json'), '{ corrupted');
-      expect(loadJsonConfig('credentials.json')).toMatchObject({
-        default_provider: 'gemini',
-        familles_ia: userCreds.familles_ia,
-      });
+      chk({ default_provider: 'gemini', familles_ia: userCreds.familles_ia });
       safeWriteFileSync(join(userCfgDir, 'credentials.json'), 'null');
       safeWriteFileSync(join(prjCfgDir, 'credentials.json'), JSON.stringify(prjCreds));
-      expect(loadJsonConfig('credentials.json')).toMatchObject({
-        project_id: 'p1',
-        familles_ia: prjCreds.familles_ia,
-      });
-      const isoPath = join(tempBase, 'isolated.json');
-      safeWriteFileSync(isoPath, JSON.stringify({ isolated: true, familles_ia: { c: '1' } }));
+      chk({ project_id: 'p1', familles_ia: prjCreds.familles_ia });
+      const isoPath = join(tempBase, 'isolated.json'),
+        isoFam = { c: '1' };
+      safeWriteFileSync(isoPath, JSON.stringify({ isolated: true, familles_ia: isoFam }));
       process.env.HIVE_CONFIG_CREDENTIALS_JSON = isoPath;
-      expect(loadJsonConfig('credentials.json')).toEqual({
-        isolated: true,
-        familles_ia: { c: '1' },
-      });
+      expect(loadJsonConfig('credentials.json')).toEqual({ isolated: true, familles_ia: isoFam });
       Reflect.deleteProperty(process.env, 'HIVE_CONFIG_CREDENTIALS_JSON');
     } finally {
       process.chdir(originalCwd);
