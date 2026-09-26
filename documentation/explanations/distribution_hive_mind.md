@@ -36,12 +36,12 @@ hive-mind tui
 - Compiler le TypeScript vers `dist/`.
 - Pointer `bin.hive-mind` vers un fichier JavaScript exécutable dans `dist/`, pas vers `src/bin/hive-mind.ts`.
 - Inclure les fichiers de configuration par défaut dans le paquet.
-- Ajouter une commande `init` qui copie les configs utilisateur dans un dossier local, par exemple `~/.config/hive-mind/`.
+- Ajouter une commande `init` qui copie les configs utilisateur dans le dossier global unifié `~/.hivemind/config/`.
 - Charger les configs depuis l'ordre suivant :
-  1. variables d'environnement explicites ;
-  2. dossier projet courant ;
-  3. `~/.config/hive-mind/` ;
-  4. defaults embarqués en lecture seule.
+  1. variables d'environnement explicites (`HIVE_CONFIG_<FILE>`, `HIVE_CONFIG_DIR`) ;
+  2. dossier projet courant (`./config/`) ;
+  3. `~/.hivemind/config/` (configuration utilisateur globale) ;
+  4. defaults embarqués en lecture seule (`src/config/defaults/`).
 
 ### Modifications code nécessaires
 
@@ -189,9 +189,9 @@ Actuellement, `src/config/models_config.json` est lu directement depuis le code 
 
 - `src/config/ConfigPathResolver.ts`
 - `src/config/defaults/`
-- `~/.config/hive-mind/config.json`
-- `~/.config/hive-mind/models_config.json`
-- `~/.config/hive-mind/credentials.json`
+- `~/.hivemind/config/config.json`
+- `~/.hivemind/config/models_config.json`
+- `~/.hivemind/config/credentials.json`
 
 ### 2. Supprimer les chemins absolus utilisateur
 
