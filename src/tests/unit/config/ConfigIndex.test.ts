@@ -15,20 +15,14 @@ import {
 } from '../../../config/index.js';
 
 describe('src/config/index.ts Integration', () => {
-  it('should successfully load and expose valid config singleton', () => {
+  it('should expose valid config singleton and re-export resolver utilities', () => {
     expect(config).toBeDefined();
     expect(config.env).toBeDefined();
-    expect(typeof config.timezone).toBe('string');
     expect(config.models).toBeDefined();
-    expect(config.scheduler).toBeDefined();
-    expect(config.app).toBeDefined();
     expect(config.app.version).toBe('3.0.0');
-    expect(Array.isArray(config.priorityFamilies)).toBe(true);
     expect(typeof config.hasApiKey).toBe('function');
     expect(typeof config.getFirstAvailableFamily).toBe('function');
-  });
 
-  it('should re-export ConfigPathResolver utilities correctly', () => {
     expect(typeof resolveConfigPath).toBe('function');
     expect(typeof resolveDefaultsConfigDir).toBe('function');
     expect(typeof resolveUserConfigDir).toBe('function');

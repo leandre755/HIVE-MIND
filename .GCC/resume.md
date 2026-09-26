@@ -4,7 +4,7 @@
 - **Requested Task**: Exécuter la sous-issue #133 (étape 3/5 du plan de distribution #96) : Implémenter le résolveur de configuration `ConfigPathResolver.ts`, créer le répertoire des templates embarqués `src/config/defaults/` (strictement sans `credentials.json`), adapter `src/config/index.ts` pour router les chargements de configuration via le resolver, et fournir une couverture de tests unitaires exhaustive (priorité niveau par niveau, intégrité des defaults, isolation des répertoires).
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `npm test -- src/tests/unit/config` : 5 suites passées, 22 tests passés avec 100% de succès.
+  - `npm test -- src/tests/unit/config` : 5 suites passées, 16 tests passés avec 100% de succès.
   - `npm run test:unit` : 107 suites passées, 1084 tests passés, 0 régression globale.
   - Vérification formelle d'invariant : `credentials.json` est strictement absent de `src/config/defaults/`.
   - Double homologation indépendante obtenue : verdicts **APPROVE (100% Production-Grade / Impressed)** délivrés par `Fix-Verifier` et `Global System Critic`.

@@ -86,15 +86,15 @@ npm run format:check
 All matched files use Prettier code style!
 
 NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit/config
-PASS src/tests/unit/config/ConfigIndex.test.ts
-PASS src/tests/unit/config/ConfigPathResolver.test.ts
-PASS src/tests/unit/config/keyResolver.test.ts
 PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
+PASS src/tests/unit/config/ConfigIndex.test.ts
+PASS src/tests/unit/config/keyResolver.test.ts
+PASS src/tests/unit/config/ConfigPathResolver.test.ts
 PASS src/tests/unit/config/models_config_policy.test.ts
 Test Suites: 5 passed, 5 total
-Tests:       22 passed, 22 total
+Tests:       16 passed, 16 total
 Snapshots:   0 total
-Time:        2.101 s
+Time:        1.279 s
 
 npm run test:unit
 Test Suites: 107 passed, 107 total

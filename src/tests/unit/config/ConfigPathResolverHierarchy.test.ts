@@ -87,10 +87,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     if (!tempBaseDir) {
       tempBaseDir = safeMkdtempSync(join(tmpdir(), 'hive-mind-cfg-hierarchy-'));
     }
-    const runId = randomUUID();
-    const runDir = join(tempBaseDir, runId);
-    safeMkdirSync(runDir, { recursive: true });
-
+    const runDir = join(tempBaseDir, randomUUID());
     const envDir = join(runDir, 'env-config');
     const projectDir = join(runDir, 'project');
     const userHome = join(runDir, 'user-home');
@@ -104,129 +101,100 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     return { baseDir: runDir, envDir, projectDir, userHome, xdgConfigHome };
   }
 
+  function seedFiles(env: TempFixtureEnv, fn: string) {
+    const fileSpec = join(env.envDir, `custom_${fn}`);
+    const envPath = join(env.envDir, fn);
+    const prjPath = join(env.projectDir, 'config', fn);
+    const usrPath = join(env.userHome, '.hivemind', 'config', fn);
+    const xdgPath = join(env.xdgConfigHome, 'hive-mind', fn);
+
+    safeWriteFileSync(fileSpec, '{"source":"file_specific"}');
+    safeWriteFileSync(envPath, '{"source":"env"}');
+    safeWriteFileSync(prjPath, '{"source":"project"}');
+    safeWriteFileSync(usrPath, '{"source":"user"}');
+    safeWriteFileSync(xdgPath, '{"source":"xdg"}');
+
+    return { fileSpec, envPath, prjPath, usrPath, xdgPath };
+  }
+
+  function applyEnv(env: TempFixtureEnv) {
+    process.env.HIVE_HOME_DIR = join(env.userHome, '.hivemind');
+    process.env.XDG_CONFIG_HOME = env.xdgConfigHome;
+    process.chdir(env.projectDir);
+  }
+
   it('Priority 1.a: should prioritize file-specific environment variable over all others', () => {
-    const { envDir, projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'models_config.json';
-    const fileSpecificPath = join(envDir, 'custom_models.json');
+    const env = createTempEnvironment();
+    const { fileSpec } = seedFiles(env, 'models_config.json');
+    process.env.HIVE_CONFIG_MODELS_CONFIG_JSON = fileSpec;
+    process.env.HIVE_CONFIG_DIR = env.envDir;
+    applyEnv(env);
 
-    safeWriteFileSync(fileSpecificPath, '{"source": "file_specific_env"}');
-    safeWriteFileSync(join(envDir, filename), '{"source": "env_dir"}');
-    safeWriteFileSync(join(projectDir, 'config', filename), '{"source": "project"}');
-    safeWriteFileSync(join(userHome, '.hivemind', 'config', filename), '{"source": "user"}');
-    safeWriteFileSync(join(xdgConfigHome, 'hive-mind', filename), '{"source": "xdg"}');
-
-    process.env.HIVE_CONFIG_MODELS_CONFIG_JSON = fileSpecificPath;
-    process.env.HIVE_CONFIG_DIR = envDir;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
-
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(fileSpecificPath));
+    expect(resolveConfigPath('models_config.json')).toBe(resolve(fileSpec));
   });
 
   it('Priority 1.b: should prioritize HIVE_CONFIG_DIR when file-specific env is absent', () => {
-    const { envDir, projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'config.json';
-    const envDirPath = join(envDir, filename);
-
-    safeWriteFileSync(envDirPath, '{"source": "env_dir"}');
-    safeWriteFileSync(join(projectDir, 'config', filename), '{"source": "project"}');
-    safeWriteFileSync(join(userHome, '.hivemind', 'config', filename), '{"source": "user"}');
-    safeWriteFileSync(join(xdgConfigHome, 'hive-mind', filename), '{"source": "xdg"}');
-
+    const env = createTempEnvironment();
+    const { envPath } = seedFiles(env, 'config.json');
     delete process.env.HIVE_CONFIG_CONFIG_JSON;
-    process.env.HIVE_CONFIG_DIR = envDir;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    process.env.HIVE_CONFIG_DIR = env.envDir;
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(envDirPath));
+    expect(resolveConfigPath('config.json')).toBe(resolve(envPath));
   });
 
   it('Priority 2: should prioritize project ./config/ when environment variables are unset', () => {
-    const { projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'scheduler.json';
-    const projectPath = join(projectDir, 'config', filename);
-
-    safeWriteFileSync(projectPath, '{"source": "project"}');
-    safeWriteFileSync(join(userHome, '.hivemind', 'config', filename), '{"source": "user"}');
-    safeWriteFileSync(join(xdgConfigHome, 'hive-mind', filename), '{"source": "xdg"}');
-
+    const env = createTempEnvironment();
+    const { prjPath } = seedFiles(env, 'scheduler.json');
     delete process.env.HIVE_CONFIG_DIR;
     delete process.env.HIVE_CONFIG_SCHEDULER_JSON;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(projectPath));
+    expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjPath));
   });
 
   it('Priority 3: should prioritize user unified ~/.hivemind/config/ when project config is absent', () => {
-    const { projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'pricing.json';
-    const userPath = join(userHome, '.hivemind', 'config', filename);
-
-    safeWriteFileSync(userPath, '{"source": "user"}');
-    safeWriteFileSync(join(xdgConfigHome, 'hive-mind', filename), '{"source": "xdg"}');
-
+    const env = createTempEnvironment();
+    const usrPath = join(env.userHome, '.hivemind', 'config', 'pricing.json');
+    safeWriteFileSync(usrPath, '{"source":"user"}');
+    safeWriteFileSync(join(env.xdgConfigHome, 'hive-mind', 'pricing.json'), '{"source":"xdg"}');
     delete process.env.HIVE_CONFIG_DIR;
     delete process.env.HIVE_CONFIG_PRICING_JSON;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(userPath));
+    expect(resolveConfigPath('pricing.json')).toBe(resolve(usrPath));
   });
 
   it('Priority 4: should prioritize XDG fallback ~/.config/hive-mind/ when unified user config is absent', () => {
-    const { projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'services_config.json';
-    const xdgPath = join(xdgConfigHome, 'hive-mind', filename);
-
-    safeWriteFileSync(xdgPath, '{"source": "xdg"}');
-
+    const env = createTempEnvironment();
+    const xdgPath = join(env.xdgConfigHome, 'hive-mind', 'services_config.json');
+    safeWriteFileSync(xdgPath, '{"source":"xdg"}');
     delete process.env.HIVE_CONFIG_DIR;
     delete process.env.HIVE_CONFIG_SERVICES_CONFIG_JSON;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(xdgPath));
+    expect(resolveConfigPath('services_config.json')).toBe(resolve(xdgPath));
   });
 
   it('Priority 5: should fall back to embedded defaults when no user or project file exists', () => {
-    const { projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'config.json';
-
+    const env = createTempEnvironment();
     delete process.env.HIVE_CONFIG_DIR;
     delete process.env.HIVE_CONFIG_CONFIG_JSON;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    expect(resolved).toBe(resolve(join(DEFAULTS_CONFIG_DIR, filename)));
+    const resolved = resolveConfigPath('config.json');
+    expect(resolved).toBe(resolve(join(DEFAULTS_CONFIG_DIR, 'config.json')));
     expect(safeExistsSync(resolved)).toBe(true);
   });
 
   it('Fallback for un-defaulted files (like credentials.json) returns user config path', () => {
-    const { projectDir, userHome, xdgConfigHome } = createTempEnvironment();
-    const filename = 'credentials.json';
-
+    const env = createTempEnvironment();
     delete process.env.HIVE_CONFIG_DIR;
     delete process.env.HIVE_CONFIG_CREDENTIALS_JSON;
-    process.env.HIVE_HOME_DIR = join(userHome, '.hivemind');
-    process.env.XDG_CONFIG_HOME = xdgConfigHome;
-    process.chdir(projectDir);
+    applyEnv(env);
 
-    const resolved = resolveConfigPath(filename);
-    const expectedUserPath = resolve(join(userHome, '.hivemind', 'config', 'credentials.json'));
-    expect(resolved).toBe(expectedUserPath);
+    const resolved = resolveConfigPath('credentials.json');
+    expect(resolved).toBe(resolve(join(env.userHome, '.hivemind', 'config', 'credentials.json')));
     expect(safeExistsSync(resolved)).toBe(false);
   });
 });
