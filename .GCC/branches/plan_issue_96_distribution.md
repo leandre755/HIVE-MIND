@@ -99,16 +99,18 @@ All matched files use Prettier code style!
 
 npm test -- src/tests/unit/config
 PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
+PASS src/tests/unit/config/ConfigIndex.test.ts
 PASS src/tests/unit/config/ConfigPathResolver.test.ts
 PASS src/tests/unit/config/models_config_policy.test.ts
 PASS src/tests/unit/config/keyResolver.test.ts
-PASS src/tests/unit/config/ConfigIndex.test.ts
 Test Suites: 5 passed, 5 total
-Tests:       20 passed, 20 total
+Tests:       22 passed, 22 total
 Snapshots:   0 total
-Time:        4.303 s
+Time:        2.066 s
 
-PR #138 : Commit d8f46d2, 100% des checks CI au vert, finding Greptile P2 (ID 4111721851) résolu avec fixture isolée.
+PR #138 : Commit c9e71fc, diff 2484 lignes (< 2500 max).
+Résolution des retours Greptile P1 ID 4112258572 (refus absolu credentials dans defaults), P1 ID 4112258577 (repli templates embarqués si surcharge incomplète), et P2 ID 4112283118 (état exact des revues).
+Homologué APPROVE 100% Production-Grade par Fix-Verifier & Code Critic.
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)
