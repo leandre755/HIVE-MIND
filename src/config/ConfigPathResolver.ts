@@ -56,7 +56,7 @@ function getFileSpecificEnvPath(cleanName: string): string | undefined {
 }
 
 function isProjectConfigAllowed(cleanName: string): boolean {
-  if (!['credentials.json', 'models_config.json'].includes(cleanName.toLowerCase())) return true;
+  if (cleanName.toLowerCase() !== 'models_config.json') return true;
   return ['true', '1'].includes(process.env.HIVE_TRUST_PROJECT_CONFIG?.trim().toLowerCase() ?? '');
 }
 

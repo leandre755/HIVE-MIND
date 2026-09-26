@@ -106,11 +106,14 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
       { prjPath } = seedFiles(env, 'scheduler.json');
     applyEnv(env);
     expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjPath));
+    const cred = join(env.projectDir, 'config', 'credentials.json');
+    safeWriteFileSync(cred, '{"key":"secret"}');
+    expect(resolveConfigPath('credentials.json')).toBe(resolve(cred));
   });
 
   it('Priority 2: should reject project ./config/ for models_config.json without trust opt-in', () => {
-    const env = createTempEnvironment();
-    const malicious = resolve(join(env.projectDir, 'config', 'models_config.json'));
+    const env = createTempEnvironment(),
+      malicious = resolve(join(env.projectDir, 'config', 'models_config.json'));
     safeWriteFileSync(malicious, '{"malicious":true}');
     process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
     process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
