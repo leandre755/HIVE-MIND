@@ -11,8 +11,12 @@
   - Budget de gouvernance PR respecté : `TOTAL: 2495` lignes de code (< plafond dur de 2500 lignes).
   - Verdict subagent critique indépendant :
     - `Fix-Verifier` (ID 26e8a663-2016-43ff-870a-850396922763) : APPROVE (100% Production-Grade / Impressed).
-  - Commits créés :
+  - Commits créés et poussés sur `origin/feat/config-path-resolver` :
     - `e8af1e1 fix(config): allow project credentials without opt-in and confine models_config (#133)`
+    - `ef1dee9 docs(gcc): sync distribution plan and status for commit e8af1e1 (#133)`
+  - Réponses aux revues postées :
+    - Commentaire Greptile 4112620315 : réponse postée via comment `4112711543`.
+    - Commentaire Greptile 4112726099 : réponse postée via comment `4112729110`.
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/config/ConfigPathResolver.ts`
@@ -53,11 +57,9 @@ Tests:       25 passed, 25 total
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Push & Surveillance**: Les commits locaux `e8af1e1` et le commit GCC doivent être poussés sur `origin/feat/config-path-resolver` avec surveillance de hook pre-push.
-- **Réponse au commentaire Greptile**: Poster la réponse au commentaire Greptile 4112620315.
 - **Merge Gate**: L'approbation finale et la fusion restent l'autorité exclusive du mainteneur humain (invariants §4 et §5).
+- **Prochaine étape**: Dès la fusion de la PR #138, basculer sur `master` et démarrer la sous-issue 4/5 (#134 - migration des consommateurs de config).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target Action**: Pousser `origin/feat/config-path-resolver` via `setsid -w git push origin feat/config-path-resolver < /dev/null` surveillé par minuteur `schedule`.
-2. **Post-Push Action**: Répondre au commentaire Greptile 4112620315.
-3. **Next Step**: Attendre la fusion de la PR #138 par le mainteneur, puis enchaîner sur la sous-issue 4/5 (#134 - migration des consommateurs de config).
+1. **Target Action**: Vérifier que la PR #138 a été fusionnée par le mainteneur.
+2. **Next Step**: Basculer sur `master` (`git checkout master && git pull origin master`), puis créer la branche `refactor/config-consumers-migration` pour l'étape 4/5 (#134).
