@@ -36,24 +36,26 @@ export function sanitizeFilename(filename: string): string {
   return clean;
 }
 
-export const resolveHiveHome = (): string => {
-  const env = process.env.HIVE_HOME_DIR?.trim();
-  return env ? resolve(env) : join(homedir(), '.hivemind');
-};
+export const resolveHiveHome = (): string =>
+  process.env.HIVE_HOME_DIR?.trim()
+    ? resolve(process.env.HIVE_HOME_DIR.trim())
+    : join(homedir(), '.hivemind');
 export const resolveUserConfigDir = (): string => join(resolveHiveHome(), 'config');
-export const resolveXdgConfigDir = (): string => {
-  const env = process.env.XDG_CONFIG_HOME?.trim();
-  return env ? join(resolve(env), 'hive-mind') : join(homedir(), '.config', 'hive-mind');
-};
+export const resolveXdgConfigDir = (): string =>
+  process.env.XDG_CONFIG_HOME?.trim()
+    ? join(resolve(process.env.XDG_CONFIG_HOME.trim()), 'hive-mind')
+    : join(homedir(), '.config', 'hive-mind');
 export const resolveProjectConfigDir = (): string => join(process.cwd(), 'config');
-export const resolveDefaultsConfigDir = (): string => {
-  const env = process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim();
-  return env ? resolve(env) : DEFAULTS_CONFIG_DIR;
-};
+export const resolveDefaultsConfigDir = (): string =>
+  process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim()
+    ? resolve(process.env.HIVE_DEFAULTS_CONFIG_DIR.trim())
+    : DEFAULTS_CONFIG_DIR;
 
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
-  const normalized = cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-  const envVal = Reflect.get(process.env, `HIVE_CONFIG_${normalized}`);
+  const envVal = Reflect.get(
+    process.env,
+    `HIVE_CONFIG_${cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
+  );
   return typeof envVal === 'string' && envVal.trim().length > 0
     ? resolve(envVal.trim())
     : undefined;
@@ -64,9 +66,7 @@ export function resolveConfigPath(filename: string): string {
 
   // 1.a Variable d'environnement spécifique au fichier
   const fileSpecificPath = getFileSpecificEnvPath(cleanName);
-  if (fileSpecificPath && safeExistsSync(fileSpecificPath)) {
-    return fileSpecificPath;
-  }
+  if (fileSpecificPath && safeExistsSync(fileSpecificPath)) return fileSpecificPath;
 
   // 1.b Variable d'environnement HIVE_CONFIG_DIR
   const envConfigDir = process.env.HIVE_CONFIG_DIR?.trim();
@@ -88,7 +88,7 @@ export function resolveConfigPath(filename: string): string {
   if (safeExistsSync(xdgCandidate)) return xdgCandidate;
 
   // 4.b Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
-  const legacyDir = dirname(DEFAULTS_CONFIG_DIR);
+  const legacyDir = dirname(resolveDefaultsConfigDir());
   try {
     const legacyCandidate = resolveWithinRoot(legacyDir, cleanName);
     if (safeExistsSync(legacyCandidate)) {
@@ -99,9 +99,22 @@ export function resolveConfigPath(filename: string): string {
     // Si cleanName tente de sortir de legacyDir
   }
 
-  // 5. Defaults embarqués
-  const defaultsCandidate = resolveWithinRoot(resolveDefaultsConfigDir(), cleanName);
-  if (safeExistsSync(defaultsCandidate)) return defaultsCandidate;
+  // 5. Defaults embarqués (exclus strictement pour credentials.json)
+  if (cleanName.toLowerCase() !== 'credentials.json') {
+    const customDir = resolveDefaultsConfigDir();
+    const tryDir = (d: string) => {
+      try {
+        const c = resolveWithinRoot(d, cleanName);
+        return safeExistsSync(c) ? c : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const hit =
+      tryDir(customDir) ||
+      (customDir !== DEFAULTS_CONFIG_DIR ? tryDir(DEFAULTS_CONFIG_DIR) : undefined);
+    if (hit) return hit;
+  }
 
   // Repli final prévisible vers l'espace utilisateur pour création future
   return userCandidate;

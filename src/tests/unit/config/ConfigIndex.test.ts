@@ -1,10 +1,6 @@
 /**
- * src/tests/unit/config/ConfigIndex.test.ts
- *
- * Teste le chargement de config via src/config/index.ts et le bon fonctionnement
- * de resolveConfigPath intégré dans loadAndValidateConfig et loadJsonConfig.
+ * src/tests/unit/config/ConfigIndex.test.ts - Intégration src/config/index.ts (#133)
  */
-
 import { describe, expect, it } from '@jest/globals';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -40,8 +36,7 @@ describe('src/config/index.ts Integration', () => {
     ]) {
       expect(typeof fn).toBe('function');
     }
-    const resolved = resolveConfigPath('config.json');
-    expect(typeof resolved === 'string' && resolved.endsWith('config.json')).toBe(true);
+    expect(resolveConfigPath('config.json').endsWith('config.json')).toBe(true);
   });
 
   it('should load configuration files using HIVE_CONFIG_DIR override in loadAndValidateConfig and loadJsonConfig', () => {

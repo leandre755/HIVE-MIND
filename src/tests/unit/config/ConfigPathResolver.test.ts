@@ -1,12 +1,6 @@
 /**
- * src/tests/unit/config/ConfigPathResolver.test.ts
- *
- * Tests unitaires pour ConfigPathResolver (#133 / #96.3) :
- * - Invariants de sécurité et intégrité des templates embarqués
- * - Sanitization des noms de fichiers
- * - Résolution des répertoires de données et bac à sable
+ * src/tests/unit/config/ConfigPathResolver.test.ts - Tests ConfigPathResolver (#133)
  */
-
 import { describe, expect, it, beforeEach, afterEach } from '@jest/globals';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -25,11 +19,9 @@ import { safeExistsSync, safeReadFileSync } from '../../../utils/safeFs.js';
 
 describe('ConfigPathResolver Security & Spaces (#133)', () => {
   const originalEnv = { ...process.env };
-
   beforeEach(() => {
     process.env = { ...originalEnv };
   });
-
   afterEach(() => {
     process.env = { ...originalEnv };
   });
@@ -58,16 +50,17 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
       expect(sanitizeFilename('config.json')).toBe('config.json');
       expect(sanitizeFilename('../secret.json')).toBe('secret.json');
       expect(sanitizeFilename('/etc/passwd')).toBe('passwd');
-      for (const inv of ['', '   ', '.', '..'])
-        expect(() => sanitizeFilename(inv)).toThrow(/Invalid configuration filename/);
+      ['', '   ', '.', '..'].forEach((inv) =>
+        expect(() => sanitizeFilename(inv)).toThrow(/Invalid configuration filename/),
+      );
     });
   });
 
   describe('Directory Resolvers & Data Spaces', () => {
     it('should resolve base directories and respect environment overrides', () => {
-      Reflect.deleteProperty(process.env, 'HIVE_HOME_DIR');
-      Reflect.deleteProperty(process.env, 'XDG_CONFIG_HOME');
-      Reflect.deleteProperty(process.env, 'HIVE_DEFAULTS_CONFIG_DIR');
+      ['HIVE_HOME_DIR', 'XDG_CONFIG_HOME', 'HIVE_DEFAULTS_CONFIG_DIR'].forEach((k) =>
+        Reflect.deleteProperty(process.env, k),
+      );
       expect(resolveHiveHome()).toBe(join(homedir(), '.hivemind'));
       expect(resolveUserConfigDir()).toBe(join(homedir(), '.hivemind', 'config'));
       expect(resolveXdgConfigDir()).toBe(join(homedir(), '.config', 'hive-mind'));
@@ -104,7 +97,6 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
       ]) {
         Reflect.deleteProperty(process.env, v);
       }
-
       expect(resolveDataDir()).toBe(join(homedir(), '.hivemind', 'data'));
       expect(resolveDataDir('mediaDB')).toBe(join(homedir(), '.hivemind', 'data', 'mediaDB'));
       expect(resolveTempDir()).toBe(join(homedir(), '.sandbox1'));
