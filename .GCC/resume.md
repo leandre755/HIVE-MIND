@@ -6,9 +6,9 @@
 - **Behavioral Proof**:
   - `src/providers/adapters/registry.ts` créé avec imports statiques des 8 adaptateurs (`openai`, `gemini`, `anthropic`, `groq`, `huggingface`, `cohere`, `cloudflare`, `modal`) et export de `adapterRegistry: Readonly<Record<string, ProviderAdapter>>` scellé via `Object.freeze`.
   - `src/providers/index.ts:loadAdapters()` refactorisé pour consommer directement `adapterRegistry` ; élimination totale de `pathToFileURL` et de toute boucle d'import dynamique calculé au runtime.
-  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts` : 14/14 tests passés.
-  - `npm test -- src/tests/unit/providers` : 12/12 suites passées, 200/200 tests passés (élimination complète des avertissements Jest de dynamic import d'adapters en arrière-plan).
-  - `npm run test:unit` : 105 suites passées, 1080 tests passés, 0 échec.
+  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts` : 15/15 tests passés.
+  - `npm test -- src/tests/unit/providers` : 12/12 suites passées, 201/201 tests passés (élimination complète des avertissements Jest de dynamic import d'adapters en arrière-plan).
+  - `npm run test:unit` : 105 suites passées, 1081 tests passés, 0 échec (29.261 s).
   - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts --coverage --collectCoverageFrom=src/providers/adapters/registry.ts` : 100% de couverture de statements/branches/fonctions/lignes sur `registry.ts`.
 
 ## ⚡ Technical Diffs / Atomic Modifications
@@ -46,9 +46,10 @@ All matched files use Prettier code style!
 
 npm run test:unit
 Test Suites: 105 passed, 105 total
-Tests:       1080 passed, 1080 total
+Tests:       1081 passed, 1081 total
 Snapshots:   0 total
-Time:        73.239 s
+Time:        29.261 s
+Ran all test suites matching src/tests/unit.
 ```
 
 ## 🚧 Unfinished Work & Technical Failures

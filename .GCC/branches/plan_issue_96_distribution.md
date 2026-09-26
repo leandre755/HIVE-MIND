@@ -99,7 +99,8 @@ Ran all test suites matching src/tests/unit/providers/adapterRegistry.test.ts.
 Test Suites: 105 passed, 105 total
 Tests:       1081 passed, 1081 total
 Snapshots:   0 total
-Time:        73.239 s
+Time:        29.261 s
+Ran all test suites matching src/tests/unit.
 ```
 
 ### Step 3: #133 — ConfigPathResolver + defaults embarqués (critères 3-4, fondation)
