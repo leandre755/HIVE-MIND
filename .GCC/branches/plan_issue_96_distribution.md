@@ -135,9 +135,9 @@ Tests:       25 passed, 25 total
 Snapshots:   0 total
 Time:        4.848 s
 
-PR #138 : Commits f2bec36, aa32eb0, b7d873a, a71f251, diff stabilisé à 2492 lignes (< 2500 max).
-Résolution des retours Macroscope Critical ID 4112513858 (frontière de confiance isProjectConfigAllowed avec opt-in explicite HIVE_TRUST_PROJECT_CONFIG pour models_config.json/credentials.json), Macroscope High ID 4112382929 & 4112510386 (priorité de HIVE_DEFAULTS_CONFIG_DIR sur le fallback legacy), Greptile P1 & P2, et couverture Codecov 100% sur ConfigPathResolver.ts.
-Homologué APPROVE 100% Production-Grade par Fix-Verifier et Global System Critic.
+PR #138 : Commits f2bec36, aa32eb0, b7d873a, 92743a6, 9012ba6, diff stabilisé à 2495 lignes (< 2500 max).
+Résolution des retours Macroscope Critical ID 4112513858 (frontière de confiance isProjectConfigAllowed avec opt-in explicite HIVE_TRUST_PROJECT_CONFIG pour models_config.json), Macroscope High ID 4112382929 & 4112510386 (priorité de HIVE_DEFAULTS_CONFIG_DIR sur le fallback legacy), Greptile P1 (ID 4112620315 - réhabilitation de ./config/credentials.json sans opt-in pour éviter les 401 tout en maintenant le confinement strict de models_config.json), et couverture Codecov 100% sur ConfigPathResolver.ts (100% Stmts/Branch/Funcs/Lines).
+Homologué APPROVE 100% Production-Grade par Fix-Verifier (ID 26e8a663-2016-43ff-870a-850396922763).
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)
