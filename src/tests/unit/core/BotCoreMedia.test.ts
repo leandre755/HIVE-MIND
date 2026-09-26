@@ -5,6 +5,8 @@ process.env.SUPABASE_URL = 'http://localhost:54321';
 process.env.SUPABASE_KEY = 'dummy';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.NODE_ENV = 'test';
+delete process.env.GEMINI_API_KEY;
+delete process.env.GOOGLE_API_KEY;
 
 const mockSendVoiceNote = jest.fn<(chatId: string, filePath: string) => Promise<void>>(
   async () => {},
