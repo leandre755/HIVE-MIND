@@ -40,10 +40,6 @@ const getEnvDir = (v?: string): string | undefined => (v?.trim() ? resolve(v.tri
 export const resolveHiveHome = (): string =>
   getEnvDir(process.env.HIVE_HOME_DIR) ?? join(homedir(), '.hivemind');
 export const resolveUserConfigDir = (): string => join(resolveHiveHome(), 'config');
-export const resolveXdgConfigDir = (): string => {
-  const xdg = getEnvDir(process.env.XDG_CONFIG_HOME);
-  return xdg ? join(xdg, 'hive-mind') : join(homedir(), '.config', 'hive-mind');
-};
 export const resolveProjectConfigDir = (): string => join(process.cwd(), 'config');
 export const resolveDefaultsConfigDir = (): string =>
   getEnvDir(process.env.HIVE_DEFAULTS_CONFIG_DIR) ?? DEFAULTS_CONFIG_DIR;
@@ -88,10 +84,6 @@ export function resolveConfigPath(filename: string): string {
   const userCandidate = resolve(join(resolveUserConfigDir(), cleanName));
   if (safeExistsSync(userCandidate)) return userCandidate;
 
-  // 4. Dossier de repli de compatibilité XDG Linux ~/.config/hive-mind/
-  const xdgCandidate = resolve(join(resolveXdgConfigDir(), cleanName));
-  if (safeExistsSync(xdgCandidate)) return xdgCandidate;
-
   // Surcharge explicite des defaults avant le dossier hérité
   const isCustomDefaults = !!process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim();
   if (isCustomDefaults && cleanName.toLowerCase() !== 'credentials.json') {
@@ -99,7 +91,7 @@ export function resolveConfigPath(filename: string): string {
     if (safeExistsSync(customCandidate)) return customCandidate;
   }
 
-  // 4.b Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
+  // 4. Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
   const legacyCandidate = resolveWithinRoot(resolveLegacyConfigDir(), cleanName);
   if (safeExistsSync(legacyCandidate)) {
     warnLegacyLocation(legacyCandidate);
@@ -117,10 +109,12 @@ export function resolveConfigPath(filename: string): string {
 }
 
 export function resolveDataDir(sub?: string): string {
-  const storage = getEnvDir(process.env.STORAGE_DIR);
-  if (sub === 'storage' && storage) return storage;
+  const cleanSub = sub?.trim();
+  if (cleanSub === 'storage' || cleanSub === 'storage_hm') {
+    return getEnvDir(process.env.STORAGE_DIR) ?? join(resolveSandboxDir(), 'storage_hm');
+  }
   const base = getEnvDir(process.env.HIVE_DATA_DIR) ?? join(resolveHiveHome(), 'data');
-  return sub?.trim() ? resolveWithinRoot(base, sub.trim()) : base;
+  return cleanSub ? resolveWithinRoot(base, cleanSub) : base;
 }
 
 export const resolveTempDir = (sub?: string): string => {
