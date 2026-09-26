@@ -1,33 +1,37 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Exécuter la sous-issue #133 (étape 3/5 du plan de distribution #96) : Implémenter le résolveur de configuration `ConfigPathResolver.ts`, créer le répertoire des templates embarqués `src/config/defaults/` (strictement sans `credentials.json`), adapter `src/config/index.ts` pour router les chargements de configuration via le resolver, et fournir une couverture de tests unitaires exhaustive (priorité niveau par niveau, intégrité des defaults, isolation des répertoires).
+- **Requested Task**: Poursuivre et achever l'étape 3/5 (#133 / PR #138) du plan de distribution #96 : résoudre l'ultime commentaire de revue Greptile P2 (ID 4111721851) relatif à l'écriture de fichier sonde dans `DEFAULTS_CONFIG_DIR`, isoler hermétiquement la fixture de test via `HIVE_DEFAULTS_CONFIG_DIR`, respecter le budget de gouvernance PR (< 2500 lignes de code hors documentation), exécuter la validation complète, committer, pousser via `setsid -w git push origin feat/config-path-resolver < /dev/null` avec minuteur de surveillance, et consigner l'état dans GCC.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `npm test -- src/tests/unit/config` : 5 suites passées, 20 tests passés avec 100% de succès.
-  - `npm run test:unit` : 107 suites passées, 1082 tests passés, 0 régression globale.
-  - Traitement intégral de 100% des retours bots CodeRabbit et Greptile (confinement strict `resolveWithinRoot`, fallback legacy rétrocompatible avec dépréciation pour `credentials.json` et `models_config.json`, trimming sécurisé de `HIVE_TEMP_DIR`, test dynamique avec `HIVE_CONFIG_DIR`, parité de contenu des templates).
-  - Budget de gouvernance respecté : 2495 lignes de code modifiées (< 2500 lignes).
+  - `npm test -- src/tests/unit/config` : 5 suites passées, 20/20 tests passés avec 100% de succès.
+  - Résolution intégrale du retour Greptile P2 : `resolveDefaultsConfigDir()` prend en charge `process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim()`, le test de Priorité 5 crée son probe dans un dossier temporaire dédié `defaults` nettoyé automatiquement en fin de test. 0 écriture dans `src/config/defaults`.
+  - Conformité stricte aux règles de style : substitution systématique de `delete process.env.*` par `Reflect.deleteProperty(process.env, *)`.
+  - Nettoyage des imports inutilisés (`DEFAULTS_CONFIG_DIR`, `safeUnlinkSync`).
+  - Budget de gouvernance PR GitHub Actions respecté : 2493 lignes de code modifiées (< plafond dur de 2500 lignes).
+  - Commit conventionnel créé : `d8f46d2 fix(config): isolate embedded defaults test fixture for Greptile (#133)`.
+  - Poussée réussie sur `origin/feat/config-path-resolver` avec pre-push 100% validé.
+  - Réponse technique postée sur le thread de discussion Greptile GitHub (#138).
+  - Audit contradictoire du sous-agent `Fix-Verifier & Code Critic` : APPROVE 100% Production-Grade / Impressed.
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/config/ConfigPathResolver.ts`
-  - **Scope**: Composant de résolution hiérarchique de configurations et répertoires de travail.
-  - **Exact Technical Change**: Résolution à 6 niveaux (`HIVE_CONFIG_<FILE>` / `HIVE_CONFIG_DIR` > `./config/` > `~/.hivemind/config/` > `~/.config/hive-mind/` > legacy module directory fallback `src/config/` avec `console.warn` dédoublonné > `src/config/defaults/`), confinement strict `resolveWithinRoot` dans `resolveDataDir` et `resolveTempDir` / `resolveSandboxDir`, trimming sécurisé de `HIVE_TEMP_DIR` vs `HIVE_SANDBOX_DIR`.
-- **File**: `src/config/defaults/`
-  - **Scope**: 5 templates par défaut en lecture seule embarqués dans le paquet (`config.json`, `models_config.json`, `scheduler.json`, `services_config.json`, `pricing.json`). `credentials.json` strictement exclu.
-- **File**: `src/config/index.ts`
-  - **Scope**: Routage centralisé via `resolveConfigPath` et export de `loadAndValidateConfig` et `loadJsonConfig`.
-- **File**: `src/tests/unit/config/ConfigPathResolver.test.ts`
-  - **Scope**: Tests de parité de contenu templates, non-traversal sur `resolveDataDir`/`resolveSandboxDir`, fallback `HIVE_TEMP_DIR` whitespace.
+  - **Scope**: Support d'environnement pour le répertoire des defaults embarqués.
+  - **Exact Technical Change**: `resolveDefaultsConfigDir()` évalue `process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim()` et se replie sur `DEFAULTS_CONFIG_DIR`. Consommé par `resolveConfigPath()` via `resolveWithinRoot(resolveDefaultsConfigDir(), cleanName)`.
 - **File**: `src/tests/unit/config/ConfigPathResolverHierarchy.test.ts`
-  - **Scope**: Tests de hiérarchie complète (Priority 1.a, 1.b, 2, 3, 4, 4.b legacy avec warning, 5 defaults, fallback fichier inconnu). Nettoyage sécurisé via `safeRemoveDirectorySync`.
+  - **Scope**: Isolation hermétique de la suite de tests de hiérarchie.
+  - **Exact Technical Change**: `createTempEnvironment()` initialise un dossier `defaults` au sein du répertoire temporaire dédié du test. Le test de Priorité 5 positionne `process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir` et écrit la sonde dans ce répertoire éphémère. Remplacement systématique de `delete process.env.*` par `Reflect.deleteProperty(process.env, *)`.
+- **File**: `src/tests/unit/config/ConfigPathResolver.test.ts`
+  - **Scope**: Couverture unitaire de `resolveDefaultsConfigDir()` avec et sans variable d'environnement, remplacement par `Reflect.deleteProperty`.
 - **File**: `src/tests/unit/config/ConfigIndex.test.ts`
-  - **Scope**: Validation dynamique du chargement effectif via `HIVE_CONFIG_DIR` avec `loadAndValidateConfig` et `loadJsonConfig`.
+  - **Scope**: Remplacement de `delete process.env.HIVE_CONFIG_DIR` par `Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR')`.
 - **File**: `.GCC/branches/plan_issue_96_distribution.md`
-  - **Scope**: Plan d'exécution distribution #96 mis à jour avec les décomptes exacts (20 tests config, 1082 tests unit).
+  - **Scope**: Mise à jour des statuts des étapes 2 (#132 / PR #137) et 3 (#133 / PR #138).
+- **File**: `.GCC/main.md`
+  - **Scope**: Consignation de la décision technique d'isolation des tests et mise à jour du statut global du projet.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/config src/tests/unit/config --max-warnings=0 && npm run format:check && npm run test:unit`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/config src/tests/unit/config --max-warnings=0 && npx prettier --check src/config/ConfigPathResolver.ts src/tests/unit/config/ConfigPathResolverHierarchy.test.ts src/tests/unit/config/ConfigPathResolver.test.ts src/tests/unit/config/ConfigIndex.test.ts && npm test -- src/tests/unit/config`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -37,36 +41,33 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 169ms on 370 files with 96 rules using 4 threads.
+Finished in 218ms on 370 files with 96 rules using 4 threads.
 
 npx eslint src/config src/tests/unit/config --max-warnings=0
 (sortie vide = 0 erreur, 0 warning)
 
-npm run format:check
+npx prettier --check src/config/ConfigPathResolver.ts src/tests/unit/config/ConfigPathResolverHierarchy.test.ts src/tests/unit/config/ConfigPathResolver.test.ts src/tests/unit/config/ConfigIndex.test.ts
 All matched files use Prettier code style!
 
 npm test -- src/tests/unit/config
-PASS src/tests/unit/config/ConfigIndex.test.ts
 PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
-PASS src/tests/unit/config/keyResolver.test.ts
-PASS src/tests/unit/config/models_config_policy.test.ts
 PASS src/tests/unit/config/ConfigPathResolver.test.ts
+PASS src/tests/unit/config/models_config_policy.test.ts
+PASS src/tests/unit/config/keyResolver.test.ts
+PASS src/tests/unit/config/ConfigIndex.test.ts
 Test Suites: 5 passed, 5 total
 Tests:       20 passed, 20 total
 Snapshots:   0 total
-Time:        2.829 s
-
-npm run test:unit
-Test Suites: 107 passed, 107 total
-Tests:       1082 passed, 1082 total
-Snapshots:   0 total
-Time:        81.52 s
+Time:        4.303 s
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloquant. Tous les retours CodeRabbit et Greptile sont résolus. PR prête pour réévaluation et merge par le mainteneur.
+- **Blocker / Failure Explanation**: Aucun bloquant. PR #137 (Étape 2 / #132) et PR #138 (Étape 3 / #133) sont toutes deux entièrement finalisées, testées, validées statiquement et dynamiquement, avec l'ensemble des retours bots (CodeRabbit, Greptile, SonarCloud) résolus.
+- **Merge Gate**: L'approbation et la fusion restent l'autorité exclusive du mainteneur humain (invariants §4 et §5).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (puis sous-issue #134).
-2. **Immediate Action**: Pousser le commit de correction sur `feat/config-path-resolver` avec `setsid -w git push origin feat/config-path-resolver < /dev/null`, surveiller le passage à SUCCESS de tous les checks CI distants (15/15) et des revues bots, puis attendre le merge par le mainteneur avant de basculer sur l'étape 4 (#134).
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
+1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (Étape 4 / sous-issue #134).
+2. **Immediate Action**:
+   - Vérifier le statut de fusion par le mainteneur des PRs #137 et #138 (`gh pr view 137 --json state` et `gh pr view 138 --json state`).
+   - Une fois les PRs mergées par le mainteneur, basculer sur `master`, effectuer `git pull origin master`, créer la branche `refactor/config-consumers-migration` pour l'étape 4 (#134 : migration des consommateurs sur `resolveConfigPath`), en veillant à respecter le budget de gouvernance (< 2500 lignes de code, ou découpage en 4a/4b si nécessaire).
+3. **Verification Command**: `npm run build && npm run lint:fast && npm test -- src/tests/unit/config`
