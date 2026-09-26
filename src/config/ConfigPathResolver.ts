@@ -46,7 +46,10 @@ export const resolveXdgConfigDir = (): string => {
   return env ? join(resolve(env), 'hive-mind') : join(homedir(), '.config', 'hive-mind');
 };
 export const resolveProjectConfigDir = (): string => join(process.cwd(), 'config');
-export const resolveDefaultsConfigDir = (): string => DEFAULTS_CONFIG_DIR;
+export const resolveDefaultsConfigDir = (): string => {
+  const env = process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim();
+  return env ? resolve(env) : DEFAULTS_CONFIG_DIR;
+};
 
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
   const normalized = cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();

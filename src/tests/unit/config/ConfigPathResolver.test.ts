@@ -65,12 +65,17 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
 
   describe('Directory Resolvers & Data Spaces', () => {
     it('should resolve base directories and respect environment overrides', () => {
-      delete process.env.HIVE_HOME_DIR;
-      delete process.env.XDG_CONFIG_HOME;
+      Reflect.deleteProperty(process.env, 'HIVE_HOME_DIR');
+      Reflect.deleteProperty(process.env, 'XDG_CONFIG_HOME');
+      Reflect.deleteProperty(process.env, 'HIVE_DEFAULTS_CONFIG_DIR');
       expect(resolveHiveHome()).toBe(join(homedir(), '.hivemind'));
       expect(resolveUserConfigDir()).toBe(join(homedir(), '.hivemind', 'config'));
       expect(resolveXdgConfigDir()).toBe(join(homedir(), '.config', 'hive-mind'));
       expect(resolveProjectConfigDir()).toBe(join(process.cwd(), 'config'));
+      expect(resolveDefaultsConfigDir()).toMatch(/defaults$/);
+
+      process.env.HIVE_DEFAULTS_CONFIG_DIR = '/custom/defaults';
+      expect(resolveDefaultsConfigDir()).toBe(resolve('/custom/defaults'));
 
       process.env.HIVE_HOME_DIR = '/custom/hive-home';
       process.env.XDG_CONFIG_HOME = '/custom/xdg';
@@ -116,7 +121,7 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
         join(resolve(join(homedir(), '.custom-sandbox')), 'test'),
       );
 
-      delete process.env.HIVE_TEMP_DIR;
+      Reflect.deleteProperty(process.env, 'HIVE_TEMP_DIR');
       process.env.HIVE_SANDBOX_DIR = join(homedir(), '.sandbox-override');
       expect(resolveSandboxDir('test')).toBe(
         join(resolve(join(homedir(), '.sandbox-override')), 'test'),

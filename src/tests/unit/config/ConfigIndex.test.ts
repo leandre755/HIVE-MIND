@@ -48,19 +48,17 @@ describe('src/config/index.ts Integration', () => {
     const tempDir = safeMkdtempSync(join(tmpdir(), `hive-cfg-idx-${randomUUID()}-`));
     const cfgPath = join(tempDir, 'config.json'),
       extraPath = join(tempDir, 'custom_extra.json');
-    safeWriteFileSync(
-      cfgPath,
-      JSON.stringify({
-        name: 'test-custom-app',
-        backlog_protection: {
-          enabled: true,
-          message_stale_threshold_seconds: 42,
-          cooldown_between_responses_ms: 1000,
-          max_messages_on_startup: 5,
-        },
-        voice_transcription: { mode: 'restricted' as const },
-      }),
-    );
+    const appCfg = {
+      name: 'test-custom-app',
+      backlog_protection: {
+        enabled: true,
+        message_stale_threshold_seconds: 42,
+        cooldown_between_responses_ms: 1000,
+        max_messages_on_startup: 5,
+      },
+      voice_transcription: { mode: 'restricted' as const },
+    };
+    safeWriteFileSync(cfgPath, JSON.stringify(appCfg));
     safeWriteFileSync(extraPath, JSON.stringify({ customKey: 'customVal' }));
     const prevDir = process.env.HIVE_CONFIG_DIR;
     process.env.HIVE_CONFIG_DIR = tempDir;
@@ -71,7 +69,7 @@ describe('src/config/index.ts Integration', () => {
       expect(loadJsonConfig('custom_extra.json').customKey).toBe('customVal');
     } finally {
       if (prevDir !== undefined) process.env.HIVE_CONFIG_DIR = prevDir;
-      else delete process.env.HIVE_CONFIG_DIR;
+      else Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR');
       try {
         safeRemoveDirectorySync(tempDir);
       } catch {
