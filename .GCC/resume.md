@@ -1,35 +1,48 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Exécuter la sous-issue #132 (étape 2/5 du plan de distribution #96) : remplacer l'import dynamique calculé des adapters providers par un registre statique `adapterRegistry` bundler-friendly, avec tests de complétude, conformité ProviderAdapter, idempotence, et non-régression.
+- **Requested Task**:
+  1. Résoudre le commentaire Greptile P1 (ID 4112726099) : fusionner les clés de projet (`./config/credentials.json`) par-dessus les clés utilisateur globales (`~/.hivemind/config/credentials.json`), avec repli gracieux sans 401 si le fichier projet est absent, vide ou corrompu.
+  2. Purger définitivement le repli XDG Linux (`~/.config/hive-mind/` / `resolveXdgConfigDir`) : centralisation stricte sous `~/.hivemind/config/`.
+  3. Aligner `resolveDataDir` pour que `storage` et `storage_hm` soient acheminés vers le bac à sable `~/.sandbox1/storage_hm` (ou `$STORAGE_DIR`).
+  4. Consigner dans `.GCC/main.md` la règle pérenne : si l'agent n'est pas certain ou a un trou de mémoire post-compaction, consulter `transcript_full.jsonl` ou poser la question via `ask_question`.
+  5. Maintenir le budget de gouvernance PR (< 2500 LoC), valider par audit critique subagent, commiter et pousser sur `origin/feat/config-path-resolver`.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `src/providers/adapters/registry.ts` créé avec imports statiques des 8 adaptateurs (`openai`, `gemini`, `anthropic`, `groq`, `huggingface`, `cohere`, `cloudflare`, `modal`) et export de `adapterRegistry: Readonly<Record<string, ProviderAdapter>>` scellé via `Object.freeze`.
-  - `src/providers/index.ts:loadAdapters()` refactorisé pour consommer directement `adapterRegistry` ; élimination totale de `pathToFileURL` et de toute boucle d'import dynamique calculé au runtime.
-  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts` : 15/15 tests passés.
-  - `npm test -- src/tests/unit/providers` : 12/12 suites passées, 201/201 tests passés (élimination complète des avertissements Jest de dynamic import d'adapters en arrière-plan).
-  - `npm run test:unit` : 105 suites passées, 1081 tests passés, 0 échec (29.261 s).
-  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts --coverage --collectCoverageFrom=src/providers/adapters/registry.ts` : 100% de couverture de statements/branches/fonctions/lignes sur `registry.ts`.
+  - `npm test -- src/tests/unit/config` : 5 suites passées, 21/21 tests au vert.
+  - Couverture unitaire : `ConfigPathResolver.ts` : 100% Stmts (56/56), 100% Branch (33/33), 100% Funcs (11/11), 100% Lines (54/54) ; `src/config/index.ts` : 100% Funcs (4/4), 100% Lines (29/29).
+  - Résolution Greptile P1 (ID 4112726099) : `loadJsonConfig('credentials.json')` fusionne `familles_ia` et clés racines du projet sur celles de l'utilisateur. En cas de fichier projet vide ou corrompu, `parseJsonSafe` absorbe l'erreur et retombe intégralement sur les clés utilisateur sans 401.
+  - Purge XDG : `resolveXdgConfigDir` supprimé, palier XDG retiré de `resolveConfigPath(filename)`.
+  - Sandbox storage : `resolveDataDir('storage')` et `resolveDataDir('storage_hm')` résolus vers `process.env.STORAGE_DIR ?? join(resolveSandboxDir(), 'storage_hm')`.
+  - Budget de gouvernance PR respecté : `TOTAL: 2495` lignes de code (< plafond dur de 2500 lignes).
+  - Verdict subagent critique indépendant :
+    - `Fix-Verifier & Code Critic` (ID fc48d67f-a6dd-45c5-8d01-90a1dc4b12b8) : APPROVE (100% Production-Grade / Impressed).
+  - Commits créés et poussés sur `origin/feat/config-path-resolver` :
+    - `9c57ffa fix(config): merge project credentials over user config and purge XDG fallback (#133)`
+    - `c1707fa docs(gcc): document compaction recovery rule, storage_hm sandbox alignment, and XDG removal (#133)`
+  - Réponses aux revues postées :
+    - Commentaire Greptile 4112726099 : réponse postée via comment `4112913441`.
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/providers/adapters/registry.ts`
-  - **Scope**: Registre statique des adaptateurs providers natifs
-  - **Exact Technical Change**: Imports statiques de `openai`, `gemini`, `anthropic`, `groq`, `huggingface`, `cohere`, `cloudflare`, `modal` ; export de `adapterRegistry` typé `Readonly<Record<string, ProviderAdapter>>` et scellé avec `Object.freeze`.
-- **File**: `src/providers/index.ts`
-  - **Scope**: Routeur multi-familles et chargement des adaptateurs
-  - **Exact Technical Change**: Retrait de `pathToFileURL` de l'import `url` ; import de `adapterRegistry` depuis `./adapters/registry.js` ; refactorisation de `loadAdapters()` en itérant sur `Object.entries(adapterRegistry)` ; retour direct du singleton `loadPromise` pour idempotence référentielle.
-- **File**: `src/tests/unit/providers/adapterRegistry.test.ts`
-  - **Scope**: Tests unitaires du registre statique et de non-régression de `loadAdapters()`
-  - **Exact Technical Change**: 14 tests unitaires couvrant l'exhaustivité des 8 entrées, l'immuabilité `Object.freeze`, la conformité `ProviderAdapter`, la méthode `embed`, l'enregistrement effectif dans `providerRouter.adapters`, l'idempotence stricte, et l'absence d'import calculé dans `src/providers/index.ts` par lecture de source `safeReadFileSync`.
-- **File**: `.GCC/branches/plan_issue_96_distribution.md`
-  - **Scope**: Plan tactique de distribution #96
-  - **Exact Technical Change**: Étape 2 marquée complétée avec preuves de validation brutes.
+- **File**: `src/config/ConfigPathResolver.ts`
+  - **Scope**: Suppression du palier XDG, routage de `storage` et `storage_hm` vers `~/.sandbox1/storage_hm`.
+  - **Exact Technical Change**: Retrait de `resolveXdgConfigDir`, aiguillage de `sub === 'storage' || sub === 'storage_hm'` vers `$STORAGE_DIR ?? join(resolveSandboxDir(), 'storage_hm')`.
+- **File**: `src/config/index.ts`
+  - **Scope**: Fusion intelligente et résiliente des credentials projet sur les credentials globaux utilisateur.
+  - **Exact Technical Change**: Helper `parseJsonSafe(filePath)`, chargement des clés utilisateur `~/.hivemind/config/credentials.json`, fusion `familles_ia: { ...userFam, ...prjFam }` et `...userCreds, ...prjCreds`.
+- **File**: `src/tests/unit/config/ConfigIndex.test.ts`
+  - **Scope**: Tests unitaires de fusion des credentials et résilience face aux fichiers corrompus/vides.
+- **File**: `src/tests/unit/config/ConfigPathResolver.test.ts`
+  - **Scope**: Tests de redirection de `storage`/`storage_hm` vers `~/.sandbox1/storage_hm` et exclusion des credentials des defaults.
+- **File**: `src/tests/unit/config/ConfigPathResolverHierarchy.test.ts`
+  - **Scope**: Tests des priorités hiérarchiques épurés du palier XDG.
 - **File**: `.GCC/main.md`
-  - **Scope**: Contexte global et registre des décisions
-  - **Exact Technical Change**: Enregistrement de la décision [2026-09-26] sur le registre statique des providers ; ajout de l'étape 2 à `Current Status` ; mise à jour de `Next Session Direction`.
+  - **Scope**: Consignation de la règle de récupération post-compaction (`transcript_full.jsonl` / `ask_question`), purge XDG et alignement sandbox.
+- **File**: `.GCC/branches/plan_issue_96_distribution.md`
+  - **Scope**: Mise à jour de l'étape 3 avec les nouveaux commits et résolutions.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npm run format:check && npm run test:unit`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/config src/tests/unit/config --max-warnings=0 && npm test -- src/tests/unit/config`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -39,23 +52,25 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 582ms on 367 files with 96 rules using 4 threads.
+Finished in 75ms on 372 files with 96 rules using 4 threads.
 
-npm run format:check
-All matched files use Prettier code style!
+npx eslint src/config src/tests/unit/config --max-warnings=0
+(sortie vide = 0 erreur, 0 warning)
 
-npm run test:unit
-Test Suites: 105 passed, 105 total
-Tests:       1081 passed, 1081 total
-Snapshots:   0 total
-Time:        29.261 s
-Ran all test suites matching src/tests/unit.
+npm test -- src/tests/unit/config
+PASS src/tests/unit/config/ConfigIndex.test.ts
+PASS src/tests/unit/config/ConfigPathResolver.test.ts
+PASS src/tests/unit/config/keyResolver.test.ts
+PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
+PASS src/tests/unit/config/models_config_policy.test.ts
+Test Suites: 5 passed, 5 total
+Tests:       21 passed, 21 total
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #132. Code implémenté, validé, PR #137 ouverte sur GitHub (13/14 checks passés, 15/15 tests unitaires du registre). CodeRabbit et Greptile ont fourni des retours d'amélioration documentaire et de tests pris en compte. Attente de la validation finale des revues sur la PR #137 avant passage à l'étape 3 (#133).
+- **Merge Gate**: L'approbation finale et la fusion sur `master` restent l'autorité exclusive du mainteneur humain (invariants §4 et §5).
+- **Prochaine étape**: Dès la validation / fusion de la PR #138, basculer sur `master` et démarrer la sous-issue 4/5 (#134 - migration des consommateurs de config).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target PR / File**: PR #137 (https://github.com/leandre755/HIVE-MIND/pull/137) et `.GCC/branches/plan_issue_96_distribution.md`.
-2. **Immediate Action**: Vérifier le passage à SUCCESS de CodeRabbit et Greptile sur la PR #137 suite aux commits `651163e` et aux ajustements documentaires. Une fois la PR #137 fusionnée par le mainteneur, démarrer l'Étape 3 (#133 — `ConfigPathResolver`).
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
+1. **Target Action**: Surveiller le passage de la CI et l'analyse Greptile (score 5/5 attendu suite à la réponse `4112913441` et au commit `9c57ffa`).
+2. **Next Step**: Attendre la revue et le merge de la PR #138 par le mainteneur, puis basculer sur `master` (`git checkout master && git pull origin master`) pour entamer la sous-issue 4/5 (#134).
