@@ -2,9 +2,8 @@
 // providers/index.js
 // Model Provider Layer - Routeur multi-familles
 
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { safeReadFileSync } from '../utils/safeFs.js';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { adapterRegistry } from './adapters/registry.js';
 // LLM classifier permanently disabled — category is now always
 // provided by the caller (e.g. category: 'AGENTIC') or defaults to AGENTIC.
@@ -24,8 +23,6 @@ import type {
   AdapterEmbedResult,
   ChatMessage,
 } from './types.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let activeRuntime: unknown = null;
 async function getRuntime() {
@@ -251,7 +248,7 @@ function estimateTokens(messages: unknown[], responseContent: string | null): nu
 let modelsConfig: ModelsConfigJson;
 try {
   modelsConfig = JSON.parse(
-    safeReadFileSync(join(__dirname, '..', 'config', 'models_config.json')),
+    safeReadFileSync(resolveConfigPath('models_config.json'), 'utf-8'),
   ) as ModelsConfigJson;
 } catch (error) {
   console.error('❌ Erreur chargement config providers:', describeError(error));

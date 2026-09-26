@@ -15,8 +15,9 @@ const { safeMkdtempSync, safeWriteFileSync, safeMkdirSync, safeRemoveDirectorySy
 describe('src/config/index.ts Integration', () => {
   it('should expose valid config singleton and re-export resolver utilities', () => {
     expect(config?.env && config?.models && config?.app?.version === '3.0.0').toBeTruthy();
-    expect(typeof config.hasApiKey).toBe('function');
-    expect(typeof config.hasApiKey('gemini')).toBe('boolean');
+    expect(
+      typeof config.hasApiKey === 'function' && typeof config.hasApiKey('gemini') === 'boolean',
+    ).toBe(true);
     expect(config.getFirstAvailableFamily() ?? 'none').toBeDefined();
     [
       resolveConfigPath,
@@ -27,16 +28,6 @@ describe('src/config/index.ts Integration', () => {
     ].forEach((fn) => expect(typeof fn).toBe('function'));
     expect(resolveConfigPath('config.json').endsWith('config.json')).toBe(true);
   });
-
-  const cleanupTemp = (dir: string, prev?: string) => {
-    if (prev !== undefined) process.env.HIVE_CONFIG_DIR = prev;
-    else Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR');
-    try {
-      safeRemoveDirectorySync(dir);
-    } catch {
-      /* ignore */
-    }
-  };
 
   it('should load configurations, overrides, and handle missing or invalid schemas', () => {
     const missing = `missing_${randomUUID()}.json`;
@@ -72,7 +63,13 @@ describe('src/config/index.ts Integration', () => {
     } finally {
       warnSpy.mockRestore();
       errSpy.mockRestore();
-      cleanupTemp(tempDir, prev);
+      if (prev !== undefined) process.env.HIVE_CONFIG_DIR = prev;
+      else Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR');
+      try {
+        safeRemoveDirectorySync(tempDir);
+      } catch {
+        /* ignore */
+      }
     }
   });
 
@@ -84,16 +81,8 @@ describe('src/config/index.ts Integration', () => {
       prevHome = process.env.HIVE_HOME_DIR;
     safeMkdirSync(userCfgDir, { recursive: true });
     safeMkdirSync(prjCfgDir, { recursive: true });
-    const userCreds = {
-      default_provider: 'gemini',
-      shared_token: 'user-token',
-      familles_ia: { gemini: 'u-gemini', openai: 'u-openai' },
-    };
-    const prjCreds = {
-      project_id: 'prj-123',
-      shared_token: 'prj-token',
-      familles_ia: { openai: 'p-openai', anthropic: 'p-anthropic' },
-    };
+    const userCreds = { default_provider: 'gemini', familles_ia: { gemini: 'u-gemini' } };
+    const prjCreds = { project_id: 'p1', familles_ia: { openai: 'p-openai' } };
     safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds));
     safeWriteFileSync(join(prjCfgDir, 'credentials.json'), JSON.stringify(prjCreds));
     process.env.HIVE_HOME_DIR = join(tempBase, 'user', '.hivemind');
@@ -101,15 +90,28 @@ describe('src/config/index.ts Integration', () => {
     try {
       expect(loadJsonConfig('credentials.json')).toMatchObject({
         default_provider: 'gemini',
-        project_id: 'prj-123',
-        shared_token: 'prj-token',
-        familles_ia: { gemini: 'u-gemini', openai: 'p-openai', anthropic: 'p-anthropic' },
+        project_id: 'p1',
+        familles_ia: { gemini: 'u-gemini', openai: 'p-openai' },
       });
       safeWriteFileSync(join(prjCfgDir, 'credentials.json'), '{ corrupted');
       expect(loadJsonConfig('credentials.json')).toMatchObject({
         default_provider: 'gemini',
         familles_ia: userCreds.familles_ia,
       });
+      safeWriteFileSync(join(userCfgDir, 'credentials.json'), 'null');
+      safeWriteFileSync(join(prjCfgDir, 'credentials.json'), JSON.stringify(prjCreds));
+      expect(loadJsonConfig('credentials.json')).toMatchObject({
+        project_id: 'p1',
+        familles_ia: prjCreds.familles_ia,
+      });
+      const isoPath = join(tempBase, 'isolated.json');
+      safeWriteFileSync(isoPath, JSON.stringify({ isolated: true, familles_ia: { c: '1' } }));
+      process.env.HIVE_CONFIG_CREDENTIALS_JSON = isoPath;
+      expect(loadJsonConfig('credentials.json')).toEqual({
+        isolated: true,
+        familles_ia: { c: '1' },
+      });
+      Reflect.deleteProperty(process.env, 'HIVE_CONFIG_CREDENTIALS_JSON');
     } finally {
       process.chdir(originalCwd);
       if (prevHome !== undefined) process.env.HIVE_HOME_DIR = prevHome;

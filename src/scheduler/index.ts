@@ -3,12 +3,9 @@
 
 import { validate, schedule, ScheduledTask } from 'node-cron';
 import { safeReadFileSync } from '../utils/safeFs.js';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { orchestrator } from '../core/orchestrator.js';
 import { eventBus, BotEvents } from '../core/events.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface JobConfig {
   name: string;
@@ -29,7 +26,7 @@ interface SchedulerConfigJson {
 let schedulerConfig: SchedulerConfigJson;
 try {
   schedulerConfig = JSON.parse(
-    safeReadFileSync(join(__dirname, '..', 'config', 'scheduler.json'), 'utf-8'),
+    safeReadFileSync(resolveConfigPath('scheduler.json'), 'utf-8'),
   ) as SchedulerConfigJson;
 } catch {
   console.warn('⚠️ scheduler.json non trouvé, mode proactif désactivé');

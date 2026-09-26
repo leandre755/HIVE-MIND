@@ -7,7 +7,11 @@
 import { join, resolve } from 'node:path';
 import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { envResolver } from '../services/envResolver.js';
-import { resolveConfigPath, resolveUserConfigDir } from './ConfigPathResolver.js';
+import {
+  resolveConfigPath,
+  resolveUserConfigDir,
+  resolveProjectConfigDir,
+} from './ConfigPathResolver.js';
 import {
   AppConfigSchema,
   ModelsConfigSchema,
@@ -54,7 +58,12 @@ export function loadAndValidateConfig<T>(filename: string, schema: import('zod')
 function parseJsonSafe(filePath: string): Record<string, unknown> {
   if (!safeExistsSync(filePath)) return {};
   try {
-    return JSON.parse(safeReadFileSync(filePath, 'utf-8')) as Record<string, unknown>;
+    const raw = safeReadFileSync(filePath, 'utf-8');
+    if (!raw.trim()) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -64,18 +73,20 @@ function parseJsonSafe(filePath: string): Record<string, unknown> {
  * Loads a JSON file without validation (legacy support).
  * For credentials.json, merges project overrides over user configuration
  * to guarantee user keys are not masked by an empty/partial local file.
+ * Explicit overrides (env vars) remain strictly isolated.
  */
 export function loadJsonConfig(filename: string): Record<string, unknown> {
   const filePath = resolveConfigPath(filename);
   const mainConfig = parseJsonSafe(filePath);
   if (filename !== 'credentials.json') return mainConfig;
 
-  const userPath = resolve(join(resolveUserConfigDir(), 'credentials.json'));
-  if (filePath === userPath) return mainConfig;
+  const projectPath = resolve(join(resolveProjectConfigDir(), 'credentials.json'));
+  if (filePath !== projectPath) return mainConfig;
 
+  const userPath = resolve(join(resolveUserConfigDir(), 'credentials.json'));
   const userCreds = parseJsonSafe(userPath);
-  const userFam = (userCreds.familles_ia as Record<string, string>) || {};
-  const prjFam = (mainConfig.familles_ia as Record<string, string>) || {};
+  const userFam = (userCreds?.familles_ia as Record<string, string>) || {};
+  const prjFam = (mainConfig?.familles_ia as Record<string, string>) || {};
   return {
     ...userCreds,
     ...mainConfig,

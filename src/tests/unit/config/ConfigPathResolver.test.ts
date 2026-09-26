@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach, afterEach } from '@jest/globals';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import * as pathResolver from '../../../config/ConfigPathResolver.js';
-import { safeExistsSync, safeReadFileSync } from '../../../utils/safeFs.js';
+import * as safeFs from '../../../utils/safeFs.js';
 
 const {
   resolveDefaultsConfigDir,
@@ -17,6 +17,7 @@ const {
   resolveSandboxDir,
   sanitizeFilename,
 } = pathResolver;
+const { safeExistsSync, safeReadFileSync } = safeFs;
 
 describe('ConfigPathResolver Security & Spaces (#133)', () => {
   const originalEnv = { ...process.env };
