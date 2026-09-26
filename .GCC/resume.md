@@ -1,36 +1,42 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Exécuter la sous-issue #131 (étape 1/5 du plan de distribution #96) : supprimer les chemins utilisateur `/home/omni/...` écrits en dur dans le code source et les scripts, et les remplacer par `path.join(os.homedir(), ...)` avec validation complète, fixtures de test isolées en dossier temporaire et PR #136.
+- **Requested Task**: Exécuter la sous-issue #133 (étape 3/5 du plan de distribution #96) : Implémenter le résolveur de configuration `ConfigPathResolver.ts`, créer le répertoire des templates embarqués `src/config/defaults/` (strictement sans `credentials.json`), adapter `src/config/index.ts` pour router les chargements de configuration via le resolver, et fournir une couverture de tests unitaires exhaustive (priorité niveau par niveau, intégrité des defaults, isolation des répertoires).
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `npx jest src/tests/unit/providers/codexPath.test.ts` : 12/12 tests passés (résolution dynamique basée sur `os.homedir()`, gestion des séparateurs système POSIX/Windows, `AUTH_FILE_PATH` résolu, `loadCredentials` et `persistTokens` testés exhaustivement, fixtures isolées dans `safeMkdtempSync(path.join(os.tmpdir(), 'hive-mind-codex-test-'))` et nettoyées en `afterAll`).
-  - `grep -rn '/home/omni' src/` : 0 occurrence résiduelle dans le code de production ou les scripts ; seules les fixtures de test intentionnelles (`bashTool.test.ts`, `helpers.test.ts`) et l'assertion anti-omni dans `codexPath.test.ts` subsistent.
-  - `npm run test:unit` : 104 suites passées, 1066 tests passés, 0 échec.
-  - `PR #136` : checks CI validés (Codecov 100% patch coverage, SonarCloud Passed, CodeQL Passed, Greptile 5/5).
+  - `npm test -- src/tests/unit/config` : 5 suites passées, 22 tests passés avec 100% de succès.
+  - `npm run test:unit` : 107 suites passées, 1084 tests passés, 0 régression globale.
+  - Vérification formelle d'invariant : `credentials.json` est strictement absent de `src/config/defaults/`.
+  - Double homologation indépendante obtenue : verdicts **APPROVE (100% Production-Grade / Impressed)** délivrés par `Fix-Verifier` et `Global System Critic`.
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/providers/adapters/codex.ts`
-  - **Scope**: Authentification de l'adaptateur Codex
-  - **Exact Technical Change**: Remplacement du chemin absolu `/home/omni/.codex/auth.json` par `getCodexAuthFilePath()` utilisant `path.join(os.homedir(), '.codex', 'auth.json')` ; consommation dynamique dans `loadCredentials()` et `persistTokens()` ; export de `AUTH_FILE_PATH` pour rétro-compatibilité.
-- **File**: `src/scripts/test_codex_connection.ts`
-  - **Scope**: Script de test de connexion Codex
-  - **Exact Technical Change**: Import de `node:os` et `node:path` et résolution de `AUTH_FILE_PATH` via `path.join(os.homedir(), '.codex', 'auth.json')`.
-- **File**: `src/tests/unit/providers/codexPath.test.ts`
-  - **Scope**: Suite de tests unitaires pour la portabilité de la résolution auth.json
-  - **Exact Technical Change**: 12 tests validant la résolution dynamique sans mention de `/home/omni`, le comportement sur différents répertoires personnels, la cohérence de l'export `AUTH_FILE_PATH`, la couverture 100% de `loadCredentials` et `persistTokens`, et isolation totale des fixtures via dossier temporaire dédié (`safeMkdtempSync`).
-- **File**: `src/tests/unit/core/BotCoreMedia.test.ts`
-  - **Scope**: Isolation des tests unitaires de flux média
-  - **Exact Technical Change**: Suppression explicite de `GEMINI_API_KEY` et `GOOGLE_API_KEY` de l'environnement de test pour éviter tout appel réseau externe ou initialisation intempestive de MediaDB/HNSW sous faux minuteurs Jest.
+- **File**: `src/config/ConfigPathResolver.ts`
+  - **Scope**: Nouveau composant de résolution hiérarchique de configurations et d'espaces de travail.
+  - **Exact Technical Change**: Implémentation de `resolveConfigPath(filename)` avec priorité à 5 niveaux (`HIVE_CONFIG_<FILE>` / `HIVE_CONFIG_DIR` > `./config/` > `~/.hivemind/config/` > `~/.config/hive-mind/` > `src/config/defaults/`), fonctions de répertoires portables (`resolveHiveHome`, `resolveUserConfigDir`, `resolveXdgConfigDir`, `resolveProjectConfigDir`, `resolveDefaultsConfigDir`, `resolveDataDir`, `resolveTempDir`, `resolveSandboxDir`), sanitization robuste avec `.trim()` et confinement de sécurité `resolveWithinRoot`.
+- **File**: `src/config/defaults/`
+  - **Scope**: Répertoire de templates par défaut en lecture seule embarqué dans le paquet.
+  - **Exact Technical Change**: Inclusion des 5 templates `config.json`, `models_config.json`, `scheduler.json`, `services_config.json`, `pricing.json` copiés de la référence. `credentials.json` strictement exclu.
+- **File**: `src/config/index.ts`
+  - **Scope**: Centralisation et routage des configurations.
+  - **Exact Technical Change**: Remplacement de `resolveWithinRoot(__dirname, filename)` par `resolveConfigPath(filename)` dans `loadAndValidateConfig` et `loadJsonConfig` ; ré-export des fonctions utilitaires du resolver.
+- **File**: `src/tests/unit/config/ConfigPathResolver.test.ts`
+  - **Scope**: Suite de tests pour la sécurité, l'intégrité des templates et les résolveurs de dossiers.
+  - **Exact Technical Change**: Tests de l'absence de `credentials.json`, présence des 5 templates, sanitization et validation de dossiers de données / sandbox.
+- **File**: `src/tests/unit/config/ConfigPathResolverHierarchy.test.ts`
+  - **Scope**: Suite de tests de la hiérarchie de résolution à 5 niveaux.
+  - **Exact Technical Change**: Tests niveau par niveau avec fixtures temporaires créées via `safeMkdtempSync` et `randomUUID()`, avec nettoyage récursif en `afterAll`.
+- **File**: `src/tests/unit/config/ConfigIndex.test.ts`
+  - **Scope**: Test d'intégration pour `src/config/index.ts`.
+  - **Exact Technical Change**: Vérification de l'exposition du singleton `config` et de la validité des exports.
 - **File**: `.GCC/branches/plan_issue_96_distribution.md`
-  - **Scope**: Plan d'exécution distribution #96
-  - **Exact Technical Change**: Étape 1 marquée comme validée avec sorties brutes de compilation et tests.
+  - **Scope**: Plan d'exécution distribution #96.
+  - **Exact Technical Change**: Étape 3 cochée `[x]` avec archivage des sorties terminal brutes et inaltérées.
 - **File**: `.GCC/main.md`
-  - **Scope**: Contexte global et registre des décisions
-  - **Exact Technical Change**: Décision [2026-09-26] enregistrée sur l'élimination des chemins en dur, décision [2026-09-26] interdisant de laisser tourner un git push en arrière-plan sans surveillance active avec obligation des crons, étape 1 marquée Done dans Current Status, suppression de la dette codex de Pending.
+  - **Scope**: Registre de bord et journal des décisions.
+  - **Exact Technical Change**: Décision d'architecture unifiée `~/.hivemind/` consignée sous `## 🧠 Decisions Made` avec note d'évolution pour future interface web locale de setup.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npm run format:check && npm run test:unit`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/config src/tests/unit/config --max-warnings=0 && npm run format:check && npm run test:unit`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -40,22 +46,25 @@
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 72ms on 366 files with 96 rules using 4 threads.
+Finished in 257ms on 370 files with 96 rules using 4 threads.
+
+npx eslint src/config src/tests/unit/config --max-warnings=0
+(sortie vide = 0 erreur, 0 warning)
 
 npm run format:check
 All matched files use Prettier code style!
 
 npm run test:unit
-Test Suites: 104 passed, 104 total
-Tests:       1057 passed, 1057 total
+Test Suites: 107 passed, 107 total
+Tests:       1084 passed, 1084 total
 Snapshots:   0 total
-Time:        50.985 s
+Time:        34.802 s
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #131. PR #136 ouverte et vérifiée. Reste la validation des checks CI sur PR #136, puis enchaîner sur l'étape 2 (#132 registre statique des providers).
+- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #133. Code certifié 100% Production-Grade par `Fix-Verifier` et `Global System Critic`. Prêt pour ouverture de la PR #138 et passage ultérieur à l'étape 4 (#134).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (puis sous-issue #132).
-2. **Immediate Action**: Vérifier les checks CI distants sur la PR #136 pour l'issue #131, puis attaquer #132 (`refactor/providers-static-registry`) selon l'étape 2 du plan.
+1. **Target File**: `.GCC/branches/plan_issue_96_distribution.md` (puis sous-issue #134).
+2. **Immediate Action**: Pousser la branche `feat/config-path-resolver` avec `setsid -w git push -u origin feat/config-path-resolver < /dev/null`, ouvrir la PR #138 pour #133, surveiller les 14/14 checks CI et reviews bots, puis attaquer #134.
 3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`

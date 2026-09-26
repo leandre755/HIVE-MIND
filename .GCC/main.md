@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-26] **Architecture Unifiée `~/.hivemind/` & ConfigPathResolver multi-niveaux (#133)**
+  - **Context**: L'issue #133 (sous-issue 3/5 de #96) requiert d'émanciper HIVE-MIND des sources pour la configuration via un `ConfigPathResolver` et des defaults embarqués. Le choix d'arborescence utilisateur opposait le modèle éclaté Linux XDG (`~/.config/hive-mind/`, `~/.local/share/`, `~/.cache/`) au modèle unifié produit adopté par les grands outils CLI/dev (`~/.hivemind/config/`, `~/.hivemind/prompt/`, `~/.hivemind/skills/`, etc. similaire à `~/.docker/`, `~/.aws/`, `~/.cargo/`).
+  - **Discarded Options**: (a) Éparpillement XDG strict exclusif sous Linux (rejeté sur arbitrage utilisateur : fragmente l'inspection, la sauvegarde et l'expérience utilisateur) ; (b) Abandon pur et simple de XDG (rejeté : XDG reste supporté en repli élégant pour les environnements Linux l'exigeant).
+  - **Rationale**: (1) Centralisation unifiée sous `~/.hivemind/` (config dans `~/.hivemind/config/`, prompts dans `~/.hivemind/prompt/`, skills dans `~/.hivemind/skills/`). (2) Ordre de résolution hiérarchique : `HIVE_CONFIG_DIR` (ou variable explicite) > `./config/` projet > `~/.hivemind/config/` > `~/.config/hive-mind/` (fallback XDG gracieux) > defaults embarqués `src/config/defaults/`. (3) Invariant de sécurité : `credentials.json` n'a JAMAIS de default embarqué. (4) Note d'évolution future (TODO utilisateur) : prévoir une page web locale de configuration guidée lors de la première installation avec option d'installation éparpillée pour les puristes Linux.
+
 - [2026-09-26] **Interdiction de laisser tourner un git push en arrière-plan sans surveillance active & Obligation des crons**
   - **Context**: Lors du lancement de `git push`, le hook `pre-push` exécute la suite complète de tests et de validations. Si le processus passe en tâche d'arrière-plan sans cron ou minuteur de suivi (`schedule`), un blocage silencieux (timeout, open handles, défaillance réseau) peut geler la session pendant des heures sans réveil ni progression.
   - **Discarded Options**: Laisser la commande tourner en passif en attendant un signal automatique de complétion (rejeté : risque de blocage non surveillé en arrière-plan).

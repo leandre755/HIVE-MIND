@@ -66,11 +66,41 @@ Tests:       1066 passed, 1066 total
 
 ### Step 3: #133 — ConfigPathResolver + defaults embarqués (critères 3-4, fondation)
 
-- [ ] **Action**: créer `src/config/ConfigPathResolver.ts` (`resolveConfigPath(filename)` : env `HIVE_CONFIG_DIR` > `./config/` projet > `~/.config/hive-mind/` > defaults embarqués ; `resolveDataDir(sub?)`/`resolveTempDir(sub?)`) ; créer `src/config/defaults/` (config.json, models_config.json, scheduler.json, services_config.json, pricing.json en lecture seule — **jamais** credentials.json) ; `src/config/index.ts` passe par le resolver (validation Zod inchangée). Tests : priorité niveau par niveau, repli defaults, override `HIVE_CONFIG_DIR`, absence de credentials dans defaults. Branche : `feat/config-path-resolver`.
-- [ ] **Verify**: `npm run build && npm run lint:fast && npx jest src/tests/unit/config && npm run test:unit`
+- [x] **Action**: créer `src/config/ConfigPathResolver.ts` (`resolveConfigPath(filename)` : env `HIVE_CONFIG_DIR` > `./config/` projet > `~/.hivemind/config/` > `~/.config/hive-mind/` > defaults embarqués ; `resolveHiveHome()`, `resolveDataDir(sub?)`/`resolveTempDir(sub?)`) ; créer `src/config/defaults/` (config.json, models_config.json, scheduler.json, services_config.json, pricing.json en lecture seule — **strictement sans** credentials.json) ; `src/config/index.ts` passe par le resolver (validation Zod inchangée). Note d'évolution future : prévoir une interface web locale de setup avec option d'installation éparpillée XDG sous Linux. Tests : priorité niveau par niveau, repli defaults, override `HIVE_CONFIG_DIR`, absence de credentials dans defaults. Branche : `feat/config-path-resolver`.
+- [x] **Verify**: `npm run build && npm run lint:fast && npx jest src/tests/unit/config && npm run test:unit`
 - **Verification Proof**:
 ```text
-(Session 2026-09-25 : aucune ligne de code modifiée — preuve à déposer à l'exécution.)
+> hive-mind@1.0.0 build
+> tsc --noEmit
+(sortie vide = 0 erreur)
+
+> hive-mind@1.0.0 lint:fast
+> oxlint --deny-warnings src/
+Found 0 warnings and 0 errors.
+Finished in 257ms on 370 files with 96 rules using 4 threads.
+
+npx eslint src/config src/tests/unit/config --max-warnings=0
+(sortie vide = 0 erreur, 0 warning)
+
+npm run format:check
+All matched files use Prettier code style!
+
+NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit/config
+PASS src/tests/unit/config/ConfigIndex.test.ts
+PASS src/tests/unit/config/ConfigPathResolver.test.ts
+PASS src/tests/unit/config/keyResolver.test.ts
+PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
+PASS src/tests/unit/config/models_config_policy.test.ts
+Test Suites: 5 passed, 5 total
+Tests:       22 passed, 22 total
+Snapshots:   0 total
+Time:        2.101 s
+
+npm run test:unit
+Test Suites: 107 passed, 107 total
+Tests:       1084 passed, 1084 total
+Snapshots:   0 total
+Time:        34.802 s
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)

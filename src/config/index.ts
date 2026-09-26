@@ -4,10 +4,18 @@
  * Single entry point for all application settings with Zod validation.
  */
 
-import { safeReadFileSync, safeExistsSync, resolveWithinRoot } from '../utils/safeFs.js';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { envResolver } from '../services/envResolver.js';
+import {
+  resolveConfigPath,
+  resolveHiveHome,
+  resolveDataDir,
+  resolveTempDir,
+  resolveSandboxDir,
+  resolveUserConfigDir,
+  resolveProjectConfigDir,
+  resolveDefaultsConfigDir,
+} from './ConfigPathResolver.js';
 import {
   AppConfigSchema,
   ModelsConfigSchema,
@@ -16,8 +24,6 @@ import {
   ModelsConfig,
   SchedulerConfig,
 } from './config.schema.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Environment variables are loaded natively via --env-file
 
@@ -29,7 +35,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * @returns {T} - The validated configuration object.
  */
 function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSchema<T>): T {
-  const filePath = resolveWithinRoot(__dirname, filename);
+  const filePath = resolveConfigPath(filename);
   if (!safeExistsSync(filePath)) {
     console.warn(`[Config] File not found: ${filename}`);
     return {} as T;
@@ -57,7 +63,7 @@ function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSch
  * Loads a JSON file without validation (legacy support).
  */
 function loadJsonConfig(filename: string): Record<string, unknown> {
-  const filePath = resolveWithinRoot(__dirname, filename);
+  const filePath = resolveConfigPath(filename);
   if (!safeExistsSync(filePath)) return {};
   try {
     return JSON.parse(safeReadFileSync(filePath, 'utf-8')) as Record<string, unknown>;
@@ -183,3 +189,14 @@ export const config: HIVEConfig = {
 };
 
 export default config;
+
+export {
+  resolveConfigPath,
+  resolveHiveHome,
+  resolveDataDir,
+  resolveTempDir,
+  resolveSandboxDir,
+  resolveUserConfigDir,
+  resolveProjectConfigDir,
+  resolveDefaultsConfigDir,
+};
