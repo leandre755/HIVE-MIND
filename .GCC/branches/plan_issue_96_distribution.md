@@ -125,19 +125,19 @@ npx prettier --check src/config/ConfigPathResolver.ts src/tests/unit/config/Conf
 All matched files use Prettier code style!
 
 npm test -- src/tests/unit/config
-PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
 PASS src/tests/unit/config/ConfigIndex.test.ts
+PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
 PASS src/tests/unit/config/ConfigPathResolver.test.ts
-PASS src/tests/unit/config/models_config_policy.test.ts
 PASS src/tests/unit/config/keyResolver.test.ts
+PASS src/tests/unit/config/models_config_policy.test.ts
 Test Suites: 5 passed, 5 total
-Tests:       22 passed, 22 total
+Tests:       25 passed, 25 total
 Snapshots:   0 total
-Time:        2.066 s
+Time:        4.848 s
 
-PR #138 : Commit c9e71fc, diff 2484 lignes (< 2500 max).
-Résolution des retours Greptile P1 ID 4112258572 (refus absolu credentials dans defaults), P1 ID 4112258577 (repli templates embarqués si surcharge incomplète), et P2 ID 4112283118 (état exact des revues).
-Homologué APPROVE 100% Production-Grade par Fix-Verifier & Code Critic.
+PR #138 : Commits f2bec36, aa32eb0, b7d873a, a71f251, diff stabilisé à 2492 lignes (< 2500 max).
+Résolution des retours Macroscope Critical ID 4112513858 (frontière de confiance isProjectConfigAllowed avec opt-in explicite HIVE_TRUST_PROJECT_CONFIG pour models_config.json/credentials.json), Macroscope High ID 4112382929 & 4112510386 (priorité de HIVE_DEFAULTS_CONFIG_DIR sur le fallback legacy), Greptile P1 & P2, et couverture Codecov 100% sur ConfigPathResolver.ts.
+Homologué APPROVE 100% Production-Grade par Fix-Verifier et Global System Critic.
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)
