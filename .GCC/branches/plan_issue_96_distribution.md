@@ -57,11 +57,48 @@ Tests:       1066 passed, 1066 total
 
 ### Step 2: #132 — Registre statique des adapters providers (critère 1)
 
-- [ ] **Action**: créer `src/providers/adapters/registry.ts` (imports statiques des 8 adapters — openai, gemini, anthropic, groq, huggingface, cohere, cloudflare, modal — + `export const adapterRegistry: Record<string, ProviderAdapter>`) ; `loadAdapters()` (`src/providers/index.ts:1313-1332`) consomme le registre, suppression de la boucle `pathToFileURL(join(__dirname,'adapters',…)) + import(adapterUrl)`. Canal générique `GenericProviderAdapter`, idempotence `loadPromise` et `ServiceContainer.loadAdapters()` inchangés. Tests : complétude du registre + non-régression (aucun import calculé sur `adapters/`). Branche : `refactor/providers-static-registry`.
-- [ ] **Verify**: `npm run build && npm run lint:fast && npx jest src/tests/unit/providers && npm run test:unit`
+- [x] **Action**: créer `src/providers/adapters/registry.ts` (imports statiques des 8 adapters — openai, gemini, anthropic, groq, huggingface, cohere, cloudflare, modal — + `export const adapterRegistry: Readonly<Record<string, ProviderAdapter>>`) ; `loadAdapters()` (`src/providers/index.ts`) consomme le registre statique, suppression intégrale de la boucle d'imports dynamiques calculés et de `pathToFileURL`. Canal générique `GenericProviderAdapter`, idempotence `loadPromise` (retournant directement l'instance Promise) et compatibilité `ServiceContainer.loadAdapters()` préservés. Tests : complétude du registre (8 entrées) + conformité ProviderAdapter + idempotence + non-régression (aucun import calculé sur `adapters/`). Branche : `refactor/providers-static-registry`.
+- [x] **Verify**: `npm run build && npm run lint:fast && npm test -- src/tests/unit/providers && npm run test:unit`
 - **Verification Proof**:
 ```text
-(Session 2026-09-25 : aucune ligne de code modifiée — preuve à déposer à l'exécution.)
+npm run build
+> hive-mind@1.0.0 build
+> tsc --noEmit
+(0 erreur)
+
+npm run lint:fast
+> hive-mind@1.0.0 lint:fast
+> oxlint --deny-warnings src/
+Found 0 warnings and 0 errors.
+
+npm test -- src/tests/unit/providers/adapterRegistry.test.ts
+PASS src/tests/unit/providers/adapterRegistry.test.ts
+  Adapter Static Registry (#132)
+    ✓ expose exactement les 8 adaptateurs natifs attendus
+    ✓ est immuable via Object.freeze
+    ✓ fournit un adaptateur conforme pour la famille openai
+    ✓ fournit un adaptateur conforme pour la famille gemini
+    ✓ fournit un adaptateur conforme pour la famille anthropic
+    ✓ fournit un adaptateur conforme pour la famille groq
+    ✓ fournit un adaptateur conforme pour la famille huggingface
+    ✓ fournit un adaptateur conforme pour la famille cohere
+    ✓ fournit un adaptateur conforme pour la famille cloudflare
+    ✓ fournit un adaptateur conforme pour la famille modal
+    ✓ inclut la méthode embed pour les adaptateurs compatibles
+  Provider Router Adapter Loading (#132)
+    ✓ enregistre tous les adaptateurs du registre statique dans providerRouter.adapters
+    ✓ est idempotent lors d appels répétés à loadAdapters()
+    ✓ garantit l absence d import dynamique calculé sur adapters/ dans src/providers/index.ts
+Test Suites: 1 passed, 1 total
+Tests:       14 passed, 14 total
+
+npm test -- src/tests/unit/providers
+Test Suites: 12 passed, 12 total
+Tests:       200 passed, 200 total
+
+npm run test:unit
+Test Suites: 105 passed, 105 total
+Tests:       1080 passed, 1080 total
 ```
 
 ### Step 3: #133 — ConfigPathResolver + defaults embarqués (critères 3-4, fondation)

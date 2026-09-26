@@ -3,8 +3,9 @@
 // Model Provider Layer - Routeur multi-familles
 
 import { dirname, join } from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
 import { safeReadFileSync } from '../utils/safeFs.js';
+import { adapterRegistry } from './adapters/registry.js';
 // LLM classifier permanently disabled — category is now always
 // provided by the caller (e.g. category: 'AGENTIC') or defaults to AGENTIC.
 import { envResolver } from '../services/envResolver.js';
@@ -1277,9 +1278,8 @@ export const providerRouter = new ProviderRouter();
 /**
  * Auto-import des adaptateurs disponibles, via deux canaux complémentaires :
  *
- * 1. **Fichiers natifs conservés** de `adapters/` (cf. `adapterMapping`) :
- *    import dynamique silencieusement ignoré quand le fichier est absent
- *    (`MODULE_NOT_FOUND`).
+ * 1. **Fichiers natifs conservés** de `adapters/` (via `adapterRegistry`) :
+ *    import statique direct éliminant tout import dynamique calculé au runtime.
  * 2. **Déclaration JSON générique** : chaque famille de `models_config.json`
  *    (`familles`) non couverte par un fichier natif est enregistrée avec un
  *    `GenericProviderAdapter` piloté par ses clés `protocol_family` /
@@ -1292,43 +1292,13 @@ export const providerRouter = new ProviderRouter();
  * for code paths that import providerRouter without going through the container.
  */
 let loadPromise: Promise<void> | null = null;
-export async function loadAdapters(): Promise<void> {
+export function loadAdapters(): Promise<void> {
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
-    // Mapping: nom du fichier adaptateur → nom(s) à enregistrer.
-    // Restreint aux familles natives CONSERVÉES en fichiers dédiés ; toute
-    // autre famille du JSON est servie par le canal générique ci-dessous.
-    const adapterMapping = {
-      openai: ['openai'],
-      gemini: ['gemini'],
-      anthropic: ['anthropic'],
-      groq: ['groq'],
-      huggingface: ['huggingface'],
-      cohere: ['cohere'],
-      cloudflare: ['cloudflare'],
-      modal: ['modal'],
-    };
-
-    for (const [fileName, registerNames] of Object.entries(adapterMapping)) {
-      try {
-        const adapterPath = join(__dirname, 'adapters', `${fileName}.js`);
-        const adapterUrl = pathToFileURL(adapterPath).href;
-        const adapter = await import(adapterUrl);
-
-        // Enregistrer l'adaptateur sous tous les noms associés
-        for (const name of registerNames) {
-          providerRouter.registerAdapter(name, adapter.default);
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (
-          errorMessage.indexOf('ERR_MODULE_NOT_FOUND') === -1 &&
-          errorMessage.indexOf('MODULE_NOT_FOUND') === -1
-        ) {
-          console.error('[Router Debug] Erreur de chargement pour %s:', fileName, error);
-        }
-      }
+    // 1. Enregistrement des adaptateurs natifs depuis le registre statique
+    for (const [name, adapter] of Object.entries(adapterRegistry)) {
+      providerRouter.registerAdapter(name, adapter);
     }
 
     // Canal générique : chaque famille déclarée dans le JSON sans fichier
