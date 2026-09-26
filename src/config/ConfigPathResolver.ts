@@ -10,8 +10,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { safeExistsSync, resolveWithinRoot } from '../utils/safeFs.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const DEFAULTS_CONFIG_DIR = resolveWithinRoot(__dirname, 'defaults');
 
@@ -36,52 +35,54 @@ export function sanitizeFilename(filename: string): string {
   return clean;
 }
 
+const getEnvDir = (v?: string): string | undefined => (v?.trim() ? resolve(v.trim()) : undefined);
+
 export const resolveHiveHome = (): string =>
-  process.env.HIVE_HOME_DIR?.trim()
-    ? resolve(process.env.HIVE_HOME_DIR.trim())
-    : join(homedir(), '.hivemind');
+  getEnvDir(process.env.HIVE_HOME_DIR) ?? join(homedir(), '.hivemind');
 export const resolveUserConfigDir = (): string => join(resolveHiveHome(), 'config');
-export const resolveXdgConfigDir = (): string =>
-  process.env.XDG_CONFIG_HOME?.trim()
-    ? join(resolve(process.env.XDG_CONFIG_HOME.trim()), 'hive-mind')
-    : join(homedir(), '.config', 'hive-mind');
+export const resolveXdgConfigDir = (): string => {
+  const xdg = getEnvDir(process.env.XDG_CONFIG_HOME);
+  return xdg ? join(xdg, 'hive-mind') : join(homedir(), '.config', 'hive-mind');
+};
 export const resolveProjectConfigDir = (): string => join(process.cwd(), 'config');
 export const resolveDefaultsConfigDir = (): string =>
-  process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim()
-    ? resolve(process.env.HIVE_DEFAULTS_CONFIG_DIR.trim())
-    : DEFAULTS_CONFIG_DIR;
+  getEnvDir(process.env.HIVE_DEFAULTS_CONFIG_DIR) ?? DEFAULTS_CONFIG_DIR;
 export const resolveLegacyConfigDir = (): string =>
-  process.env.HIVE_LEGACY_CONFIG_DIR?.trim()
-    ? resolve(process.env.HIVE_LEGACY_CONFIG_DIR.trim())
-    : dirname(DEFAULTS_CONFIG_DIR);
+  getEnvDir(process.env.HIVE_LEGACY_CONFIG_DIR) ?? dirname(DEFAULTS_CONFIG_DIR);
 
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
-  const envVal = Reflect.get(
-    process.env,
-    `HIVE_CONFIG_${cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
-  );
-  return typeof envVal === 'string' && envVal.trim().length > 0
-    ? resolve(envVal.trim())
-    : undefined;
+  const key = `HIVE_CONFIG_${cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`;
+  return getEnvDir(Reflect.get(process.env, key));
 }
 
-export function resolveConfigPath(filename: string): string {
-  const cleanName = sanitizeFilename(filename);
+function isProjectConfigAllowed(cleanName: string): boolean {
+  if (!['credentials.json', 'models_config.json'].includes(cleanName.toLowerCase())) return true;
+  return ['true', '1'].includes(process.env.HIVE_TRUST_PROJECT_CONFIG?.trim().toLowerCase() ?? '');
+}
 
-  // 1.a Variable d'environnement spécifique au fichier
+function resolveEnvCandidate(cleanName: string): string | undefined {
   const fileSpecificPath = getFileSpecificEnvPath(cleanName);
   if (fileSpecificPath && safeExistsSync(fileSpecificPath)) return fileSpecificPath;
-
-  // 1.b Variable d'environnement HIVE_CONFIG_DIR
   const envConfigDir = process.env.HIVE_CONFIG_DIR?.trim();
   if (envConfigDir) {
     const candidate = resolve(join(envConfigDir, cleanName));
     if (safeExistsSync(candidate)) return candidate;
   }
+  return undefined;
+}
 
-  // 2. Dossier de projet courant ./config/
-  const projectCandidate = resolve(join(resolveProjectConfigDir(), cleanName));
-  if (safeExistsSync(projectCandidate)) return projectCandidate;
+export function resolveConfigPath(filename: string): string {
+  const cleanName = sanitizeFilename(filename);
+
+  // 1. Variables d'environnement
+  const envCandidate = resolveEnvCandidate(cleanName);
+  if (envCandidate) return envCandidate;
+
+  // 2. Dossier de projet courant ./config/ (restreint pour les configs sensibles sans opt-in explicite)
+  if (isProjectConfigAllowed(cleanName)) {
+    const projectCandidate = resolve(join(resolveProjectConfigDir(), cleanName));
+    if (safeExistsSync(projectCandidate)) return projectCandidate;
+  }
 
   // 3. Dossier utilisateur unifié ~/.hivemind/config/
   const userCandidate = resolve(join(resolveUserConfigDir(), cleanName));
@@ -91,33 +92,24 @@ export function resolveConfigPath(filename: string): string {
   const xdgCandidate = resolve(join(resolveXdgConfigDir(), cleanName));
   if (safeExistsSync(xdgCandidate)) return xdgCandidate;
 
+  // Surcharge explicite des defaults avant le dossier hérité
+  const isCustomDefaults = !!process.env.HIVE_DEFAULTS_CONFIG_DIR?.trim();
+  if (isCustomDefaults && cleanName.toLowerCase() !== 'credentials.json') {
+    const customCandidate = resolveWithinRoot(resolveDefaultsConfigDir(), cleanName);
+    if (safeExistsSync(customCandidate)) return customCandidate;
+  }
+
   // 4.b Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
-  const legacyDir = resolveLegacyConfigDir();
-  try {
-    const legacyCandidate = resolveWithinRoot(legacyDir, cleanName);
-    if (safeExistsSync(legacyCandidate)) {
-      warnLegacyLocation(legacyCandidate);
-      return legacyCandidate;
-    }
-  } catch {
-    // Si cleanName tente de sortir de legacyDir
+  const legacyCandidate = resolveWithinRoot(resolveLegacyConfigDir(), cleanName);
+  if (safeExistsSync(legacyCandidate)) {
+    warnLegacyLocation(legacyCandidate);
+    return legacyCandidate;
   }
 
   // 5. Defaults embarqués (exclus strictement pour credentials.json)
   if (cleanName.toLowerCase() !== 'credentials.json') {
-    const customDir = resolveDefaultsConfigDir();
-    const tryDir = (d: string) => {
-      try {
-        const c = resolveWithinRoot(d, cleanName);
-        return safeExistsSync(c) ? c : undefined;
-      } catch {
-        return undefined;
-      }
-    };
-    const hit =
-      tryDir(customDir) ||
-      (customDir !== DEFAULTS_CONFIG_DIR ? tryDir(DEFAULTS_CONFIG_DIR) : undefined);
-    if (hit) return hit;
+    const embeddedCandidate = resolveWithinRoot(DEFAULTS_CONFIG_DIR, cleanName);
+    if (safeExistsSync(embeddedCandidate)) return embeddedCandidate;
   }
 
   // Repli final prévisible vers l'espace utilisateur pour création future
@@ -125,16 +117,17 @@ export function resolveConfigPath(filename: string): string {
 }
 
 export function resolveDataDir(sub?: string): string {
-  const storage = process.env.STORAGE_DIR?.trim();
-  if (sub === 'storage' && storage) return resolve(storage);
-  const data = process.env.HIVE_DATA_DIR?.trim();
-  const base = data ? resolve(data) : join(resolveHiveHome(), 'data');
+  const storage = getEnvDir(process.env.STORAGE_DIR);
+  if (sub === 'storage' && storage) return storage;
+  const base = getEnvDir(process.env.HIVE_DATA_DIR) ?? join(resolveHiveHome(), 'data');
   return sub?.trim() ? resolveWithinRoot(base, sub.trim()) : base;
 }
 
 export const resolveTempDir = (sub?: string): string => {
-  const envTemp = process.env.HIVE_TEMP_DIR?.trim() || process.env.HIVE_SANDBOX_DIR?.trim();
-  const base = envTemp ? resolve(envTemp) : join(homedir(), '.sandbox1');
+  const base =
+    getEnvDir(process.env.HIVE_TEMP_DIR) ??
+    getEnvDir(process.env.HIVE_SANDBOX_DIR) ??
+    join(homedir(), '.sandbox1');
   return sub?.trim() ? resolveWithinRoot(base, sub.trim()) : base;
 };
 export const resolveSandboxDir = (sub?: string): string => resolveTempDir(sub);

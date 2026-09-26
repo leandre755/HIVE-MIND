@@ -30,13 +30,11 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    ['HIVE_DEFAULTS_CONFIG_DIR', 'HIVE_LEGACY_CONFIG_DIR', 'HIVE_TRUST_PROJECT_CONFIG'].forEach(
+      (k) => Reflect.deleteProperty(process.env, k),
+    );
     Object.keys(process.env)
-      .filter(
-        (k) =>
-          k.startsWith('HIVE_CONFIG_') ||
-          k === 'HIVE_DEFAULTS_CONFIG_DIR' ||
-          k === 'HIVE_LEGACY_CONFIG_DIR',
-      )
+      .filter((k) => k.startsWith('HIVE_CONFIG_'))
       .forEach((k) => Reflect.deleteProperty(process.env, k));
   });
   afterEach(() => {
@@ -76,15 +74,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
       usrPath: join(env.userHome, '.hivemind', 'config', fn),
       xdgPath: join(env.xdgConfigHome, 'hive-mind', fn),
     };
-    (
-      [
-        [res.fileSpec, 'file_specific'],
-        [res.envPath, 'env'],
-        [res.prjPath, 'project'],
-        [res.usrPath, 'user'],
-        [res.xdgPath, 'xdg'],
-      ] as const
-    ).forEach(([p, s]) => safeWriteFileSync(p, `{"source":"${s}"}`));
+    Object.values(res).forEach((p) => safeWriteFileSync(p, '{"source":"test"}'));
     return res;
   }
 
@@ -94,7 +84,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     process.chdir(env.projectDir);
   }
 
-  it('Priority 1.a: should prioritize file-specific environment variable over all others', () => {
+  it('Priority 1.a: should prioritize file-specific env var over all others', () => {
     const env = createTempEnvironment(),
       { fileSpec } = seedFiles(env, 'models_config.json');
     process.env.HIVE_CONFIG_MODELS_CONFIG_JSON = fileSpec;
@@ -111,11 +101,23 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     expect(resolveConfigPath('config.json')).toBe(resolve(envPath));
   });
 
-  it('Priority 2: should prioritize project ./config/ when environment variables are unset', () => {
+  it('Priority 2: should prioritize project ./config/ when env vars are unset', () => {
     const env = createTempEnvironment(),
       { prjPath } = seedFiles(env, 'scheduler.json');
     applyEnv(env);
     expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjPath));
+  });
+
+  it('Priority 2: should reject project ./config/ for models_config.json without trust opt-in', () => {
+    const env = createTempEnvironment();
+    const malicious = resolve(join(env.projectDir, 'config', 'models_config.json'));
+    safeWriteFileSync(malicious, '{"malicious":true}');
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
+    process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
+    applyEnv(env);
+    expect(resolveConfigPath('models_config.json')).not.toBe(malicious);
+    process.env.HIVE_TRUST_PROJECT_CONFIG = 'true';
+    expect(resolveConfigPath('models_config.json')).toBe(malicious);
   });
 
   it('Priority 3: should prioritize user unified ~/.hivemind/config/ when project config is absent', () => {
@@ -127,7 +129,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     expect(resolveConfigPath('pricing.json')).toBe(resolve(usrPath));
   });
 
-  it('Priority 4: should prioritize XDG fallback ~/.config/hive-mind/ when unified user config is absent', () => {
+  it('Priority 4: should prioritize XDG fallback when unified user config is absent', () => {
     const env = createTempEnvironment(),
       xdgPath = join(env.xdgConfigHome, 'hive-mind', 'services_config.json');
     safeWriteFileSync(xdgPath, '{"source":"xdg"}');
@@ -135,25 +137,31 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     expect(resolveConfigPath('services_config.json')).toBe(resolve(xdgPath));
   });
 
-  it('Priority 4.b: should fall back to legacy module directory with warning when project/user configs are absent', () => {
+  it('Priority 4.b: should fall back to legacy module directory with warning', () => {
     const env = createTempEnvironment();
     applyEnv(env);
     clearLegacyWarningsCache();
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const creds = resolveConfigPath('credentials.json'),
-        models = resolveConfigPath('models_config.json');
-      const isLegacy = (p: string, f: string) =>
-        safeExistsSync(p) && p.endsWith(join('src', 'config', f));
-      expect(isLegacy(creds, 'credentials.json') && isLegacy(models, 'models_config.json')).toBe(
-        true,
-      );
+      const isLegacy = (f: string) => resolveConfigPath(f).endsWith(join('src', 'config', f));
+      expect(isLegacy('credentials.json') && isLegacy('models_config.json')).toBe(true);
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Legacy config location in use'),
       );
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  it('Priority 5: should prioritize overridden HIVE_DEFAULTS_CONFIG_DIR over legacy fallback', () => {
+    const env = createTempEnvironment();
+    const customDefaultsFile = join(env.defaultsDir, 'config.json');
+    safeWriteFileSync(customDefaultsFile, '{"source":"overridden_defaults"}');
+    safeWriteFileSync(join(env.envDir, 'config.json'), '{"source":"legacy"}');
+    process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
+    applyEnv(env);
+    expect(resolveConfigPath('config.json')).toBe(resolve(customDefaultsFile));
   });
 
   it('Priority 5: should fall back to embedded defaults for template files without legacy override', () => {
@@ -172,12 +180,11 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
     applyEnv(env);
     safeWriteFileSync(join(env.defaultsDir, 'credentials.json'), '{"apiKey":"fake"}');
-    expect(resolveConfigPath('credentials.json')).toBe(
-      resolve(join(env.userHome, '.hivemind', 'config', 'credentials.json')),
-    );
+    const expected = resolve(join(env.userHome, '.hivemind', 'config', 'credentials.json'));
+    expect(resolveConfigPath('credentials.json')).toBe(expected);
   });
 
-  it('Priority 5: should fall back to embedded DEFAULTS_CONFIG_DIR when HIVE_DEFAULTS_CONFIG_DIR is incomplete', () => {
+  it('Priority 5: should fall back to embedded defaults when custom defaults are incomplete', () => {
     const env = createTempEnvironment();
     process.env.HIVE_DEFAULTS_CONFIG_DIR = env.defaultsDir;
     process.env.HIVE_LEGACY_CONFIG_DIR = env.envDir;
@@ -190,8 +197,7 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     const env = createTempEnvironment(),
       missingName = `unknown_${randomUUID()}.json`;
     applyEnv(env);
-    expect(resolveConfigPath(missingName)).toBe(
-      resolve(join(env.userHome, '.hivemind', 'config', missingName)),
-    );
+    const expected = resolve(join(env.userHome, '.hivemind', 'config', missingName));
+    expect(resolveConfigPath(missingName)).toBe(expected);
   });
 });

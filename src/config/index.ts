@@ -6,16 +6,7 @@
 
 import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { envResolver } from '../services/envResolver.js';
-import {
-  resolveConfigPath,
-  resolveHiveHome,
-  resolveDataDir,
-  resolveTempDir,
-  resolveSandboxDir,
-  resolveUserConfigDir,
-  resolveProjectConfigDir,
-  resolveDefaultsConfigDir,
-} from './ConfigPathResolver.js';
+import { resolveConfigPath } from './ConfigPathResolver.js';
 import {
   AppConfigSchema,
   ModelsConfigSchema,
@@ -190,13 +181,4 @@ export const config: HIVEConfig = {
 
 export default config;
 
-export {
-  resolveConfigPath,
-  resolveHiveHome,
-  resolveDataDir,
-  resolveTempDir,
-  resolveSandboxDir,
-  resolveUserConfigDir,
-  resolveProjectConfigDir,
-  resolveDefaultsConfigDir,
-};
+export * from './ConfigPathResolver.js';

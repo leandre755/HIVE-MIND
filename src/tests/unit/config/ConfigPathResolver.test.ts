@@ -31,15 +31,16 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
       const defaultsDir = resolveDefaultsConfigDir();
       expect(safeExistsSync(join(defaultsDir, 'credentials.json'))).toBe(false);
 
-      for (const t of [
+      const list = [
         'config.json',
         'models_config.json',
         'scheduler.json',
         'services_config.json',
         'pricing.json',
-      ]) {
-        const def = join(defaultsDir, t),
-          orig = join(defaultsDir, '..', t);
+      ];
+      for (const t of list) {
+        const def = join(defaultsDir, t);
+        const orig = join(defaultsDir, '..', t);
         expect(safeExistsSync(def)).toBe(true);
         if (safeExistsSync(orig))
           expect(safeReadFileSync(def, 'utf-8')).toBe(safeReadFileSync(orig, 'utf-8'));
@@ -69,7 +70,6 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
 
       process.env.HIVE_DEFAULTS_CONFIG_DIR = '/custom/defaults';
       expect(resolveDefaultsConfigDir()).toBe(resolve('/custom/defaults'));
-
       process.env.HIVE_HOME_DIR = '/custom/hive-home';
       process.env.XDG_CONFIG_HOME = '/custom/xdg';
       expect(resolveHiveHome()).toBe(resolve('/custom/hive-home'));
@@ -88,36 +88,29 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
     });
 
     it('should resolve data and temp/sandbox directories with env overrides', () => {
-      for (const v of [
+      const vars = [
         'HIVE_HOME_DIR',
         'HIVE_DATA_DIR',
         'STORAGE_DIR',
         'HIVE_TEMP_DIR',
         'HIVE_SANDBOX_DIR',
-      ]) {
-        Reflect.deleteProperty(process.env, v);
-      }
+      ];
+      vars.forEach((v) => Reflect.deleteProperty(process.env, v));
       expect(resolveDataDir()).toBe(join(homedir(), '.hivemind', 'data'));
       expect(resolveDataDir('mediaDB')).toBe(join(homedir(), '.hivemind', 'data', 'mediaDB'));
       expect(resolveTempDir()).toBe(join(homedir(), '.sandbox1'));
       expect(resolveSandboxDir('downloads')).toBe(join(homedir(), '.sandbox1', 'downloads'));
-
       process.env.STORAGE_DIR = '/mnt/custom-storage';
       expect(resolveDataDir('storage')).toBe(resolve('/mnt/custom-storage'));
-
       process.env.HIVE_DATA_DIR = '/mnt/hive-data';
       expect(resolveDataDir('sub')).toBe(join(resolve('/mnt/hive-data'), 'sub'));
-
-      process.env.HIVE_TEMP_DIR = join(homedir(), '.custom-sandbox');
-      expect(resolveTempDir('test')).toBe(
-        join(resolve(join(homedir(), '.custom-sandbox')), 'test'),
-      );
-
+      const customSandbox = join(homedir(), '.custom-sandbox');
+      process.env.HIVE_TEMP_DIR = customSandbox;
+      expect(resolveTempDir('test')).toBe(join(customSandbox, 'test'));
       Reflect.deleteProperty(process.env, 'HIVE_TEMP_DIR');
-      process.env.HIVE_SANDBOX_DIR = join(homedir(), '.sandbox-override');
-      expect(resolveSandboxDir('test')).toBe(
-        join(resolve(join(homedir(), '.sandbox-override')), 'test'),
-      );
+      const customOverride = join(homedir(), '.sandbox-override');
+      process.env.HIVE_SANDBOX_DIR = customOverride;
+      expect(resolveSandboxDir('test')).toBe(join(customOverride, 'test'));
     });
   });
 });
