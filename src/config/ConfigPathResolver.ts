@@ -15,6 +15,19 @@ const __dirname = dirname(__filename);
 
 export const DEFAULTS_CONFIG_DIR = resolveWithinRoot(__dirname, 'defaults');
 
+const warnedLegacyPaths = new Set<string>();
+
+export function clearLegacyWarningsCache(): void {
+  warnedLegacyPaths.clear();
+}
+
+function warnLegacyLocation(path: string): void {
+  if (!warnedLegacyPaths.has(path)) {
+    warnedLegacyPaths.add(path);
+    console.warn(`[Config] Legacy config location in use: ${path}`);
+  }
+}
+
 export function sanitizeFilename(filename: string): string {
   const clean = basename(filename).trim();
   if (!clean || clean === '.' || clean === '..') {
@@ -23,27 +36,17 @@ export function sanitizeFilename(filename: string): string {
   return clean;
 }
 
-export function resolveHiveHome(): string {
+export const resolveHiveHome = (): string => {
   const env = process.env.HIVE_HOME_DIR?.trim();
   return env ? resolve(env) : join(homedir(), '.hivemind');
-}
-
-export function resolveUserConfigDir(): string {
-  return join(resolveHiveHome(), 'config');
-}
-
-export function resolveXdgConfigDir(): string {
+};
+export const resolveUserConfigDir = (): string => join(resolveHiveHome(), 'config');
+export const resolveXdgConfigDir = (): string => {
   const env = process.env.XDG_CONFIG_HOME?.trim();
   return env ? join(resolve(env), 'hive-mind') : join(homedir(), '.config', 'hive-mind');
-}
-
-export function resolveProjectConfigDir(): string {
-  return join(process.cwd(), 'config');
-}
-
-export function resolveDefaultsConfigDir(): string {
-  return DEFAULTS_CONFIG_DIR;
-}
+};
+export const resolveProjectConfigDir = (): string => join(process.cwd(), 'config');
+export const resolveDefaultsConfigDir = (): string => DEFAULTS_CONFIG_DIR;
 
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
   const normalized = cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
@@ -81,6 +84,18 @@ export function resolveConfigPath(filename: string): string {
   const xdgCandidate = resolve(join(resolveXdgConfigDir(), cleanName));
   if (safeExistsSync(xdgCandidate)) return xdgCandidate;
 
+  // 4.b Dossier hérité du module src/config/ (fallback de rétro-compatibilité)
+  const legacyDir = dirname(DEFAULTS_CONFIG_DIR);
+  try {
+    const legacyCandidate = resolveWithinRoot(legacyDir, cleanName);
+    if (safeExistsSync(legacyCandidate)) {
+      warnLegacyLocation(legacyCandidate);
+      return legacyCandidate;
+    }
+  } catch {
+    // Si cleanName tente de sortir de legacyDir
+  }
+
   // 5. Defaults embarqués
   const defaultsCandidate = resolveWithinRoot(resolveDefaultsConfigDir(), cleanName);
   if (safeExistsSync(defaultsCandidate)) return defaultsCandidate;
@@ -94,15 +109,12 @@ export function resolveDataDir(sub?: string): string {
   if (sub === 'storage' && storage) return resolve(storage);
   const data = process.env.HIVE_DATA_DIR?.trim();
   const base = data ? resolve(data) : join(resolveHiveHome(), 'data');
-  return sub?.trim() ? join(base, sub.trim()) : base;
+  return sub?.trim() ? resolveWithinRoot(base, sub.trim()) : base;
 }
 
-export function resolveTempDir(sub?: string): string {
-  const temp = (process.env.HIVE_TEMP_DIR || process.env.HIVE_SANDBOX_DIR)?.trim();
-  const base = temp ? resolve(temp) : join(homedir(), '.sandbox1');
-  return sub?.trim() ? join(base, sub.trim()) : base;
-}
-
-export function resolveSandboxDir(sub?: string): string {
-  return resolveTempDir(sub);
-}
+export const resolveTempDir = (sub?: string): string => {
+  const envTemp = process.env.HIVE_TEMP_DIR?.trim() || process.env.HIVE_SANDBOX_DIR?.trim();
+  const base = envTemp ? resolve(envTemp) : join(homedir(), '.sandbox1');
+  return sub?.trim() ? resolveWithinRoot(base, sub.trim()) : base;
+};
+export const resolveSandboxDir = (sub?: string): string => resolveTempDir(sub);

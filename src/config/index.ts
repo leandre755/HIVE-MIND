@@ -34,7 +34,7 @@ import {
  * @param {import('zod').ZodSchema<T>} schema - The Zod schema for validation.
  * @returns {T} - The validated configuration object.
  */
-function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSchema<T>): T {
+export function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSchema<T>): T {
   const filePath = resolveConfigPath(filename);
   if (!safeExistsSync(filePath)) {
     console.warn(`[Config] File not found: ${filename}`);
@@ -62,7 +62,7 @@ function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSch
 /**
  * Loads a JSON file without validation (legacy support).
  */
-function loadJsonConfig(filename: string): Record<string, unknown> {
+export function loadJsonConfig(filename: string): Record<string, unknown> {
   const filePath = resolveConfigPath(filename);
   if (!safeExistsSync(filePath)) return {};
   try {

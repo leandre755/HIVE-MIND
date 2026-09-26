@@ -77,7 +77,7 @@ Tests:       1066 passed, 1066 total
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 257ms on 370 files with 96 rules using 4 threads.
+Finished in 169ms on 370 files with 96 rules using 4 threads.
 
 npx eslint src/config src/tests/unit/config --max-warnings=0
 (sortie vide = 0 erreur, 0 warning)
@@ -85,22 +85,22 @@ npx eslint src/config src/tests/unit/config --max-warnings=0
 npm run format:check
 All matched files use Prettier code style!
 
-NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=redis://localhost:6379 NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest src/tests/unit/config
-PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
+npm test -- src/tests/unit/config
 PASS src/tests/unit/config/ConfigIndex.test.ts
+PASS src/tests/unit/config/ConfigPathResolverHierarchy.test.ts
 PASS src/tests/unit/config/keyResolver.test.ts
-PASS src/tests/unit/config/ConfigPathResolver.test.ts
 PASS src/tests/unit/config/models_config_policy.test.ts
+PASS src/tests/unit/config/ConfigPathResolver.test.ts
 Test Suites: 5 passed, 5 total
-Tests:       16 passed, 16 total
+Tests:       20 passed, 20 total
 Snapshots:   0 total
-Time:        1.279 s
+Time:        2.829 s
 
 npm run test:unit
 Test Suites: 107 passed, 107 total
-Tests:       1084 passed, 1084 total
+Tests:       1082 passed, 1082 total
 Snapshots:   0 total
-Time:        34.802 s
+Time:        81.52 s
 ```
 
 ### Step 4: #134 — Migration des consommateurs de config (fin des critères 3-4)

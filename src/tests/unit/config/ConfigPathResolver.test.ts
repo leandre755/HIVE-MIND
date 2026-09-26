@@ -21,7 +21,7 @@ import {
   resolveSandboxDir,
   sanitizeFilename,
 } from '../../../config/ConfigPathResolver.js';
-import { safeExistsSync } from '../../../utils/safeFs.js';
+import { safeExistsSync, safeReadFileSync } from '../../../utils/safeFs.js';
 
 describe('ConfigPathResolver Security & Spaces (#133)', () => {
   const originalEnv = { ...process.env };
@@ -35,19 +35,22 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
   });
 
   describe('Security Invariants & Defaults Integrity', () => {
-    it('should strictly exclude credentials.json from defaults and contain 5 templates', () => {
+    it('should strictly exclude credentials.json from defaults and contain 5 matching templates', () => {
       const defaultsDir = resolveDefaultsConfigDir();
       expect(safeExistsSync(join(defaultsDir, 'credentials.json'))).toBe(false);
 
-      const templates = [
+      for (const t of [
         'config.json',
         'models_config.json',
         'scheduler.json',
         'services_config.json',
         'pricing.json',
-      ];
-      for (const t of templates) {
-        expect(safeExistsSync(join(defaultsDir, t))).toBe(true);
+      ]) {
+        const def = join(defaultsDir, t),
+          orig = join(defaultsDir, '..', t);
+        expect(safeExistsSync(def)).toBe(true);
+        if (safeExistsSync(orig))
+          expect(safeReadFileSync(def, 'utf-8')).toBe(safeReadFileSync(orig, 'utf-8'));
       }
     });
 
@@ -55,10 +58,8 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
       expect(sanitizeFilename('config.json')).toBe('config.json');
       expect(sanitizeFilename('../secret.json')).toBe('secret.json');
       expect(sanitizeFilename('/etc/passwd')).toBe('passwd');
-      expect(() => sanitizeFilename('')).toThrow(/Invalid configuration filename/);
-      expect(() => sanitizeFilename('   ')).toThrow(/Invalid configuration filename/);
-      expect(() => sanitizeFilename('.')).toThrow(/Invalid configuration filename/);
-      expect(() => sanitizeFilename('..')).toThrow(/Invalid configuration filename/);
+      for (const inv of ['', '   ', '.', '..'])
+        expect(() => sanitizeFilename(inv)).toThrow(/Invalid configuration filename/);
     });
   });
 
@@ -77,12 +78,27 @@ describe('ConfigPathResolver Security & Spaces (#133)', () => {
       expect(resolveXdgConfigDir()).toBe(join(resolve('/custom/xdg'), 'hive-mind'));
     });
 
+    it('should prevent path traversal outside root in data and sandbox resolvers', () => {
+      expect(() => resolveDataDir('../outside')).toThrow(/outside allowed root/);
+      expect(() => resolveSandboxDir('../../etc/passwd')).toThrow(/outside allowed root/);
+    });
+
+    it('should ignore whitespace-only HIVE_TEMP_DIR and choose HIVE_SANDBOX_DIR', () => {
+      process.env.HIVE_TEMP_DIR = '   ';
+      process.env.HIVE_SANDBOX_DIR = '/custom/sandbox';
+      expect(resolveSandboxDir()).toBe(resolve('/custom/sandbox'));
+    });
+
     it('should resolve data and temp/sandbox directories with env overrides', () => {
-      delete process.env.HIVE_HOME_DIR;
-      delete process.env.HIVE_DATA_DIR;
-      delete process.env.STORAGE_DIR;
-      delete process.env.HIVE_TEMP_DIR;
-      delete process.env.HIVE_SANDBOX_DIR;
+      for (const v of [
+        'HIVE_HOME_DIR',
+        'HIVE_DATA_DIR',
+        'STORAGE_DIR',
+        'HIVE_TEMP_DIR',
+        'HIVE_SANDBOX_DIR',
+      ]) {
+        Reflect.deleteProperty(process.env, v);
+      }
 
       expect(resolveDataDir()).toBe(join(homedir(), '.hivemind', 'data'));
       expect(resolveDataDir('mediaDB')).toBe(join(homedir(), '.hivemind', 'data', 'mediaDB'));
