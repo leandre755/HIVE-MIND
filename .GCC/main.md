@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Renforcement Discriminant du Test d'Isolation des Credentials (#133 / PR #138)**
+  - **Context**: Retour de revue Greptile P2 (ID 4113623542) sur la PR #138 : dans `ConfigIndex.test.ts`, l'assertion d'isolation de `HIVE_CONFIG_CREDENTIALS_JSON` avec un secret non monté s'exécutait après qu'un test précédent eut écrit `null` dans le fichier utilisateur `~/.hivemind/config/credentials.json`. Même en cas de régression accidentelle réactivant la fusion, le test renvoyait `prjCreds` sans détecter la fuite de clés.
+  - **Discarded Options**: Conserver le test en l'état (rejeté : faux négatif potentiel en cas de régression future de l'isolation).
+  - **Rationale**: Restauration explicite des clés utilisateur réelles (`userCreds` contenant `gemini: 'u-gemini'`) avant l'assertion d'isolation sur `unmounted.json`. Si une régression fusionnait indûment les identifiants utilisateur globaux, la clé `gemini` fuirait et briserait immédiatement le test unitaire. 100% couverture et 2497 LoC maintenus.
+
 - [2026-09-27] **Préservation de la Fusion des Credentials en cas de Repli HIVE_CONFIG_DIR sans Fichier Credentials (#133 / PR #138)**
   - **Context**: Retours de revue Greptile sur la PR #138 (Findings P1 ID 4113504822 & ID 4113563965) : (1) Si `HIVE_CONFIG_DIR` est défini sans `credentials.json`, le résolveur doit fusionner les clés globales `~/.hivemind/config/credentials.json` lors du repli sur `./config/credentials.json` pour éviter les erreurs 401 ; (2) Si `HIVE_CONFIG_CREDENTIALS_JSON` est défini, la désignation est spécifique et doit rester strictement isolée sans jamais réutiliser les clés personnelles, même si le secret n'est pas encore monté sur disque.
   - **Discarded Options**: Soumettre `HIVE_CONFIG_CREDENTIALS_JSON` à un contrôle d'existence sur disque (rejeté : risque de réutiliser silencieusement des clés personnelles si le montage est différé) ; considérer tout `HIVE_CONFIG_DIR` comme isolant les credentials même sans fichier (rejeté : régression 401).

@@ -85,12 +85,12 @@ describe('src/config/index.ts Integration', () => {
       safeWriteFileSync(isoPath, JSON.stringify(iso));
       process.env.HIVE_CONFIG_CREDENTIALS_JSON = isoPath;
       expect(loadJsonConfig('credentials.json')).toEqual(iso);
+      safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds));
       process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(tempBase, 'unmounted.json');
       expect(loadJsonConfig('credentials.json')).toEqual(prjCreds);
       Reflect.deleteProperty(process.env, 'HIVE_CONFIG_CREDENTIALS_JSON');
       process.env.HIVE_CONFIG_DIR = prjCfgDir;
       expect(loadJsonConfig('credentials.json')).toEqual(prjCreds);
-      safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds));
       process.env.HIVE_CONFIG_DIR = join(tempBase, 'empty');
       chk({ project_id: 'p1', familles_ia: fam1, default_provider: 'gemini' });
       Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR');
