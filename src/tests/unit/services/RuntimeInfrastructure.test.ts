@@ -106,13 +106,41 @@ describe('AIRuntimeInfrastructure', () => {
       });
     });
 
-    it('should fallback to default pricing when pricing.json is corrupted or unreadable', () => {
+    it('should fallback to default pricing when pricing.json contains invalid JSON syntax', () => {
       withPricingConfig('{ broken: json', (fallbackRuntime) => {
         const usage = fallbackRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
         expect(usage.inputCost).toBeCloseTo(0.15, 4);
         expect(usage.outputCost).toBeCloseTo(0.6, 4);
         expect(usage.totalCost).toBeCloseTo(0.75, 4);
       });
+    });
+
+    it('should fallback to default pricing when pricing.json path cannot be read from filesystem', () => {
+      const tempDir = join(tmpdir(), `finops-pricing-dir-${randomUUID()}`);
+      safeMkdirSync(tempDir, { recursive: true });
+      const dirAsPricingPath = join(tempDir, 'unreadable-pricing.json');
+      safeMkdirSync(dirAsPricingPath, { recursive: true });
+      const prevPricing = process.env.HIVE_CONFIG_PRICING_JSON;
+      process.env.HIVE_CONFIG_PRICING_JSON = dirAsPricingPath;
+
+      try {
+        const unreadableRuntime = new AIRuntimeInfrastructure(10.0);
+        const usage = unreadableRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+        expect(usage.inputCost).toBeCloseTo(0.15, 4);
+        expect(usage.outputCost).toBeCloseTo(0.6, 4);
+        expect(usage.totalCost).toBeCloseTo(0.75, 4);
+      } finally {
+        if (prevPricing !== undefined) {
+          Reflect.set(process.env, 'HIVE_CONFIG_PRICING_JSON', prevPricing);
+        } else {
+          Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
+        }
+        try {
+          safeRemoveDirectorySync(tempDir);
+        } catch {
+          /* ignore */
+        }
+      }
     });
 
     it('should fallback to default pricing when pricing.json is null', () => {

@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Frontière de Confiance pour Pricing.json Projet & Test Dédié Fichier Illisible (#134 / PR #139)**
+  - **Context**: Retours d'analyse Greptile sur la PR #139 : (1) Finding P1 ID 4113693240 (`PRRT_kwDOT0y8pM6mWqxS`) : un checkout non approuvé pouvait injecter `./config/pricing.json` avec des taux à 0, neutralisant ainsi le Kill Switch de session `BUDGET_EXCEEDED` sans opt-in ; (2) Finding P2 ID 4113693244 (`PRRT_kwDOT0y8pM6mWqxX`) : distinguer le test d'erreur de parsing JSON du test d'échec de lecture I/O fichier.
+  - **Discarded Options**: Laisser `./config/pricing.json` sans contrôle de confiance (rejeté : risque critique de contournement du Kill Switch FinOps dans les projets tiers non vérifiés).
+  - **Rationale**: (1) Ajout de `'pricing.json'` à `SENSITIVE_PROJECT_CONFIGS` dans `ConfigPathResolver.ts`, subordonnant sa résolution au niveau `./config/` à `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`. (2) Documentation mise à jour dans `distribution_hive_mind.md`. (3) Test Priority 2 étendu à `pricing.json` dans `ConfigPathResolverHierarchy.test.ts`. (4) Test unitaire dédié aux erreurs de lecture I/O (répertoire comme fichier de pricing provoquant `EISDIR`) et distinction du test de syntaxe invalide dans `RuntimeInfrastructure.test.ts`.
+
 - [2026-09-27] **Durcissement FinOps, Invariance de Monotonicité Tarifaire & Factorisation des Tests Unitaires (#134 / PR #139)**
   - **Context**: Retours de revue CodeRabbit sur la PR #139 (Threads `PRRT_kwDOT0y8pM6mWqS7` et `PRRT_kwDOT0y8pM6mWqS8`) : (1) Sécuriser la validation de `pricing.json` avant assignation pour rejeter `null`, `[]`, les objets corrompus ou sans modèle, et les taux négatifs/non-finis contournant le Kill Switch FinOps ; (2) Restaurer fidèlement `process.env.HIVE_CONFIG_PRICING_JSON` dans `finally` pour prévenir toute pollution d'environnement inter-tests.
   - **Discarded Options**: Utiliser un simple cast TypeScript `as PricingConfig` (rejeté : unsafe au runtime face à un JSON corrompu ou manipulé) ; autoriser les taux négatifs (rejeté : brise la monotonicité du coût de session et neutralise le Kill Switch).
