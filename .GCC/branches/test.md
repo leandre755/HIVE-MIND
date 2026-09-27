@@ -1,5 +1,38 @@
 # Test Execution Log
 
+## 📅 Date: 2026-09-27 (Issue #134 — Migration des 13 consommateurs de configuration)
+
+### Périmètre
+Migration exhaustive des sites de consommation de configuration JSON vers `ConfigPathResolver` (`resolveConfigPath`) et éradication de `fs.readFileSync` au profit de `safeReadFileSync` :
+- `src/services/supabase.ts` (credentials.json)
+- `src/services/redisClient.ts` (credentials.json)
+- `src/services/graphMemory.ts` (credentials.json)
+- `src/core/ServiceContainer.ts` (credentials.json, models_config.json)
+- `src/services/quotaManager.ts` (models_config.json)
+- `src/providers/adapters/huggingface.ts` (credentials.json)
+- `src/services/voice/voiceProvider.ts` (credentials.json)
+- `src/plugins/base/admin/index.ts` (config.json + fallback d'écriture vers `~/.hivemind/config/config.json`)
+- `src/plugins/tools/daily_pulse/journal_generator.ts` (credentials.json)
+- `src/scripts/health-check.ts` (models_config.json, credentials.json)
+- `src/scripts/ingest_docs.js` (credentials.json)
+- `src/scripts/test_models.ts` (models_config.json)
+- `src/scripts/update_gemma.ts` (models_config.json)
+- `src/tests/unit/services/configConsumers.test.ts` (nouveau fichier de tests unitaires dédiés)
+
+### Résultats d'exécution (sorties brutes)
+- `npm run build` (`tsc --noEmit`) : **PASSED (0 erreur)**.
+- `npm run lint:fast` (`oxlint --deny-warnings src/`) : **PASSED** — `Found 0 warnings and 0 errors.` (373 fichiers).
+- `npm test -- src/tests/unit/services/configConsumers.test.ts` : **PASSED (7/7 tests)** :
+  - `QuotaManager config loading` : surcharge `HIVE_CONFIG_MODELS_CONFIG_JSON`
+  - `VoiceProvider credentials loading` : surcharge `HIVE_CONFIG_CREDENTIALS_JSON`
+  - `Admin plugin _setVoiceMode config resolution and fallback` : lecture du mode et redirection d'écriture vers `~/.hivemind/config/config.json`
+  - `ServiceContainer config loading` : résolution par défaut et surcharges via environnement
+  - `HuggingFaceAdapter client initialization` : initialisation avec `HF_TOKEN` valide et repli `null` si placeholder
+- `npm run test:unit` : **PASSED (109/109 suites, 1108/1108 tests, 43.355 s)**.
+
+### Régression
+Aucune régression détectée sur l'ensemble de la suite unitaire du projet.
+
 ## 📅 Date: 2026-09-22 (fin de session — compaction taille PR #120 + validation)
 
 - `npx prettier --write` + `eslint` (5 fichiers) + `npm run build` (tsc 0 erreur) + `npm run lint:fast` (0/0, 351 fichiers) : **PASSED**.

@@ -2,12 +2,9 @@
 // Client Supabase pour la persistance cloud - Omni-Channel Ready
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../utils/safeFs.js';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import ws from 'ws';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface SupabaseCredentials {
   project_url?: string;
@@ -41,8 +38,8 @@ function extractErrorMessage(error: unknown): string {
 // Charger les credentials
 let credentials: Credentials | null;
 try {
-  const credentialsPath = join(__dirname, '..', 'config', 'credentials.json');
-  credentials = JSON.parse(readFileSync(credentialsPath, 'utf-8')) as Credentials;
+  const credentialsPath = resolveConfigPath('credentials.json');
+  credentials = JSON.parse(safeReadFileSync(credentialsPath, 'utf-8')) as Credentials;
 } catch (error: unknown) {
   console.warn(`⚠️ Erreur lecture credentials: ${extractErrorMessage(error)}`);
   credentials = null;

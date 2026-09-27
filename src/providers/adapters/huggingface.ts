@@ -2,9 +2,10 @@
 // Adaptateur pour Hugging Face Router (surface OpenAI-compatible via le SDK officiel)
 
 import OpenAI, { APIError } from 'openai';
-import { safeReadFileSync as readFileSync } from '../../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../../utils/safeFs.js';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
+
+import { resolveApiKey } from '../../config/keyResolver.js';
 
 import type {
   AdapterChatOptions,
@@ -14,14 +15,16 @@ import type {
 } from '../types.js';
 import { requireModel } from '../requireModel.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 /** Forme du fichier `config/credentials.json` réellement lue par cet adapter. */
 interface CredentialsFile {
-  familles_ia?: { HF_TOKEN?: string };
+  familles_ia?: {
+    HF_TOKEN?: string;
+    huggingface?: string;
+    [key: string]: unknown;
+  };
 }
 
-class HuggingFaceAdapter {
+export class HuggingFaceAdapter {
   name = 'huggingface';
 
   /** `null` tant qu'aucun token exploitable n'a été trouvé (voir `_initClient`). */
@@ -34,18 +37,31 @@ class HuggingFaceAdapter {
 
   _initClient() {
     try {
-      const credsPath = join(__dirname, '..', '..', 'config', 'credentials.json');
-      const creds = JSON.parse(readFileSync(credsPath, 'utf-8')) as CredentialsFile;
-      const token = creds.familles_ia?.HF_TOKEN;
+      const credsPath = resolveConfigPath('credentials.json');
+      const creds = JSON.parse(safeReadFileSync(credsPath, 'utf-8')) as CredentialsFile;
+      const rawToken = creds.familles_ia?.HF_TOKEN ?? creds.familles_ia?.huggingface ?? '';
 
-      if (token && !token.startsWith('VOTRE')) {
+      const token =
+        (rawToken ? resolveApiKey(rawToken, 'huggingface') : null) ||
+        process.env.HF_TOKEN ||
+        process.env.HUGGINGFACE_KEY;
+
+      if (token && !token.startsWith('VOTRE') && !token.startsWith('${')) {
         this.client = new OpenAI({
           baseURL: 'https://router.huggingface.co/v1',
           apiKey: token,
         });
       }
     } catch {
-      this.client = null;
+      const token = process.env.HF_TOKEN || process.env.HUGGINGFACE_KEY;
+      if (token && !token.startsWith('VOTRE') && !token.startsWith('${')) {
+        this.client = new OpenAI({
+          baseURL: 'https://router.huggingface.co/v1',
+          apiKey: token,
+        });
+      } else {
+        this.client = null;
+      }
     }
   }
 

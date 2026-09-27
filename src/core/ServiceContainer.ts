@@ -1,6 +1,5 @@
-import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../utils/safeFs.js';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { resolveApiKey } from '../config/keyResolver.js';
 import { EmbeddingsService, EmbeddingConfig } from '../services/ai/EmbeddingsService.js';
 import { SemanticMemory, SemanticMemoryDependencies } from '../services/memory/SemanticMemory.js';
@@ -10,8 +9,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CredentialsSchema, Credentials } from '../config/credentials.schema.js';
 import { ModelsConfigSchema, ModelsConfig } from '../config/config.schema.js';
 import { config as appConfig } from '../config/index.js';
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
 
 interface ServiceEntry {
   factory: () => unknown;
@@ -114,12 +111,12 @@ export class ServiceContainer {
   }
 
   private loadConfig(): { credentials: Credentials; modelsConfig: ModelsConfig } {
-    const credentialsPath = join(currentDir, '..', 'config', 'credentials.json');
-    const modelsPath = join(currentDir, '..', 'config', 'models_config.json');
+    const credentialsPath = resolveConfigPath('credentials.json');
+    const modelsPath = resolveConfigPath('models_config.json');
 
     try {
-      const rawCredentials = JSON.parse(readFileSync(credentialsPath, 'utf-8'));
-      const rawModelsConfig = JSON.parse(readFileSync(modelsPath, 'utf-8'));
+      const rawCredentials = JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'));
+      const rawModelsConfig = JSON.parse(safeReadFileSync(modelsPath, 'utf-8'));
       return {
         credentials: CredentialsSchema.parse(rawCredentials),
         modelsConfig: ModelsConfigSchema.parse(rawModelsConfig),

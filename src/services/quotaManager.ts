@@ -3,10 +3,7 @@
 import { redis as redisClient } from './redisClient.js';
 import { envResolver } from './envResolver.js';
 import { safeReadFileSync } from '../utils/safeFs.js';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 
 // 200ms TTL — short enough to avoid stale counters during bursts, long enough to batch within a single routing cycle
 const L0_CACHE_TTL_MS = 200;
@@ -66,7 +63,7 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-class QuotaManager {
+export class QuotaManager {
   private client: typeof redisClient;
   private quotas: Record<string, QuotaLimits>;
   private localRateLimit: Map<string, number>;
@@ -90,7 +87,7 @@ class QuotaManager {
 
   private _loadConfig(): void {
     try {
-      const configPath = join(__dirname, '..', 'config', 'models_config.json');
+      const configPath = resolveConfigPath('models_config.json');
       const config = JSON.parse(safeReadFileSync(configPath, 'utf-8')) as ModelsConfig;
 
       // Flatten quotas: modelId -> quota + build reverse map modelId -> providerName

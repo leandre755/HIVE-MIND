@@ -2,11 +2,14 @@
 // Admin Plugin - User management (soft delete, restore, etc.)
 // Reserved for global admins
 
-import { safeReadFileSync, safeWriteFileSync } from '../../../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { safeReadFileSync, safeWriteFileSync, safeMkdirSync } from '../../../utils/safeFs.js';
+import {
+  resolveConfigPath,
+  resolveUserConfigDir,
+  resolveDefaultsConfigDir,
+  resolveLegacyConfigDir,
+} from '../../../config/ConfigPathResolver.js';
+import { join } from 'node:path';
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -375,7 +378,7 @@ export default {
    */
   async _setVoiceMode(mode: string) {
     try {
-      const configPath = join(__dirname, '..', '..', 'config', 'config.json');
+      const configPath = resolveConfigPath('config.json');
       const config = JSON.parse(safeReadFileSync(configPath, 'utf-8'));
 
       // If "status", just return the current mode
@@ -404,7 +407,17 @@ export default {
       }
       config.voice_transcription.mode = mode;
 
-      safeWriteFileSync(configPath, JSON.stringify(config, null, 4), 'utf-8');
+      const defaultsDir = resolveDefaultsConfigDir();
+      const legacyDir = resolveLegacyConfigDir();
+      const isReadOnlyOrTemplate =
+        configPath.startsWith(defaultsDir) || configPath.startsWith(legacyDir);
+      const writePath = isReadOnlyOrTemplate
+        ? join(resolveUserConfigDir(), 'config.json')
+        : configPath;
+      if (isReadOnlyOrTemplate) {
+        safeMkdirSync(resolveUserConfigDir(), { recursive: true });
+      }
+      safeWriteFileSync(writePath, JSON.stringify(config, null, 4), 'utf-8');
 
       return {
         success: true,

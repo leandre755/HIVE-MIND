@@ -1,4 +1,11 @@
-import { safeReadFileSync, safeWriteFileSync } from '../utils/safeFs.js';
+import { join } from 'node:path';
+import { safeMkdirSync, safeReadFileSync, safeWriteFileSync } from '../utils/safeFs.js';
+import {
+  resolveConfigPath,
+  resolveDefaultsConfigDir,
+  resolveLegacyConfigDir,
+  resolveUserConfigDir,
+} from '../config/ConfigPathResolver.js';
 
 type ModelEntry = {
   id: string;
@@ -12,8 +19,8 @@ type ModelsConfig = {
   familles: Record<string, { modeles: ModelEntry[] }>;
 };
 
-const path = './config/models_config.json';
-const data = JSON.parse(safeReadFileSync(path)) as ModelsConfig;
+const configPath = resolveConfigPath('models_config.json');
+const data = JSON.parse(safeReadFileSync(configPath, 'utf-8')) as ModelsConfig;
 
 // Update service recipes
 data.reglages_generaux.service_recipes.EXECUTOR.family = 'gemini';
@@ -35,5 +42,16 @@ if (!modelExists) {
   });
 }
 
-safeWriteFileSync(path, JSON.stringify(data, null, 4));
-console.log('models_config.json updated successfully.');
+const defaultsDir = resolveDefaultsConfigDir();
+const legacyDir = resolveLegacyConfigDir();
+const isReadOnlyOrTemplate = configPath.startsWith(defaultsDir) || configPath.startsWith(legacyDir);
+const writePath = isReadOnlyOrTemplate
+  ? join(resolveUserConfigDir(), 'models_config.json')
+  : configPath;
+
+if (isReadOnlyOrTemplate) {
+  safeMkdirSync(resolveUserConfigDir(), { recursive: true });
+}
+
+safeWriteFileSync(writePath, JSON.stringify(data, null, 4), 'utf-8');
+console.log(`models_config.json updated successfully at ${writePath}.`);

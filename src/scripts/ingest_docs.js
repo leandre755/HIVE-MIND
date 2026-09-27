@@ -1,37 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import { EmbeddingsService } from '../services/ai/EmbeddingsService.js';
 import { GLOBAL_CONTEXT_ID } from '../services/memory/constants.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
 import {
   safeExistsSync,
   safeReadFileSync,
   safeReaddirSync,
   safeMkdirSync,
 } from '../utils/safeFs.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { resolveConfigPath, resolveDataDir } from '../config/ConfigPathResolver.js';
 
 // Configuration
 const CHUNK_SIZE = 1500;
-const DB_TEXT_DIR = path.join(__dirname, '..', 'db_text');
-const CONFIG_DIR = path.join(__dirname, '..', 'config');
+const localDbText = path.join(process.cwd(), 'db_text');
+const DB_TEXT_DIR = safeExistsSync(localDbText) ? localDbText : resolveDataDir('db_text');
 
 console.log("📚 Démarrage de l'ingestion de documents...");
 
 // 1. Initialisation
 async function init() {
   // Charger credentials
-  const credPath = path.join(CONFIG_DIR, 'credentials.json');
+  const credPath = resolveConfigPath('credentials.json');
   if (!safeExistsSync(credPath)) {
-    console.error('❌ Fichier config/credentials.json introuvable.');
+    console.error('❌ Fichier credentials.json introuvable.');
     process.exit(1);
   }
   const creds = JSON.parse(safeReadFileSync(credPath));
 
   // Charger models config
-  const modelsConfigPath = path.join(CONFIG_DIR, 'models_config.json');
+  const modelsConfigPath = resolveConfigPath('models_config.json');
   let modelsConfig = {};
   if (safeExistsSync(modelsConfigPath)) {
     modelsConfig = JSON.parse(safeReadFileSync(modelsConfigPath));
