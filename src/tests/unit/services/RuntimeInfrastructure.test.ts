@@ -174,6 +174,16 @@ describe('AIRuntimeInfrastructure', () => {
           expect(usage.totalCost).toBeCloseTo(0.75, 4);
         },
       );
+
+      withPricingConfig(
+        '{"default":{"input":1e400,"output":0.6},"models":{}}',
+        (nonFiniteRuntime) => {
+          const usage = nonFiniteRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+          expect(usage.inputCost).toBeCloseTo(0.15, 4);
+          expect(usage.outputCost).toBeCloseTo(0.6, 4);
+          expect(usage.totalCost).toBeCloseTo(0.75, 4);
+        },
+      );
     });
   });
 

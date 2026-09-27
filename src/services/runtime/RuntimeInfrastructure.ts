@@ -146,8 +146,9 @@ export class RuntimeFinOps {
   constructor(maxBudget: number = 2.0) {
     this.maxSessionBudget = maxBudget;
 
+    let pricingPath: string | undefined;
     try {
-      const pricingPath = resolveConfigPath('pricing.json');
+      pricingPath = resolveConfigPath('pricing.json');
       if (existsSync(pricingPath)) {
         const parsed: unknown = JSON.parse(readFileSync(pricingPath, 'utf-8'));
         if (isPricingConfig(parsed)) {
@@ -158,9 +159,10 @@ export class RuntimeFinOps {
       } else {
         throw new Error('Pricing not found');
       }
-    } catch {
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
       console.warn(
-        '[RuntimeFinOps] ⚠️ pricing.json non trouvé ou invalide, utilisation des prix par défaut.',
+        `[RuntimeFinOps] ⚠️ pricing.json non trouvé ou invalide (${pricingPath ?? 'unknown'}: ${reason}), utilisation des prix par défaut.`,
       );
       this.pricing = { default: { input: 0.15, output: 0.6 }, models: {} };
     }

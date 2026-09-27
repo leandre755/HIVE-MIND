@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Diagnostic Enrichi de Fallback FinOps & Fixture Dédiée Taux Non-Finis (#134 / PR #139)**
+  - **Context**: Retours de revue Greptile P2 sur la PR #139 (Threads `PRRT_kwDOT0y8pM6mWwly` et `PRRT_kwDOT0y8pM6mWwl1`) : (1) Le message d'avertissement de fallback dans `RuntimeFinOps` manquait de contexte (chemin du fichier sélectionné et raison de l'échec de validation) ; (2) Le test de taux non finis ne couvrait que les taux négatifs, sans fixture spécifique pour un taux non fini (`Infinity` via `1e400`).
+  - **Discarded Options**: Conserver un avertissement générique (rejeté : diagnostic difficile en cas d'invalidation inattendue d'un fichier tarifaire) ; ne tester que les taux négatifs (rejeté : laisse sans couverture le contrôle `Number.isFinite`).
+  - **Rationale**: (1) `RuntimeFinOps` capture l'erreur et affiche `(${pricingPath ?? 'unknown'}: ${reason})` dans le `console.warn`. (2) `RuntimeInfrastructure.test.ts` intègre une fixture `1e400` vérifiant le repli sécurisé sur les prix par défaut. (3) 13/13 tests au vert.
+
 - [2026-09-27] **Frontière de Confiance pour Pricing.json Projet & Test Dédié Fichier Illisible (#134 / PR #139)**
   - **Context**: Retours d'analyse Greptile sur la PR #139 : (1) Finding P1 ID 4113693240 (`PRRT_kwDOT0y8pM6mWqxS`) : un checkout non approuvé pouvait injecter `./config/pricing.json` avec des taux à 0, neutralisant ainsi le Kill Switch de session `BUDGET_EXCEEDED` sans opt-in ; (2) Finding P2 ID 4113693244 (`PRRT_kwDOT0y8pM6mWqxX`) : distinguer le test d'erreur de parsing JSON du test d'échec de lecture I/O fichier.
   - **Discarded Options**: Laisser `./config/pricing.json` sans contrôle de confiance (rejeté : risque critique de contournement du Kill Switch FinOps dans les projets tiers non vérifiés).
