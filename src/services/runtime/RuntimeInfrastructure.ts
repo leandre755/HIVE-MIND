@@ -62,6 +62,31 @@ interface PricingConfig {
   readonly models: Record<string, PricingEntry>;
 }
 
+function isPricingObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPricingEntry(value: unknown): value is PricingEntry {
+  return (
+    isPricingObject(value) &&
+    typeof value.input === 'number' &&
+    Number.isFinite(value.input) &&
+    value.input >= 0 &&
+    typeof value.output === 'number' &&
+    Number.isFinite(value.output) &&
+    value.output >= 0
+  );
+}
+
+function isPricingConfig(value: unknown): value is PricingConfig {
+  return (
+    isPricingObject(value) &&
+    isPricingEntry(value.default) &&
+    isPricingObject(value.models) &&
+    Object.values(value.models).every(isPricingEntry)
+  );
+}
+
 /** Résultat d'un enregistrement d'usage */
 interface UsageRecord {
   readonly model: string;
@@ -124,12 +149,19 @@ export class RuntimeFinOps {
     try {
       const pricingPath = resolveConfigPath('pricing.json');
       if (existsSync(pricingPath)) {
-        this.pricing = JSON.parse(readFileSync(pricingPath, 'utf-8')) as PricingConfig;
+        const parsed: unknown = JSON.parse(readFileSync(pricingPath, 'utf-8'));
+        if (isPricingConfig(parsed)) {
+          this.pricing = parsed;
+        } else {
+          throw new Error('Invalid pricing configuration structure');
+        }
       } else {
         throw new Error('Pricing not found');
       }
     } catch {
-      console.warn('[RuntimeFinOps] ⚠️ pricing.json non trouvé, utilisation des prix par défaut.');
+      console.warn(
+        '[RuntimeFinOps] ⚠️ pricing.json non trouvé ou invalide, utilisation des prix par défaut.',
+      );
       this.pricing = { default: { input: 0.15, output: 0.6 }, models: {} };
     }
   }

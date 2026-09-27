@@ -19,6 +19,34 @@ const { AIRuntimeInfrastructure } =
   await import('../../../services/runtime/RuntimeInfrastructure.js');
 const { providerRouter } = await import('../../../providers/index.js');
 
+function withPricingConfig(
+  content: string,
+  fn: (runtime: InstanceType<typeof AIRuntimeInfrastructure>) => void,
+): void {
+  const tempDir = join(tmpdir(), `finops-pricing-${randomUUID()}`);
+  safeMkdirSync(tempDir, { recursive: true });
+  const pricingPath = join(tempDir, 'pricing.json');
+  safeWriteFileSync(pricingPath, content);
+  const prevPricing = process.env.HIVE_CONFIG_PRICING_JSON;
+  process.env.HIVE_CONFIG_PRICING_JSON = pricingPath;
+
+  try {
+    const customRuntime = new AIRuntimeInfrastructure(50.0);
+    fn(customRuntime);
+  } finally {
+    if (prevPricing !== undefined) {
+      Reflect.set(process.env, 'HIVE_CONFIG_PRICING_JSON', prevPricing);
+    } else {
+      Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
+    }
+    try {
+      safeRemoveDirectorySync(tempDir);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 describe('AIRuntimeInfrastructure', () => {
   let runtime: InstanceType<typeof AIRuntimeInfrastructure>;
 
@@ -60,20 +88,13 @@ describe('AIRuntimeInfrastructure', () => {
     });
 
     it('should load custom model pricing resolved via resolveConfigPath', () => {
-      const tempDir = join(tmpdir(), `finops-pricing-${randomUUID()}`);
-      safeMkdirSync(tempDir, { recursive: true });
-      const customPricingPath = join(tempDir, 'custom-pricing.json');
       const customPricing = {
         default: { input: 1.0, output: 2.0 },
         models: {
           'custom/benchmark-model': { input: 5.0, output: 10.0 },
         },
       };
-      safeWriteFileSync(customPricingPath, JSON.stringify(customPricing));
-      process.env.HIVE_CONFIG_PRICING_JSON = customPricingPath;
-
-      try {
-        const customRuntime = new AIRuntimeInfrastructure(50.0);
+      withPricingConfig(JSON.stringify(customPricing), (customRuntime) => {
         const usage = customRuntime.finOps.recordUsage(
           'custom/benchmark-model',
           1_000_000,
@@ -82,37 +103,49 @@ describe('AIRuntimeInfrastructure', () => {
         expect(usage.inputCost).toBeCloseTo(5.0, 4);
         expect(usage.outputCost).toBeCloseTo(10.0, 4);
         expect(usage.totalCost).toBeCloseTo(15.0, 4);
-      } finally {
-        Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
-        try {
-          safeRemoveDirectorySync(tempDir);
-        } catch {
-          /* ignore */
-        }
-      }
+      });
     });
 
     it('should fallback to default pricing when pricing.json is corrupted or unreadable', () => {
-      const tempDir = join(tmpdir(), `finops-pricing-broken-${randomUUID()}`);
-      safeMkdirSync(tempDir, { recursive: true });
-      const brokenPricingPath = join(tempDir, 'broken-pricing.json');
-      safeWriteFileSync(brokenPricingPath, '{ broken: json');
-      process.env.HIVE_CONFIG_PRICING_JSON = brokenPricingPath;
-
-      try {
-        const fallbackRuntime = new AIRuntimeInfrastructure(10.0);
+      withPricingConfig('{ broken: json', (fallbackRuntime) => {
         const usage = fallbackRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
         expect(usage.inputCost).toBeCloseTo(0.15, 4);
         expect(usage.outputCost).toBeCloseTo(0.6, 4);
         expect(usage.totalCost).toBeCloseTo(0.75, 4);
-      } finally {
-        Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
-        try {
-          safeRemoveDirectorySync(tempDir);
-        } catch {
-          /* ignore */
-        }
-      }
+      });
+    });
+
+    it('should fallback to default pricing when pricing.json is null', () => {
+      withPricingConfig('null', (nullRuntime) => {
+        const usage = nullRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+        expect(usage.inputCost).toBeCloseTo(0.15, 4);
+        expect(usage.outputCost).toBeCloseTo(0.6, 4);
+        expect(usage.totalCost).toBeCloseTo(0.75, 4);
+      });
+    });
+
+    it('should fallback to default pricing when pricing.json has invalid shape or missing models', () => {
+      withPricingConfig(JSON.stringify({ p: 1 }), (invalidRuntime) => {
+        const usage = invalidRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+        expect(usage.inputCost).toBeCloseTo(0.15, 4);
+        expect(usage.outputCost).toBeCloseTo(0.6, 4);
+        expect(usage.totalCost).toBeCloseTo(0.75, 4);
+      });
+    });
+
+    it('should fallback to default pricing when pricing rates are negative or non-finite', () => {
+      withPricingConfig(
+        JSON.stringify({
+          default: { input: -0.15, output: 0.6 },
+          models: {},
+        }),
+        (negativeRuntime) => {
+          const usage = negativeRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+          expect(usage.inputCost).toBeCloseTo(0.15, 4);
+          expect(usage.outputCost).toBeCloseTo(0.6, 4);
+          expect(usage.totalCost).toBeCloseTo(0.75, 4);
+        },
+      );
     });
   });
 

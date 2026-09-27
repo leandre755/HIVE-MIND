@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Durcissement FinOps, Invariance de Monotonicité Tarifaire & Factorisation des Tests Unitaires (#134 / PR #139)**
+  - **Context**: Retours de revue CodeRabbit sur la PR #139 (Threads `PRRT_kwDOT0y8pM6mWqS7` et `PRRT_kwDOT0y8pM6mWqS8`) : (1) Sécuriser la validation de `pricing.json` avant assignation pour rejeter `null`, `[]`, les objets corrompus ou sans modèle, et les taux négatifs/non-finis contournant le Kill Switch FinOps ; (2) Restaurer fidèlement `process.env.HIVE_CONFIG_PRICING_JSON` dans `finally` pour prévenir toute pollution d'environnement inter-tests.
+  - **Discarded Options**: Utiliser un simple cast TypeScript `as PricingConfig` (rejeté : unsafe au runtime face à un JSON corrompu ou manipulé) ; autoriser les taux négatifs (rejeté : brise la monotonicité du coût de session et neutralise le Kill Switch).
+  - **Rationale**: (1) Introduction des gardes `isPricingObject`, `isPricingEntry` (avec `value.input >= 0 && value.output >= 0`) et `isPricingConfig` dans `RuntimeInfrastructure.ts`. (2) Extraction du helper `withPricingConfig` dans `RuntimeInfrastructure.test.ts` encapsulant la création temporaire, la restauration symétrique d'environnement et le nettoyage `safeFs`. (3) 5 scénarios de test couverts avec 100% de succès. (4) Homologué APPROVE 100% Production-Grade par `Fix-Verifier & Code Critic`.
+
 - [2026-09-27] **Migration du Chargement de Pricing.json vers ConfigPathResolver dans RuntimeInfrastructure (#134)**
   - **Context**: Macroscope a relevé que `RuntimeInfrastructure.ts` lisait en dur `pricing.json` via `join(process.cwd(), 'src', 'config', 'pricing.json')`, ce qui violait l'invariant de portabilité et d'émancipation de l'arborescence des sources du projet (#96 / #134).
   - **Discarded Options**: Conserver `join(process.cwd(), ...)` avec un simple try/catch (rejeté : échoue dès que le processus s'exécute hors de la racine du dépôt ou sous packaging autonome).
