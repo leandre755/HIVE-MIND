@@ -59,8 +59,10 @@ hive-mind tui
 - **Racine utilisateur (`hiveHome`)** : `~/.hivemind/` (détermine l'emplacement par défaut de la configuration utilisateur `~/.hivemind/config/`, modifiable via `HIVE_HOME_DIR`).
 - **Surcharge de configuration (`HIVE_CONFIG_DIR`)** : `HIVE_CONFIG_DIR` ne déplace pas le répertoire utilisateur (`userConfigDir`), mais injecte un répertoire candidat prioritaire au palier 1 pour chaque fichier qui y est présent. En cas de `HIVE_CONFIG_DIR` partiellement peuplé, les autres fichiers continuent d'être résolus via la cascade standard (projet, utilisateur, defaults).
 - **Données et stockage persistant (`storage` / `storage_hm`)** :
-  - **Comportement actif au runtime** : Sans variable `STORAGE_DIR`, les composants actifs (`PermissionManager`, `BrowserService`) écrivent dans le sous-répertoire `./storage_hm` du répertoire de travail (`<cwd>/storage_hm`), lié à `<cwd>/Sandbox1/storage_hm`.
-  - **Surcharge recommandée en production** : Définir explicitement `STORAGE_DIR=/chemin/vers/storage_hm` (ou `~/.sandbox1/storage_hm/`) pour isoler et persister les données hors de l'arborescence de travail (utile pour les montages de volume Docker/Kubernetes).
+  - **Comportement actif au runtime** : Sans variable `STORAGE_DIR`, les composants actifs écrivent dans `./storage_hm` au sein du répertoire de travail (`<cwd>/storage_hm`), que `PermissionManager` lie symboliquement à `<cwd>/Sandbox1/storage_hm`.
+  - **Précautions de montage et surcharge en production** :
+    - Fournir impérativement un **chemin absolu** (ex. `STORAGE_DIR=/var/lib/hive-mind/storage_hm` ou via expansion shell `$HOME/.sandbox1/storage_hm`). L'utilisation d'un tilde littéral `~` dans les fichiers `.env` ou manifestes Docker n'est pas interprétée par le runtime Node et créerait un répertoire littéral `<cwd>/~/`.
+    - **Persistance complète des fichiers d'agents** : Définir uniquement `STORAGE_DIR` délocalise les fichiers de téléchargement et captures d'écran du navigateur, mais le lien symbolique `<cwd>/storage_hm` reste pointé par défaut sur `<cwd>/Sandbox1/storage_hm`. Pour monter l'intégralité des fichiers créés par les agents sur un volume persistant externe, l'opérateur doit configurer conjointement `SANDBOX_DIR=/chemin/vers/sandbox` et `STORAGE_DIR=/chemin/vers/sandbox/storage_hm` (ou cibler le montage du volume sur `<cwd>/Sandbox1/storage_hm`).
 
 ### Modifications code restantes pour la distribution (#135)
 

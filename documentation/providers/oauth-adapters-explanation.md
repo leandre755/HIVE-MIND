@@ -66,7 +66,7 @@ SS-13 résout ces exigences en encapsulant l'intégralité du cycle de vie des j
 ## 3. Choix de Conception & Raisons d'Ingénierie
 
 - **Polymorphisme Strict `ProviderAdapter`** :
-  Tant l'adaptateur Codex que l'adaptateur Antigravity implémentent fidèlement le contrat standard `chat(messages, options)`. Note : le streaming interactif direct (`chatStream`) n'est pas implémenté par ces adaptateurs ; ils consomment le flux distant et renvoient un résultat consolidé final. Pour le reste de HIVE-MIND, ces services se comportent comme une API REST standard.
+  Tant l'adaptateur Codex que l'adaptateur Antigravity implémentent le contrat standard `chat(messages, options)` et renvoient un résultat final. Aucun des deux n'implémente `chatStream` : Codex consomme un flux SSE distant avant de consolider la réponse, tandis qu'Antigravity effectue une requête `generateContent` non streamée et lit une réponse JSON.
 - **Sources d'Authentification Distinctes selon l'Adaptateur** :
   - **Codex** : Lit en priorité `CODEX_ACCESS_TOKEN` / `CODEX_REFRESH_TOKEN` dans l'environnement, avec repli transitoire sur le fichier local `~/.codex/auth.json` issu de la CLI officielle en développement.
   - **Antigravity (Google Cloud Code Assist)** : S'appuie **exclusivement** sur les variables d'environnement (`ANTIGRAVITY_ACCESS_TOKEN`, `ANTIGRAVITY_REFRESH_TOKEN`, `ANTIGRAVITY_PROJECT_ID`, etc.) et ne lit aucun fichier sur l'hôte (ni fichier Codex, ni configuration gcloud sur disque).
