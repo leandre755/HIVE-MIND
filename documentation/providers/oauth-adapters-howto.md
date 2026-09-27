@@ -131,9 +131,9 @@ if (payload && payload.exp) {
 
 ## Cas Particuliers & Variantes
 
-### Variante A : Traitement du Streaming Interne Responses
+### Variante A : Absence de Streaming Temps Réel Interactif (Consolidation Interne)
 
-L'adaptateur Codex consomme le flux `text/event-stream` du protocole Responses en tâche de fond, assemble les deltas d'événements et retourne un résultat consolidé via `chat(messages, options)`. Le streaming en temps réel vers l'utilisateur final est pris en charge par les adaptateurs de transport amont.
+L'adaptateur Codex ne supporte pas le streaming interactif chunk par chunk (`chatStream` n'est pas implémenté). Sa méthode `chat(messages, options)` consomme l'intégralité du flux `text/event-stream` SSE de l'API Responses, accumule tous les fragments en mémoire et ne retourne qu'une réponse consolidée finale (`AdapterChatResult`). Les couches amont ne reçoivent donc aucun delta de token en direct pour cet adaptateur.
 
 ### Variante B : Exécution d'Outils (Tool Calling)
 

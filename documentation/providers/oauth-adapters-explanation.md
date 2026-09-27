@@ -18,14 +18,14 @@ SS-13 résout ces exigences en encapsulant l'intégralité du cycle de vie des j
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            Consommateur Noyau                               │
-│           (Appelle chat() ou chatStream() sur un ProviderAdapter)           │
+│               (Appelle chat() sur un ProviderAdapter)               │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    Cycle de Vie & Résolution OAuth (SS-13)                  │
 │                                                                             │
-│  1. Chargement des Tokens (depuis process.env ou ~/.codex/auth.json)        │
+│  1. Chargement Tokens (process.env, repli ~/.codex/auth.json pour Codex)    │
 │  2. Décodage Sécurisé JWT (decodeJwt -> { exp, account_id })                │
 │                                                                             │
 │         [Vérification Expiration : T_exp - Now < 300 secondes]              │
@@ -66,14 +66,15 @@ SS-13 résout ces exigences en encapsulant l'intégralité du cycle de vie des j
 ## 3. Choix de Conception & Raisons d'Ingénierie
 
 - **Polymorphisme Strict `ProviderAdapter`** :
-  Tant l'adaptateur Codex que l'adaptateur Antigravity implémentent fidèlement `chat(messages, options)` et `chatStream(messages, options)`. Pour le reste de HIVE-MIND, ces services se comportent exactement comme une API REST OpenAI standard.
-- **Double Source de Persistance Actuelle (Prod Railway vs Dev Local)** :
-  Les adaptateurs vérifient en priorité les variables d'environnement (`CODEX_ACCESS_TOKEN`, `ANTIGRAVITY_ACCESS_TOKEN`), idéales pour les conteneurs éphémères en production, avec repli transitoire sur le fichier local `~/.codex/auth.json` issu de la CLI officielle en développement.
-- **Réécriture Atomique et Préservation des Clés Étrangères** :
+  Tant l'adaptateur Codex que l'adaptateur Antigravity implémentent fidèlement le contrat standard `chat(messages, options)`. Note : le streaming interactif direct (`chatStream`) n'est pas implémenté par ces adaptateurs ; ils consomment le flux distant et renvoient un résultat consolidé final. Pour le reste de HIVE-MIND, ces services se comportent comme une API REST standard.
+- **Sources d'Authentification Distinctes selon l'Adaptateur** :
+  - **Codex** : Lit en priorité `CODEX_ACCESS_TOKEN` / `CODEX_REFRESH_TOKEN` dans l'environnement, avec repli transitoire sur le fichier local `~/.codex/auth.json` issu de la CLI officielle en développement.
+  - **Antigravity (Google Cloud Code Assist)** : S'appuie **exclusivement** sur les variables d'environnement (`ANTIGRAVITY_ACCESS_TOKEN`, `ANTIGRAVITY_REFRESH_TOKEN`, `ANTIGRAVITY_PROJECT_ID`, etc.) et ne lit aucun fichier sur l'hôte (ni fichier Codex, ni configuration gcloud sur disque).
+- **Réécriture Atomique et Préservation des Clés Étrangères (Codex)** :
   Lors de la mise à jour d'`auth.json`, le module fusionne les nouveaux jetons dans la structure existante pour ne pas écraser les champs additionnels créés par les outils externes.
 - **Trajectoire Cible : Scripts de Connexion Dédiés et Suppression des Fichiers Hôte** :
   > [!IMPORTANT]
-  > Dans les futures versions de HIVE-MIND orientées distribution installable (#96), **la dépendance à la lecture de fichiers d'authentification par défaut sur le système hôte (comme `~/.codex/auth.json` ou identifiants gcloud) sera totalement abandonnée**.
+  > Dans les futures versions de HIVE-MIND orientées distribution installable (#96), **la dépendance à la lecture de fichiers d'authentification par défaut sur le système hôte (comme `~/.codex/auth.json`) sera totalement abandonnée**.
   > HIVE-MIND intégrera des **scripts de connexion dédiés** (ex. commandes CLI interactives `hive-mind login-provider <provider>`) simulant les véritables protocoles d'authentification OAuth (flux PKCE, Device Authorization Grant, ou capture locale de redirection). Les jetons acquis seront stockés directement dans le périmètre applicatif sécurisé de HIVE-MIND (`~/.hivemind/config/` ou trousseau de clés chiffré), garantissant une totale autonomie vis-à-vis des CLI et répertoires tiers de l'OS hôte.
 
 ## 4. Analyse Comparative & Alternatives Écartées

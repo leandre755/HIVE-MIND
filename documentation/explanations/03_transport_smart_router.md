@@ -108,9 +108,11 @@ Le `EnvResolver` (`src/services/envResolver.ts`) détecte les clés numérotées
 
 #### Sélection et cascade de modèles
 
-La configuration des cascades et recettes de modèles est résolue dynamiquement par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) :
+La configuration des cascades et recettes de modèles est résolue dynamiquement par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) à travers deux circuits de recettes distincts :
 
-- **Fichiers cibles** : `models_config.json` (catalogue et `chat_recipes`) et `services_config.json` (recettes de services spécialisés).
+- **Fichiers cibles et distinction des flux d'exécution** :
+  1. `models_config.json` (`reglages_generaux.service_recipes` et `chat_recipes`) : Lu par `providerRouter.callServiceRecipe()` pour les recettes internes du démon Core (`CRITIC`, `SAFETY_SENTINEL`, etc.). Modifier ces recettes dans `services_config.json` n'affecte pas ces appels du démon, et une recette définie uniquement dans `services_config.json` lèverait une erreur dans `callServiceRecipe()`.
+  2. `services_config.json` : Lu par `SmartLayer.execute()` et le `ServiceRegistry` pour orchestrer les recettes de services de haut niveau (`EXECUTOR`, `PLANNER`, `CODER`).
 - **Hiérarchie de découverte** : Surcharges d'environnement (`HIVE_CONFIG_MODELS_CONFIG_JSON`, `HIVE_CONFIG_SERVICES_CONFIG_JSON`, `HIVE_CONFIG_DIR`) $\to$ Configuration projet (`./config/`) sanctuarisée par l'opt-in `HIVE_TRUST_PROJECT_CONFIG=1` $\to$ Configuration utilisateur globale (`~/.hivemind/config/`) $\to$ Repli hérité avec warning $\to$ Templates embarqués par défaut (`src/config/defaults/`).
 
 Exemple d'extrait de configuration de cascades (`models_config.json`) :

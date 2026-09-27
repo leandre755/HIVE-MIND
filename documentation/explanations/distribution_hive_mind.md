@@ -45,20 +45,22 @@ hive-mind tui
 
 #### Emplacements des fichiers et valeurs par défaut
 
-| Fichier de configuration | Emplacement utilisateur cible             | Template par défaut (`defaults/`)          | Comportement / Valeurs par défaut si absent                                                 | Sensibilité projet (`./config/`)                      |
-| :----------------------- | :---------------------------------------- | :----------------------------------------- | :------------------------------------------------------------------------------------------ | :---------------------------------------------------- |
-| `config.json`            | `~/.hivemind/config/config.json`          | `src/config/defaults/config.json`          | Protection anti-spam (10 msgs max, cooldown 2s, timeout 120s) et mode voix restreint        | Non sensible (chargé directement)                     |
-| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe, ses clés sont fusionnées sur les clés globales | Non bloqué par opt-in (clés locales autorisées)       |
-| `models_config.json`     | `~/.hivemind/config/models_config.json`   | `src/config/defaults/models_config.json`   | Catalogue exhaustif des modèles IA et routes (Gemini, Claude, GPT, Mistral, Groq...)        | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
-| `pricing.json`           | `~/.hivemind/config/pricing.json`         | `src/config/defaults/pricing.json`         | Fallback mémoire : $0.15/1M tokens (input), $0.60/1M tokens (output)                        | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
-| `scheduler.json`         | `~/.hivemind/config/scheduler.json`       | `src/config/defaults/scheduler.json`       | Cron jobs intégrés (dailyGreeting à 8h, reminderCheck à 1min, memoryCleanup à 3h)           | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
-| `services_config.json`   | `~/.hivemind/config/services_config.json` | `src/config/defaults/services_config.json` | Recettes standard (EXECUTOR=codestral, CRITIC=mistral-large, PLANNER=codestral)             | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| Fichier de configuration | Emplacement utilisateur cible             | Template par défaut (`defaults/`)          | Comportement / Valeurs par défaut si absent                                                                                                                                                                        | Sensibilité projet (`./config/`)                      |
+| :----------------------- | :---------------------------------------- | :----------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `config.json`            | `~/.hivemind/config/config.json`          | `src/config/defaults/config.json`          | Protection anti-spam (10 msgs max, cooldown 2s, timeout 120s) et mode voix restreint                                                                                                                               | Non sensible (chargé directement)                     |
+| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe, ses clés sont fusionnées sur les clés globales                                                                                                                        | Non bloqué par opt-in (clés locales autorisées)       |
+| `models_config.json`     | `~/.hivemind/config/models_config.json`   | `src/config/defaults/models_config.json`   | Catalogue exhaustif des modèles IA et routes (Gemini, Claude, GPT, Mistral, Groq...)                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `pricing.json`           | `~/.hivemind/config/pricing.json`         | `src/config/defaults/pricing.json`         | Fallback mémoire : $0.15/1M tokens (input), $0.60/1M tokens (output)                                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `scheduler.json`         | `~/.hivemind/config/scheduler.json`       | `src/config/defaults/scheduler.json`       | 15 tâches planifiées activées par défaut (exemples : dailyGreeting à 8h, reminderCheck à 1min, memoryCleanup à 3h, auto-goal execution...). Consulter `src/config/defaults/scheduler.json` pour la grille complète | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `services_config.json`   | `~/.hivemind/config/services_config.json` | `src/config/defaults/services_config.json` | Recettes standard (EXECUTOR=codestral, CRITIC=mistral-large, PLANNER=codestral)                                                                                                                                    | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
 
 #### Espaces de données et stockage local
 
-- **Racine utilisateur (`hiveHome`)** : `~/.hivemind/` (surchargeable via `HIVE_HOME_DIR`).
-- **Configurations utilisateur (`userConfigDir`)** : `~/.hivemind/config/` (surchargeable via `HIVE_CONFIG_DIR`).
-- **Données et stockage persistant (`storage` / `storage_hm`)** : `~/.sandbox1/storage_hm/` (surchargeable via `STORAGE_DIR`).
+- **Racine utilisateur (`hiveHome`)** : `~/.hivemind/` (détermine l'emplacement par défaut de la configuration utilisateur `~/.hivemind/config/`, modifiable via `HIVE_HOME_DIR`).
+- **Surcharge de configuration (`HIVE_CONFIG_DIR`)** : `HIVE_CONFIG_DIR` ne déplace pas le répertoire utilisateur (`userConfigDir`), mais injecte un répertoire candidat prioritaire au palier 1 pour chaque fichier qui y est présent. En cas de `HIVE_CONFIG_DIR` partiellement peuplé, les autres fichiers continuent d'être résolus via la cascade standard (projet, utilisateur, defaults).
+- **Données et stockage persistant (`storage` / `storage_hm`)** :
+  - **Comportement actif au runtime** : Sans variable `STORAGE_DIR`, les composants actifs (`PermissionManager`, `BrowserService`) écrivent dans le sous-répertoire `./storage_hm` du répertoire de travail (`<cwd>/storage_hm`), lié à `<cwd>/Sandbox1/storage_hm`.
+  - **Surcharge recommandée en production** : Définir explicitement `STORAGE_DIR=/chemin/vers/storage_hm` (ou `~/.sandbox1/storage_hm/`) pour isoler et persister les données hors de l'arborescence de travail (utile pour les montages de volume Docker/Kubernetes).
 
 ### Modifications code restantes pour la distribution (#135)
 
@@ -196,21 +198,25 @@ La meilleure trajectoire est progressive :
 
 ## Changements prioritaires à faire dans le code
 
-### 1. Séparer configuration par défaut et configuration utilisateur (Réalisé — PR #138 & #139)
+### 1. Séparer configuration par défaut et configuration utilisateur (Migration Partielle — PR #138 & #139)
 
-La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`). Il sépare formellement :
+La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) pour le Smart Router, le Runtime FinOps, et le Scheduler. Il sépare formellement :
 
 - Les templates embarqués par défaut en lecture seule dans `src/config/defaults/` (`config.json`, `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
 - La configuration utilisateur globale sanctuarisée dans `~/.hivemind/config/`.
 - La configuration projet locale (`./config/`), soumise à l'opt-in de sécurité `HIVE_TRUST_PROJECT_CONFIG=1` pour les fichiers sensibles (`models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
 - La fusion intelligente sans 401 pour `credentials.json` (les clés projet surchargent les clés globales utilisateur).
 
+> [!WARNING]
+> **Migration du conteneur en attente (#135)** :
+> L'initialisation du conteneur IoC (`ServiceContainer.loadConfig()` dans `src/core/ServiceContainer.ts`) charge encore directement `src/config/credentials.json` et `src/config/models_config.json` pour instancier les services `embeddings` et `voiceProvider`. Si une installation ne fournit que les fichiers sous `~/.hivemind/config/`, le conteneur complet échouera à démarrer. La transition complète de `ServiceContainer.loadConfig()` vers `ConfigPathResolver` fait l'objet de l'étape de packaging #135.
+
 ### 2. Supprimer les chemins absolus utilisateur et émanciper HIVE-MIND des fichiers hôte
 
 Les chemins absolus codés en dur (ex: `/home/omni/...`) sont strictement proscrits au profit de `os.homedir()` et du `ConfigPathResolver`.
 
 **Évolution architecturale majeure pour les providers OAuth :**
-Dans les versions futures distribuables, HIVE-MIND **n'utilisera plus les fichiers d'authentification par défaut sur le système hôte** (comme `~/.codex/auth.json` ou les identifiants gcloud externes).
+Dans les versions futures distribuables, HIVE-MIND **n'utilisera plus les fichiers d'authentification par défaut sur le système hôte** (comme le fichier `~/.codex/auth.json` utilisé en repli de développement par l'adaptateur Codex, tandis qu'Antigravity s'appuie actuellement sur ses variables d'environnement dédiées).
 À la place, HIVE-MIND intégrera des **scripts de connexion dédiés** (ex. `hive-mind login-provider <provider>`) simulant les véritables protocoles d'autorisation OAuth (Device Authorization Grant, flux PKCE, ou boucle locale HTTP).
 Ces scripts généreront et stockeront les jetons directement dans l'arborescence sanctuarisée de HIVE-MIND (`~/.hivemind/config/` ou coffre-fort sécurisé), garantissant :
 

@@ -12,6 +12,8 @@ La configuration des modèles est gérée par le `ConfigPathResolver` (`src/conf
    > Pour prévenir les risques d'exfiltration vers des endpoints malveillants lors de l'exécution sur un dépôt tiers, la lecture de `models_config.json` au niveau projet est sanctuarisée. Elle requiert l'opt-in explicite `HIVE_TRUST_PROJECT_CONFIG=true` (ou `1`). Sans cette variable, le projet local est ignoré par sécurité.
 3. **Configuration Utilisateur Globale (Recommandé en production/distribution)** :
    `~/.hivemind/config/models_config.json`
+   3.bis **Surcharge de defaults opérateur (Optionnel)** :
+   Si la variable `HIVE_DEFAULTS_CONFIG_DIR` est définie sur un dossier de defaults personnalisé, celui-ci est inspecté en priorité avant le repli hérité.
 4. **Repli hérité (Développement)** : `src/config/models_config.json` (émet un avertissement de dépréciation).
 5. **Template par défaut embarqué (Lecture seule)** :
    `src/config/defaults/models_config.json` (utilisé automatiquement si aucun fichier utilisateur n'est présent).
@@ -75,3 +77,4 @@ Si vous utilisez une famille compatible OpenAI (comme Mistral ou Ollama), ajoute
 - **Redémarrage** : Redémarrez le démon pour charger la nouvelle configuration en mémoire.
 - **Sécurité des dépôts tiers** : Si vous placez un `models_config.json` dans `./config/` au sein du workspace de développement, exportez `export HIVE_TRUST_PROJECT_CONFIG=1` pour que le résolveur l'autorise.
 - **Capacités** : Ajoutez les tags appropriés dans `types` (`vision` si le modèle accepte des images, `coding` s'il est spécialisé en code).
+- **Plafonds de Quota et Rate-Limiting (`QuotaManager`)** : Le routeur résout les modèles déclarés dans `~/.hivemind/config/models_config.json`, mais le gestionnaire de quotas (`QuotaManager` dans `src/services/quotaManager.ts`) lit actuellement les plafonds RPM/TPM/RPD depuis le fichier hérité `src/config/models_config.json`. Si vous associez un objet `quota` à votre modèle, reportez également ce bloc dans `src/config/models_config.json` afin que les gardes de taux soient actives (migration complète de `QuotaManager` prévue en #135).

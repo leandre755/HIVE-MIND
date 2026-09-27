@@ -58,12 +58,15 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 
 In `pricing.json` (resolved via `ConfigPathResolver` at `~/.hivemind/config/pricing.json`, `./config/pricing.json` with `HIVE_TRUST_PROJECT_CONFIG=1`, or embedded defaults in `src/config/defaults/pricing.json`):
 
+> [!IMPORTANT]
+> Rates in `pricing.json` are specified in **USD per million tokens ($/1M tokens)**. `RuntimeFinOps` calculates token cost using `(tokens * rate) / 1_000_000`. Supplying raw single-token fractions (such as `0.000001`) would artificially deflate calculated spending by a factor of 1,000,000 and render the session budget ineffective.
+
 ```json
 {
-  "default": { "input": 0.000001, "output": 0.000002 },
+  "default": { "input": 0.15, "output": 0.6 },
   "models": {
-    "gemini-1.5-flash": { "input": 0.000000075, "output": 0.0000003 },
-    "claude-3-5-sonnet": { "input": 0.000003, "output": 0.000015 }
+    "gemini-2.5-flash": { "input": 0.075, "output": 0.3 },
+    "claude-4-5-sonnet-20250929": { "input": 3.0, "output": 15.0 }
   }
 }
 ```
