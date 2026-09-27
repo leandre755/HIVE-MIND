@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Migration du Chargement de Pricing.json vers ConfigPathResolver dans RuntimeInfrastructure (#134)**
+  - **Context**: Macroscope a relevé que `RuntimeInfrastructure.ts` lisait en dur `pricing.json` via `join(process.cwd(), 'src', 'config', 'pricing.json')`, ce qui violait l'invariant de portabilité et d'émancipation de l'arborescence des sources du projet (#96 / #134).
+  - **Discarded Options**: Conserver `join(process.cwd(), ...)` avec un simple try/catch (rejeté : échoue dès que le processus s'exécute hors de la racine du dépôt ou sous packaging autonome).
+  - **Rationale**: `RuntimeInfrastructure.ts` délègue la découverte de `pricing.json` à `resolveConfigPath('pricing.json')` importé depuis `ConfigPathResolver.js`, bénéficiant ainsi des surcharges d'environnement, de la configuration projet `./config/pricing.json`, de la configuration utilisateur `~/.hivemind/config/pricing.json`, du repli hérité déprécié et des templates embarqués `defaults/pricing.json`. Tests unitaires dédiés ajoutés dans `RuntimeInfrastructure.test.ts` validant la résolution personnalisée et le repli gracieux sans crash.
+
 - [2026-09-27] **Renforcement Discriminant du Test d'Isolation des Credentials (#133 / PR #138)**
   - **Context**: Retour de revue Greptile P2 (ID 4113623542) sur la PR #138 : dans `ConfigIndex.test.ts`, l'assertion d'isolation de `HIVE_CONFIG_CREDENTIALS_JSON` avec un secret non monté s'exécutait après qu'un test précédent eut écrit `null` dans le fichier utilisateur `~/.hivemind/config/credentials.json`. Même en cas de régression accidentelle réactivant la fusion, le test renvoyait `prjCreds` sans détecter la fuite de clés.
   - **Discarded Options**: Conserver le test en l'état (rejeté : faux négatif potentiel en cas de régression future de l'isolation).

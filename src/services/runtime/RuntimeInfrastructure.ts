@@ -10,6 +10,7 @@ import {
 } from '../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
 import { eventBus, BotEvents } from '../../core/events.js';
 import type { AgentBlueprint } from '../../core/blueprint/AgentBlueprint.js';
 import { enforceFormat } from '../../utils/ResponseFormatEnforcer.js';
@@ -121,7 +122,7 @@ export class RuntimeFinOps {
     this.maxSessionBudget = maxBudget;
 
     try {
-      const pricingPath = join(process.cwd(), 'src', 'config', 'pricing.json');
+      const pricingPath = resolveConfigPath('pricing.json');
       if (existsSync(pricingPath)) {
         this.pricing = JSON.parse(readFileSync(pricingPath, 'utf-8')) as PricingConfig;
       } else {

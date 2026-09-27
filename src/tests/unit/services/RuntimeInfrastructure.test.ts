@@ -1,4 +1,12 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
+import {
+  safeMkdirSync,
+  safeWriteFileSync,
+  safeRemoveDirectorySync,
+} from '../../../utils/safeFs.js';
 
 // Mock imports
 jest.unstable_mockModule('../../../providers/index.js', () => ({
@@ -49,6 +57,62 @@ describe('AIRuntimeInfrastructure', () => {
       // Beyond 100% usage, lambda is capped at 1.0
       finOpsInternals.currentSessionCost = 2.0;
       expect(runtime.finOps.calculateLambda()).toBe(1.0);
+    });
+
+    it('should load custom model pricing resolved via resolveConfigPath', () => {
+      const tempDir = join(tmpdir(), `finops-pricing-${randomUUID()}`);
+      safeMkdirSync(tempDir, { recursive: true });
+      const customPricingPath = join(tempDir, 'custom-pricing.json');
+      const customPricing = {
+        default: { input: 1.0, output: 2.0 },
+        models: {
+          'custom/benchmark-model': { input: 5.0, output: 10.0 },
+        },
+      };
+      safeWriteFileSync(customPricingPath, JSON.stringify(customPricing));
+      process.env.HIVE_CONFIG_PRICING_JSON = customPricingPath;
+
+      try {
+        const customRuntime = new AIRuntimeInfrastructure(50.0);
+        const usage = customRuntime.finOps.recordUsage(
+          'custom/benchmark-model',
+          1_000_000,
+          1_000_000,
+        );
+        expect(usage.inputCost).toBeCloseTo(5.0, 4);
+        expect(usage.outputCost).toBeCloseTo(10.0, 4);
+        expect(usage.totalCost).toBeCloseTo(15.0, 4);
+      } finally {
+        Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
+        try {
+          safeRemoveDirectorySync(tempDir);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    it('should fallback to default pricing when pricing.json is corrupted or unreadable', () => {
+      const tempDir = join(tmpdir(), `finops-pricing-broken-${randomUUID()}`);
+      safeMkdirSync(tempDir, { recursive: true });
+      const brokenPricingPath = join(tempDir, 'broken-pricing.json');
+      safeWriteFileSync(brokenPricingPath, '{ broken: json');
+      process.env.HIVE_CONFIG_PRICING_JSON = brokenPricingPath;
+
+      try {
+        const fallbackRuntime = new AIRuntimeInfrastructure(10.0);
+        const usage = fallbackRuntime.finOps.recordUsage('unlisted/model', 1_000_000, 1_000_000);
+        expect(usage.inputCost).toBeCloseTo(0.15, 4);
+        expect(usage.outputCost).toBeCloseTo(0.6, 4);
+        expect(usage.totalCost).toBeCloseTo(0.75, 4);
+      } finally {
+        Reflect.deleteProperty(process.env, 'HIVE_CONFIG_PRICING_JSON');
+        try {
+          safeRemoveDirectorySync(tempDir);
+        } catch {
+          /* ignore */
+        }
+      }
     });
   });
 
