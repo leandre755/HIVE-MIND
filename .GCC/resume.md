@@ -2,30 +2,28 @@
 
 ## 🎯 Functional Outcome & Task Reality
 - **Requested Task**:
-  1. Assainir la PR #140 suite à l'analyse de revue Greptile initiale (10 retours : 5 P1 bloquants + 5 P2) puis traiter les 4 retours affinés du round 2 (3 P1 + 1 P2) :
-     - (P1 - 4114872591) Préciser que `<cwd>/storage_hm` est un lien symbolique vers `<cwd>/Sandbox1/storage_hm` et documenter la configuration conjointe `SANDBOX_DIR` / `STORAGE_DIR` pour monter l'intégralité des fichiers d'agents sur un volume persistant.
-     - (P1 - 4114872592) Proscrire l'usage d'un tilde littéral `STORAGE_DIR=~/...` (non interprété par Node.js et `path.resolve`) et prescrire impérativement des chemins absolus.
-     - (P1 - 4114872593) Préciser que seul `providerRouter.callServiceRecipe()` sur `models_config.json` est actif au runtime pour le démon, et que `services_config.json` alimente uniquement l'API `SmartLayer` sans flux actif en production.
-     - (P2 - 4114872598) Adopter la formulation exacte différenciant le flux SSE consolidé de Codex de la requête `generateContent` non streamée avec lecture JSON d'Antigravity.
+  1. Assainir la PR #140 suite à l'analyse de revue Greptile et traiter les 3 retours du round 3 (2 P1 + 1 P2) :
+     - (P1 - 4114903696) Documenter la non-recréation automatique du lien symbolique `<cwd>/storage_hm` préexistant par `PermissionManager`, l'incompatibilité avec `allowedDirectories`, et la procédure de migration explicite (`rm <cwd>/storage_hm` après copie des données).
+     - (P1 - 4114903698) Différencier la planification/replanification ordinaire (`providerRouter.chat()` via `chat_recipes`) de la recette de service `PLANNER` réservée à l'auto-correction syntaxique (`fixInvalidToolArgs()`), et inventorier les 4 autres recettes du Core (`SAFETY_SENTINEL`, `CRITIC`, `ACTION_EVALUATOR`, `DREAM_SERVICE`).
+     - (P2 - 4114903702) Préciser que `STORAGE_DIR` délocalise les captures et stickers mais n'affecte pas les téléchargements de messagerie écrits par le Core dans `<cwd>/hm_storage/tmp_download/`.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `documentation/explanations/distribution_hive_mind.md` : avertissement sur la non-expansion de `~` et configuration conjointe `SANDBOX_DIR` + `STORAGE_DIR`.
-  - `documentation/explanations/03_transport_smart_router.md` : clarification des routes runtime du démon vs catalogue programmatique `SmartLayer`.
-  - `documentation/providers/oauth-adapters-explanation.md` : distinction précise de `generateContent` non streamé pour Antigravity.
+  - `documentation/explanations/distribution_hive_mind.md` : avertissement sur le symlink résiduel, procédure de migration `rm <cwd>/storage_hm`, et portée de `STORAGE_DIR` vs `hm_storage/tmp_download/`.
+  - `documentation/explanations/03_transport_smart_router.md` : clarification formelle des appels normaux `chat()` vs recette `PLANNER` et catalogue `SmartLayer`.
   - `npm run build` : 0 erreur (tsc clean).
   - `npm run lint:fast` : 0 warning, 0 erreur (oxlint clean).
   - `npx prettier --check` : 100% conforme.
+  - Audit indépendant `Fix-Verifier & Doc Critic` : **APPROVE (100% Production-Grade / Impressed)**.
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **Files**:
   - `documentation/explanations/distribution_hive_mind.md`
   - `documentation/explanations/03_transport_smart_router.md`
-  - `documentation/providers/oauth-adapters-explanation.md`
   - `.GCC/main.md`
   - `.GCC/resume.md`
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npx prettier --check documentation/explanations/03_transport_smart_router.md documentation/explanations/distribution_hive_mind.md documentation/providers/oauth-adapters-explanation.md .GCC/main.md .GCC/resume.md`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx prettier --check documentation/explanations/03_transport_smart_router.md documentation/explanations/distribution_hive_mind.md .GCC/main.md .GCC/resume.md`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
@@ -42,10 +40,10 @@ All matched files use Prettier code style!
 ## 🚧 Unfinished Work & Technical Failures
 - **Next Action**:
   1. Commit et push sur `docs/config-path-resolver-oauth-scripts`.
-  2. Répondre aux 4 nouveaux commentaires Greptile sur GitHub.
-  3. Surveiller la réévaluation finale du check Greptile.
+  2. Répondre aux 3 nouveaux commentaires Greptile sur GitHub via `gh api`.
+  3. Surveiller la réévaluation finale du check Greptile pour confirmation 5/5.
 
 ## 👉 Handover Directives for the Next Agent
 1. **Branch**: `docs/config-path-resolver-oauth-scripts`
 2. **PR**: #140
-3. **Commit Message**: `docs(config): refine storage persistence, daemon recipes and antigravity non-streaming`
+3. **Commit Message**: `docs(config): clarify stale storage symlinks, media downloads and planner recipe routing`
