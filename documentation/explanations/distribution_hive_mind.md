@@ -43,14 +43,29 @@ hive-mind tui
   3. `~/.hivemind/config/` (configuration utilisateur globale) ;
   4. defaults embarqués en lecture seule (`src/config/defaults/`).
 
-### Modifications code nécessaires
+#### Emplacements des fichiers et valeurs par défaut
 
-- Ajouter un vrai script `build` qui émet `dist/` au lieu de seulement lancer `tsc --noEmit`.
-- Ajouter `files` dans `package.json` pour publier seulement `dist/`, `README.md`, `LICENSE` et les configs templates.
-- Remplacer les chemins codés en dur comme `/home/omni/.codex/auth.json` par une résolution via `os.homedir()`.
-- Ajouter un `ConfigPathResolver` dans la couche service/config.
-- Ajouter une commande `hive-mind init`.
-- Séparer `config defaults` et `config utilisateur`.
+| Fichier de configuration | Emplacement utilisateur cible             | Template par défaut (`defaults/`)          | Comportement / Valeurs par défaut si absent                                                 | Sensibilité projet (`./config/`)                      |
+| :----------------------- | :---------------------------------------- | :----------------------------------------- | :------------------------------------------------------------------------------------------ | :---------------------------------------------------- |
+| `config.json`            | `~/.hivemind/config/config.json`          | `src/config/defaults/config.json`          | Protection anti-spam (10 msgs max, cooldown 2s, timeout 120s) et mode voix restreint        | Non sensible (chargé directement)                     |
+| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe, ses clés sont fusionnées sur les clés globales | Non bloqué par opt-in (clés locales autorisées)       |
+| `models_config.json`     | `~/.hivemind/config/models_config.json`   | `src/config/defaults/models_config.json`   | Catalogue exhaustif des modèles IA et routes (Gemini, Claude, GPT, Mistral, Groq...)        | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `pricing.json`           | `~/.hivemind/config/pricing.json`         | `src/config/defaults/pricing.json`         | Fallback mémoire : $0.15/1M tokens (input), $0.60/1M tokens (output)                        | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `scheduler.json`         | `~/.hivemind/config/scheduler.json`       | `src/config/defaults/scheduler.json`       | Cron jobs intégrés (dailyGreeting à 8h, reminderCheck à 1min, memoryCleanup à 3h)           | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `services_config.json`   | `~/.hivemind/config/services_config.json` | `src/config/defaults/services_config.json` | Recettes standard (EXECUTOR=codestral, CRITIC=mistral-large, PLANNER=codestral)             | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+
+#### Espaces de données et stockage local
+
+- **Racine utilisateur (`hiveHome`)** : `~/.hivemind/` (surchargeable via `HIVE_HOME_DIR`).
+- **Configurations utilisateur (`userConfigDir`)** : `~/.hivemind/config/` (surchargeable via `HIVE_CONFIG_DIR`).
+- **Données et stockage persistant (`storage` / `storage_hm`)** : `~/.sandbox1/storage_hm/` (surchargeable via `STORAGE_DIR`).
+
+### Modifications code restantes pour la distribution (#135)
+
+- Ajouter un script de build émettant `dist/` (Node SEA / packaging).
+- Configurer le champ `files` dans `package.json` pour publier `dist/`, les templates embarqués et les manifestes.
+- Ajouter les commandes CLI de lifecycle (`hive-mind init`, `hive-mind doctor`).
+- Déployer les scripts de connexion dédiés pour les providers OAuth (éliminant la lecture des fichiers hôte).
 
 ### Avantages
 
@@ -181,27 +196,27 @@ La meilleure trajectoire est progressive :
 
 ## Changements prioritaires à faire dans le code
 
-### 1. Séparer configuration par défaut et configuration utilisateur
+### 1. Séparer configuration par défaut et configuration utilisateur (Réalisé — PR #138 & #139)
 
-Actuellement, `src/config/models_config.json` est lu directement depuis le code source. Pour une distribution installée, ce fichier doit devenir un default embarqué, pas le fichier utilisateur principal.
+La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`). Il sépare formellement :
 
-À créer :
+- Les templates embarqués par défaut en lecture seule dans `src/config/defaults/` (`config.json`, `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
+- La configuration utilisateur globale sanctuarisée dans `~/.hivemind/config/`.
+- La configuration projet locale (`./config/`), soumise à l'opt-in de sécurité `HIVE_TRUST_PROJECT_CONFIG=1` pour les fichiers sensibles (`models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
+- La fusion intelligente sans 401 pour `credentials.json` (les clés projet surchargent les clés globales utilisateur).
 
-- `src/config/ConfigPathResolver.ts`
-- `src/config/defaults/`
-- `~/.hivemind/config/config.json`
-- `~/.hivemind/config/models_config.json`
-- `~/.hivemind/config/credentials.json`
+### 2. Supprimer les chemins absolus utilisateur et émanciper HIVE-MIND des fichiers hôte
 
-### 2. Supprimer les chemins absolus utilisateur
+Les chemins absolus codés en dur (ex: `/home/omni/...`) sont strictement proscrits au profit de `os.homedir()` et du `ConfigPathResolver`.
 
-Les fichiers comme `/home/omni/.codex/auth.json` doivent devenir :
+**Évolution architecturale majeure pour les providers OAuth :**
+Dans les versions futures distribuables, HIVE-MIND **n'utilisera plus les fichiers d'authentification par défaut sur le système hôte** (comme `~/.codex/auth.json` ou les identifiants gcloud externes).
+À la place, HIVE-MIND intégrera des **scripts de connexion dédiés** (ex. `hive-mind login-provider <provider>`) simulant les véritables protocoles d'autorisation OAuth (Device Authorization Grant, flux PKCE, ou boucle locale HTTP).
+Ces scripts généreront et stockeront les jetons directement dans l'arborescence sanctuarisée de HIVE-MIND (`~/.hivemind/config/` ou coffre-fort sécurisé), garantissant :
 
-```text
-path.join(os.homedir(), '.codex', 'auth.json')
-```
-
-Même règle pour Antigravity, Gemini CLI, caches, médias et logs.
+- L'autonomie totale de l'application vis-à-vis des CLI tierces installées sur le système de l'opérateur.
+- L'absence de régression ou de corruption mutuelle de sessions entre HIVE-MIND et d'autres logiciels hôtes.
+- Une isolation parfaite pour les conteneurs et déploiements autonomes.
 
 ### 3. Introduire des commandes de lifecycle
 

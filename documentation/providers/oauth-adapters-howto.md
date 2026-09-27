@@ -6,21 +6,27 @@ Ce guide pratique détaille la procédure de configuration, d'authentification O
 
 - Node.js $\ge 22.0.0$ (ESM natif) et TypeScript configuré.
 - Un abonnement valide OpenAI ChatGPT Plus/Pro ou un accès Google Cloud Code Assist.
-- Le fichier `~/.codex/auth.json` généré par la CLI officielle OpenAI, ou les jetons d'environnement (`CODEX_ACCESS_TOKEN`, `CODEX_REFRESH_TOKEN`).
+- Le fichier `~/.codex/auth.json` généré par la CLI officielle OpenAI (mécanisme transitoire), ou les jetons d'environnement (`CODEX_ACCESS_TOKEN`, `CODEX_REFRESH_TOKEN`).
 
 ## Étapes de Réalisation
 
 ### 1. Configurer les jetons d'authentification
 
-#### Méthode A : En développement local via le fichier partagé
-Si vous utilisez la CLI officielle OpenAI Codex sur votre machine, l'adaptateur détecte et charge automatiquement le fichier `~/.codex/auth.json` :
+#### Méthode A : En développement local transitoire via le fichier hôte
+
+Si vous utilisez la CLI officielle OpenAI Codex sur votre machine, l'adaptateur détecte et charge actuellement le fichier `~/.codex/auth.json` :
 
 ```bash
 # Vérifier la présence du fichier d'authentification
 ls -la ~/.codex/auth.json
 ```
 
+> [!NOTE]
+> **Évolution Future — Remplacement par des Scripts de Connexion Dédiés** :
+> La lecture directe de fichiers d'authentification par défaut sur le système hôte (`~/.codex/auth.json`, etc.) est un pont transitoire de développement. Dans les versions futures distribuables de HIVE-MIND, des **scripts de connexion dédiés** simulant les véritables flux OAuth (Device Flow, PKCE, login interactif) seront intégrés pour générer et stocker les jetons directement dans l'arborescence sanctuarisée de l'application (`~/.hivemind/config/`), éliminant tout recours aux fichiers externes du système hôte.
+
 #### Méthode B : En production via les variables d'environnement
+
 Sur un serveur de production ou un conteneur (ex. Railway / Docker), renseignez les variables d'environnement dans votre fichier `.env` :
 
 ```env
@@ -125,21 +131,12 @@ if (payload && payload.exp) {
 
 ## Cas Particuliers & Variantes
 
-### Variante A : Utilisation en Streaming SSE
-Pour streamer la réponse événement par événement :
+### Variante A : Traitement du Streaming Interne Responses
 
-```typescript
-if (codexAdapter.chatStream) {
-  const stream = codexAdapter.chatStream(messages, { model: 'gpt-5.5' });
-  for await (const chunk of stream) {
-    if (chunk.content) {
-      process.stdout.write(chunk.content);
-    }
-  }
-}
-```
+L'adaptateur Codex consomme le flux `text/event-stream` du protocole Responses en tâche de fond, assemble les deltas d'événements et retourne un résultat consolidé via `chat(messages, options)`. Le streaming en temps réel vers l'utilisateur final est pris en charge par les adaptateurs de transport amont.
 
 ### Variante B : Exécution d'Outils (Tool Calling)
+
 Passez la liste des définitions d'outils dans les options :
 
 ```typescript
@@ -171,6 +168,7 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 ```
 
 Résultat attendu dans le terminal :
+
 ```text
 PASS src/tests/unit/providers/antigravity.test.ts
   Antigravity Adapter
@@ -185,8 +183,8 @@ Tests:       8 passed, 8 total
 
 ## Guide de Dépannage (Troubleshooting)
 
-| Symptôme / Message d'Erreur | Cause Probable | Solution Immédiate |
-| :--- | :--- | :--- |
-| `Error: Aucun token d'accès Codex disponible` | Ni variable d'environnement ni fichier `~/.codex/auth.json` n'ont été trouvés. | Se connecter avec la CLI OpenAI officielle ou définir `CODEX_ACCESS_TOKEN` dans `.env`. |
-| `Error: Échec du rafraîchissement OAuth (401/400)` | Le `refresh_token` a expiré ou la session a été révoquée depuis le compte web. | Relancer la commande de login de la CLI pour générer une nouvelle paire de tokens. |
-| `TLS Handshake Rejection` | Les passerelles distantes ont détecté une incompatibilité de cipher TLS. | Vérifier que `src/utils/TlsImpersonator.ts` est bien activé et que Node.js est en version $\ge 22$. |
+| Symptôme / Message d'Erreur                        | Cause Probable                                                                 | Solution Immédiate                                                                                  |
+| :------------------------------------------------- | :----------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
+| `Error: Aucun token d'accès Codex disponible`      | Ni variable d'environnement ni fichier `~/.codex/auth.json` n'ont été trouvés. | Se connecter avec la CLI OpenAI officielle ou définir `CODEX_ACCESS_TOKEN` dans `.env`.             |
+| `Error: Échec du rafraîchissement OAuth (401/400)` | Le `refresh_token` a expiré ou la session a été révoquée depuis le compte web. | Relancer la commande de login de la CLI pour générer une nouvelle paire de tokens.                  |
+| `TLS Handshake Rejection`                          | Les passerelles distantes ont détecté une incompatibilité de cipher TLS.       | Vérifier que `src/utils/TlsImpersonator.ts` est bien activé et que Node.js est en version $\ge 22$. |

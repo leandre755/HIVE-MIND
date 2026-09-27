@@ -38,7 +38,7 @@ interface TransportInterface {
   sendUniversalResponse(
     chatId: string,
     response: UniversalResponse,
-    options?: SendOptions
+    options?: SendOptions,
   ): Promise<void>;
   onMessage(callback: (msg: NormalizedMessage) => Promise<void>): void;
   downloadMedia(msg: NormalizedMessage): Promise<Buffer | null>;
@@ -108,7 +108,12 @@ Le `EnvResolver` (`src/services/envResolver.ts`) détecte les clés numérotées
 
 #### Sélection et cascade de modèles
 
-La configuration des cascades est définie dans `src/config/models_config.json` :
+La configuration des cascades et recettes de modèles est résolue dynamiquement par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) :
+
+- **Fichiers cibles** : `models_config.json` (catalogue et `chat_recipes`) et `services_config.json` (recettes de services spécialisés).
+- **Hiérarchie de découverte** : Surcharges d'environnement (`HIVE_CONFIG_MODELS_CONFIG_JSON`, `HIVE_CONFIG_SERVICES_CONFIG_JSON`, `HIVE_CONFIG_DIR`) $\to$ Configuration projet (`./config/`) sanctuarisée par l'opt-in `HIVE_TRUST_PROJECT_CONFIG=1` $\to$ Configuration utilisateur globale (`~/.hivemind/config/`) $\to$ Repli hérité avec warning $\to$ Templates embarqués par défaut (`src/config/defaults/`).
+
+Exemple d'extrait de configuration de cascades (`models_config.json`) :
 
 ```json
 {

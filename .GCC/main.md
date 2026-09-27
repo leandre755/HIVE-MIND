@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Alignement Exhaustif de la Documentation Diátaxis sur ConfigPathResolver & Émancipation OAuth (#96 / #135)**
+  - **Context**: La documentation sous `documentation/` contenait d'anciennes références vers des chemins de configuration en dur ou dépréciés (`V2/config/models_config.json`, `src/config/`, etc.) et décrivait la lecture de fichiers d'authentification par défaut de l'hôte (`~/.codex/auth.json`) sans mentionner la cible de distribution.
+  - **Discarded Options**: Laisser la documentation désynchronisée (rejeté : source d'incompréhension et d'erreurs pour les utilisateurs et intégrateurs) ; documenter une dépendance permanente aux fichiers CLI hôte tiers (rejeté : contraire à l'isolation et l'autonomie d'un paquet distribuable).
+  - **Rationale**: (1) Alignement exhaustif de 14 fichiers documentaires à travers les quadrants Diátaxis sur `ConfigPathResolver` (`~/.hivemind/config/`, opt-in `HIVE_TRUST_PROJECT_CONFIG=1` pour `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`, defaults embarqués dans `src/config/defaults/`, et isolation de stockage dans `~/.sandbox1/storage_hm`). (2) Consignation explicite de l'évolution future des providers OAuth vers des scripts de connexion dédiés (`hive-mind login-provider <provider>`) simulant les flux OAuth réels sans dépendre des fichiers par défaut de l'hôte.
+
 - [2026-09-27] **Diagnostic Enrichi de Fallback FinOps & Fixture Dédiée Taux Non-Finis (#134 / PR #139)**
   - **Context**: Retours de revue Greptile P2 sur la PR #139 (Threads `PRRT_kwDOT0y8pM6mWwly` et `PRRT_kwDOT0y8pM6mWwl1`) : (1) Le message d'avertissement de fallback dans `RuntimeFinOps` manquait de contexte (chemin du fichier sélectionné et raison de l'échec de validation) ; (2) Le test de taux non finis ne couvrait que les taux négatifs, sans fixture spécifique pour un taux non fini (`Infinity` via `1e400`).
   - **Discarded Options**: Conserver un avertissement générique (rejeté : diagnostic difficile en cas d'invalidation inattendue d'un fichier tarifaire) ; ne tester que les taux négatifs (rejeté : laisse sans couverture le contrôle `Number.isFinite`).
