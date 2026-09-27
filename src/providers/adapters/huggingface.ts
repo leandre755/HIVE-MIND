@@ -24,6 +24,31 @@ interface CredentialsFile {
   };
 }
 
+function isValidHfToken(token?: string | null): token is string {
+  if (!token || typeof token !== 'string') return false;
+  const trimmed = token.trim();
+  return trimmed !== '' && !trimmed.startsWith('VOTRE') && !trimmed.startsWith('${');
+}
+
+function resolveHfToken(creds?: CredentialsFile | null): string | null {
+  const candidates: (string | undefined)[] = [
+    creds?.familles_ia?.huggingface,
+    creds?.familles_ia?.HF_TOKEN,
+    process.env.HF_TOKEN,
+    process.env.HUGGINGFACE_KEY,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'string') continue;
+    const resolved = resolveApiKey(candidate, 'huggingface');
+    if (isValidHfToken(resolved)) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
 export class HuggingFaceAdapter {
   name = 'huggingface';
 
@@ -36,32 +61,22 @@ export class HuggingFaceAdapter {
   }
 
   _initClient() {
+    let creds: CredentialsFile | null = null;
     try {
       const credsPath = resolveConfigPath('credentials.json');
-      const creds = JSON.parse(safeReadFileSync(credsPath, 'utf-8')) as CredentialsFile;
-      const rawToken = creds.familles_ia?.HF_TOKEN ?? creds.familles_ia?.huggingface ?? '';
-
-      const token =
-        (rawToken ? resolveApiKey(rawToken, 'huggingface') : null) ||
-        process.env.HF_TOKEN ||
-        process.env.HUGGINGFACE_KEY;
-
-      if (token && !token.startsWith('VOTRE') && !token.startsWith('${')) {
-        this.client = new OpenAI({
-          baseURL: 'https://router.huggingface.co/v1',
-          apiKey: token,
-        });
-      }
+      creds = JSON.parse(safeReadFileSync(credsPath, 'utf-8')) as CredentialsFile;
     } catch {
-      const token = process.env.HF_TOKEN || process.env.HUGGINGFACE_KEY;
-      if (token && !token.startsWith('VOTRE') && !token.startsWith('${')) {
-        this.client = new OpenAI({
-          baseURL: 'https://router.huggingface.co/v1',
-          apiKey: token,
-        });
-      } else {
-        this.client = null;
-      }
+      // Ignoré : creds conserve sa valeur initiale null
+    }
+
+    const token = resolveHfToken(creds);
+    if (token) {
+      this.client = new OpenAI({
+        baseURL: 'https://router.huggingface.co/v1',
+        apiKey: token,
+      });
+    } else {
+      this.client = null;
     }
   }
 

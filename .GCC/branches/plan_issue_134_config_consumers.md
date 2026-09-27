@@ -94,6 +94,32 @@ AUDIT PASSED: Zero bugs, vulnerabilities, or regressions identified across the a
 Verdict : 100% production-grade / impressed.
 ```
 
+### Step 8: Remédiation des revues PR #141 (Greptile 5 P1 + 2 P2, SonarCloud S2933, Macroscope et audit médico-légal)
+- [x] **Action**:
+  1. Sécuriser `credentials.json` en l'ajoutant à `SENSITIVE_PROJECT_CONFIGS` (Greptile P1 `supabase.ts:42`).
+  2. Implémenter le design de démarrage strict (User directive & Greptile P1 `ServiceContainer.ts:118`) :
+     - Pas de Supabase = échec bloquant immédiat avec message clair.
+     - Pas de clé IA = échec bloquant immédiat avec message clair (min 1 clé).
+     - Pas de Redis = message clair informatif après chargement et basculement sur `switchToMock(redis)` non bloquant.
+     - 0 valeur par défaut.
+  3. Prioriser `process.env.HIVE_DATA_DIR` dans `resolveDbTextDir()` (Greptile P1 `ingest_docs.js:16`).
+  4. Résoudre le token Hugging Face sans masquage via `resolveHfToken` et `isValidHfToken` (Greptile P1 `huggingface.ts:49`).
+  5. Confinement canonique anti-symlink traversal via `toCanonicalPath` et `isTemplateOrReadOnlyConfig` (Greptile P1 `admin/index.ts:416`).
+  6. Éliminer la tautologie des tests GraphMemory via `HIVE_LEGACY_CONFIG_DIR = env.tempDir` et espion `console.warn` (Greptile P2 `configConsumers.test.ts:266`).
+  7. Actualiser la documentation Diátaxis (Greptile P2 `quotaManager.ts:90`).
+  8. Déclarer `readonly` sur les champs privés de `quotaManager.ts` (SonarCloud S2933).
+- [x] **Verify**: `npm run build && npm run lint:fast && npm run test:unit`
+- **Verification Proof**:
+```text
+> tsc --noEmit (0 error)
+> oxlint --deny-warnings src/ (Found 0 warnings and 0 errors across 373 files)
+> npx eslint (0 warning, 0 error)
+> npx prettier --check (100% match)
+> jest src/tests/unit/services/configConsumers.test.ts (24/24 tests passed, 13.221 s)
+> npm run test:unit (109/109 suites passed, 1125/1125 tests passed, 70.106 s)
+Dual Critic Subagents (ANTIBUG) : 100% production-grade / impressed.
+```
+
 ## ⚠️ Mitigations & Edge Cases
 - **Risk**: Cas où `admin/_setVoiceMode` tente d'écrire dans un template en lecture seule (`defaults/config.json`) si aucun fichier utilisateur n'existe encore.
   - **Mitigation**: Résolu — si `configPath` pointe sur les defaults ou le dossier legacy source, la cible d'écriture est redirigée vers `resolveUserConfigDir()` (`~/.hivemind/config/config.json`) avec `safeMkdirSync`. Test unitaire dédié validé.

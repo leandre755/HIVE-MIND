@@ -12,8 +12,18 @@ import { resolveConfigPath, resolveDataDir } from '../config/ConfigPathResolver.
 
 // Configuration
 const CHUNK_SIZE = 1500;
-const localDbText = path.join(process.cwd(), 'db_text');
-const DB_TEXT_DIR = safeExistsSync(localDbText) ? localDbText : resolveDataDir('db_text');
+function resolveDbTextDir() {
+  if (process.env.HIVE_DATA_DIR?.trim()) {
+    return resolveDataDir('db_text');
+  }
+  const localDbText = path.join(process.cwd(), 'db_text');
+  if (safeExistsSync(localDbText)) {
+    return localDbText;
+  }
+  return resolveDataDir('db_text');
+}
+
+const DB_TEXT_DIR = resolveDbTextDir();
 
 console.log("📚 Démarrage de l'ingestion de documents...");
 

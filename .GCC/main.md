@@ -38,6 +38,21 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Remédiation Complète PR #141, Contrôle d'Accès Strict au Démarrage & Confinement Canonique Anti-Symlink (#134 / PR #141)**
+  - **Context**: L'analyse de revue sur la PR #141 (Greptile 5 P1 + 2 P2, SonarCloud S2933, Macroscope et audit médico-légal ANTIBUG) et l'arbitrage utilisateur ont imposé de formaliser la matrice de démarrage :
+    1. Pas de Supabase = erreur bloquante immédiate avec message clair.
+    2. Pas de clé IA = erreur bloquante immédiate avec message clair (min 1 clé).
+    3. Pas de Redis = message clair informatif après chargement et basculement in-memory non-bloquant (`switchToMock(redis)` dans `registerBaseServices()`).
+    4. 0 valeur par défaut pour les clés/credentials.
+    5. Sécurisation de `credentials.json` en l'ajoutant à `SENSITIVE_PROJECT_CONFIGS` (opt-in `HIVE_TRUST_PROJECT_CONFIG=1` obligatoire).
+    6. Confinement canonique anti-symlink traversal dans `isPathInside` (`toCanonicalPath` avec `safeRealPathSync`).
+    7. Résolution unifiée des clés Hugging Face (`resolveHfToken`, `isValidHfToken`) sans masquage par les placeholders.
+    8. Priorisation de `HIVE_DATA_DIR` dans `resolveDbTextDir()` (`ingest_docs.js`).
+    9. Élimination de la tautologie des tests GraphMemory (`HIVE_LEGACY_CONFIG_DIR = env.tempDir`).
+    10. Champs `readonly` dans `quotaManager.ts` (SonarCloud S2933).
+  - **Discarded Options**: Tolérer des clés factices ou des fallbacks silencieux (rejeté : viole la consigne explicite "0 valeur par défaut") ; activer le mock Redis globalement dans `redisClient.ts` (rejeté : l'arbitrage utilisateur a choisi de circonscrire l'activation au niveau du `ServiceContainer`).
+  - **Rationale**: Traitement exhaustif des retours de revue et des exigences de démarrage. Validation intégrale : `tsc --noEmit` 0 erreur, `oxlint` 0 warning/erreur, `eslint` 0 erreur, `prettier` 100%, 24/24 tests `configConsumers.test.ts` passés, 109/109 suites unitaires Jest passées (1125 tests). Homologué avec mention officielle **100% production-grade / impressed** par les deux sous-agents critiques indépendants (`Fix Verification Critic` et `Global System Critic`).
+
 - [2026-09-27] **Migration Exhaustive des 13 Consommateurs de Configuration vers ConfigPathResolver & Confinement Écriture (#134)**
   - **Context**: L'issue #134 (sous-issue 4/5 de #96) requiert d'éliminer l'ensemble des 13 sites de consommation de configuration JSON accédant directement à `config/` ou `src/config/` via `__dirname` ou `process.cwd()` et d'éradiquer les appels `fs.readFileSync` bruts.
   - **Discarded Options**: (a) Traiter chaque consommateur dans une PR distincte (rejeté sur arbitrage utilisateur : diff total < 200 lignes, parfaitement consolidable dans une PR unifiée respectant le budget < 1000 LoC) ; (b) Tolérer les écritures directes sur le chemin résolu dans `admin/_setVoiceMode` et `update_gemma.ts` (rejeté : corrompt les templates embarqués dans `src/config/defaults` ou crashe en lecture seule sous conteneur Docker).

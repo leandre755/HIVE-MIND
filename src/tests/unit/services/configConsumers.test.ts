@@ -1,4 +1,4 @@
-import { describe, beforeEach, afterEach, it, expect } from '@jest/globals';
+import { describe, beforeEach, afterEach, it, expect, jest } from '@jest/globals';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -8,16 +8,25 @@ import {
   safeRemoveDirectorySync,
   safeExistsSync,
   safeReadFileSync,
+  safeSymlinkSync,
 } from '../../../utils/safeFs.js';
 import {
   resolveConfigPath,
   resolveDefaultsConfigDir,
   resolveLegacyConfigDir,
   resolveUserConfigDir,
+  isPathInside,
+  isTemplateOrReadOnlyConfig,
 } from '../../../config/ConfigPathResolver.js';
 import { QuotaManager } from '../../../services/quotaManager.js';
 import { VoiceProvider } from '../../../services/voice/voiceProvider.js';
-import { ServiceContainer } from '../../../core/ServiceContainer.js';
+import {
+  ServiceContainer,
+  countConfiguredAiKeys,
+  isRedisConfigured,
+  resolveSupabaseCredentials,
+} from '../../../core/ServiceContainer.js';
+import { redis } from '../../../services/redisClient.js';
 import { HuggingFaceAdapter } from '../../../providers/adapters/huggingface.js';
 import { initGraphMemoryEmbeddings } from '../../../services/graphMemory.js';
 import adminPlugin from '../../../plugins/base/admin/index.js';
@@ -33,8 +42,16 @@ const MONITORED_ENV_KEYS = [
   'HIVE_CONFIG_CONFIG_JSON',
   'HIVE_HOME_DIR',
   'HUGGINGFACE_KEY',
+  'HF_TOKEN',
   'GEMINI_KEY',
   'OPENAI_KEY',
+  'SUPABASE_URL',
+  'SUPABASE_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'REDIS_URL',
+  'HIVE_LEGACY_CONFIG_DIR',
+  'HIVE_DEFAULTS_CONFIG_DIR',
+  'HIVE_TRUST_PROJECT_CONFIG',
 ];
 
 function setupTestEnv(): TestEnvironment {
@@ -117,6 +134,9 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
   });
 
   it('should resolve and load default credentials and models_config via ServiceContainer', () => {
+    process.env.SUPABASE_URL = 'http://localhost:54321';
+    process.env.SUPABASE_KEY = 'dummy-key';
+    process.env.GEMINI_KEY = 'test-gemini-key-val';
     const container = new ServiceContainer();
     const config = (
       container as unknown as {
@@ -130,7 +150,7 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
   it('should respect custom credentials and models_config in ServiceContainer', () => {
     const customCreds = {
       supabase: { url: 'https://custom.supabase.co', key: 'custom-key' },
-      familles_ia: { CUSTOM_TOKEN: 'custom-val' },
+      familles_ia: { gemini: 'test-gemini-key-val' },
     };
     const customModels = {
       reglages_generaux: {
@@ -164,6 +184,122 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
 
     expect(config.credentials.supabase.url).toBe('https://custom.supabase.co');
     expect(config.modelsConfig.reglages_generaux.familles_prioritaires).toEqual(['custom']);
+  });
+
+  it('should throw clear error when Supabase configuration is missing or invalid in ServiceContainer', () => {
+    Reflect.deleteProperty(process.env, 'SUPABASE_URL');
+    Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
+    Reflect.deleteProperty(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+    process.env.GEMINI_KEY = 'test-gemini-key-val';
+
+    const customCreds = {
+      familles_ia: { gemini: 'test-gemini-key-val' },
+    };
+    const credsPath = join(env.tempDir, 'no_sb_creds.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const container = new ServiceContainer();
+    expect(() => (container as unknown as { loadConfig: () => unknown }).loadConfig()).toThrow(
+      /Configuration Supabase manquante ou incomplète/,
+    );
+  });
+
+  it('should throw clear error when no AI keys are configured in ServiceContainer', () => {
+    process.env.SUPABASE_URL = 'https://valid.supabase.co';
+    process.env.SUPABASE_KEY = 'valid-key';
+    Reflect.deleteProperty(process.env, 'GEMINI_KEY');
+    Reflect.deleteProperty(process.env, 'OPENAI_KEY');
+    Reflect.deleteProperty(process.env, 'HF_TOKEN');
+    Reflect.deleteProperty(process.env, 'HUGGINGFACE_KEY');
+
+    const customCreds = {
+      supabase: { url: 'https://valid.supabase.co', key: 'valid-key' },
+      familles_ia: { gemini: 'VOTRE_CLE_GEMINI' },
+    };
+    const credsPath = join(env.tempDir, 'no_ai_creds.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const container = new ServiceContainer();
+    expect(() => (container as unknown as { loadConfig: () => unknown }).loadConfig()).toThrow(
+      /Aucune clé API d'IA configurée/,
+    );
+  });
+
+  it('should log clear message and continue when Redis is absent in ServiceContainer', () => {
+    Reflect.deleteProperty(process.env, 'REDIS_URL');
+    process.env.SUPABASE_URL = 'https://valid.supabase.co';
+    process.env.SUPABASE_KEY = 'valid-key';
+    process.env.GEMINI_KEY = 'test-gemini-key-val';
+
+    const customCreds = {
+      supabase: { url: 'https://valid.supabase.co', key: 'valid-key' },
+      familles_ia: { gemini: 'test-gemini-key-val' },
+    };
+    const credsPath = join(env.tempDir, 'no_redis_creds.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const container = new ServiceContainer();
+      const config = (
+        container as unknown as { loadConfig: () => { credentials: unknown } }
+      ).loadConfig();
+      expect(config.credentials).toBeDefined();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Redis non configuré : poursuite du démarrage en mode mémoire local',
+        ),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('should count AI keys with unmasked HF_TOKEN when credentials contains placeholder', () => {
+    process.env.HF_TOKEN = 'hf_valid_test_token_12345';
+    const count = countConfiguredAiKeys({
+      huggingface: 'VOTRE_CLE_HF',
+      gemini: 'VOTRE_CLE_GEMINI',
+    });
+    expect(count).toBe(1);
+  });
+
+  it('should activate switchToMock on redis when Redis is not configured in ServiceContainer', async () => {
+    Reflect.deleteProperty(process.env, 'REDIS_URL');
+    const { adminService } = await import('../../../services/adminService.js');
+    const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+    try {
+      const container = new ServiceContainer();
+      await (
+        container as unknown as {
+          registerBaseServices: (creds?: unknown) => Promise<void>;
+        }
+      ).registerBaseServices({});
+      expect(redis.isReady).toBe(true);
+      expect(redis.isOpen).toBe(true);
+    } finally {
+      adminInitSpy.mockRestore();
+    }
+  });
+
+  it('should correctly evaluate resolveSupabaseCredentials and isRedisConfigured', () => {
+    Reflect.deleteProperty(process.env, 'SUPABASE_URL');
+    Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
+    Reflect.deleteProperty(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+    Reflect.deleteProperty(process.env, 'REDIS_URL');
+
+    expect(resolveSupabaseCredentials(undefined)).toBeNull();
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://valid.co', key: 'key1' },
+      }),
+    ).toEqual({ url: 'https://valid.co', key: 'key1' });
+
+    expect(isRedisConfigured(undefined)).toBe(false);
+    expect(isRedisConfigured({ redis: { url: 'redis://localhost:6379' } })).toBe(true);
   });
 });
 
@@ -222,6 +358,31 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
     expect(adapter.client).toBeNull();
   });
 
+  it('should prioritize valid huggingface key over placeholder HF_TOKEN', () => {
+    const customCreds = {
+      familles_ia: {
+        HF_TOKEN: 'VOTRE_CLE_HF',
+        huggingface: 'mock-valid-hf-token-prioritized',
+      },
+    };
+    const credsPath = join(env.tempDir, 'hf_creds_precedence.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const adapter = new HuggingFaceAdapter();
+    expect(adapter.client).not.toBeNull();
+  });
+
+  it('should handle corrupted credentials.json gracefully and fallback to env in HuggingFace adapter', () => {
+    const corruptCredsPath = join(env.tempDir, 'corrupt_hf_creds.json');
+    safeWriteFileSync(corruptCredsPath, '{ invalid json');
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = corruptCredsPath;
+    process.env.HF_TOKEN = 'mock-env-hf-token-fallback';
+
+    const adapter = new HuggingFaceAdapter();
+    expect(adapter.client).not.toBeNull();
+  });
+
   it('should read transcription mode and redirect write to user directory in Admin plugin', async () => {
     const userHome = join(env.tempDir, 'fake_home');
     process.env.HIVE_HOME_DIR = userHome;
@@ -240,15 +401,29 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
     expect(saved.voice_transcription?.mode).toBe('full');
   });
 
+  it('should write directly to custom configPath when not a template in Admin plugin', async () => {
+    const customConfigDir = join(env.tempDir, 'custom_cfg_dir');
+    safeMkdirSync(customConfigDir, { recursive: true });
+    const customConfigPath = join(customConfigDir, 'config.json');
+    safeWriteFileSync(
+      customConfigPath,
+      JSON.stringify({ voice_transcription: { mode: 'restricted' } }, null, 2),
+    );
+    process.env.HIVE_CONFIG_CONFIG_JSON = customConfigPath;
+
+    const res = await adminPlugin._setVoiceMode('full');
+    expect(res.success).toBe(true);
+
+    const saved = JSON.parse(safeReadFileSync(customConfigPath, 'utf-8'));
+    expect(saved.voice_transcription?.mode).toBe('full');
+  });
+
   it('should redirect writes away from defaults or legacy template to user config directory', () => {
     const userHome = join(env.tempDir, 'user_home');
     process.env.HIVE_HOME_DIR = userHome;
 
     const configPath = resolveConfigPath('models_config.json');
-    const defaultsDir = resolveDefaultsConfigDir();
-    const legacyDir = resolveLegacyConfigDir();
-    const isReadOnlyOrTemplate =
-      configPath.startsWith(defaultsDir) || configPath.startsWith(legacyDir);
+    const isReadOnlyOrTemplate = isTemplateOrReadOnlyConfig(configPath);
 
     expect(isReadOnlyOrTemplate).toBe(true);
 
@@ -260,19 +435,98 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
   });
 
   it('should initialize embeddings from environment variables when credentials.json is missing in GraphMemory', () => {
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.tempDir;
     process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(env.tempDir, 'non_existent_creds.json');
     process.env.GEMINI_KEY = 'mock-gemini-key-12345';
 
-    const embeddings = initGraphMemoryEmbeddings();
-    expect(embeddings).not.toBeNull();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const embeddings = initGraphMemoryEmbeddings();
+      expect(embeddings).not.toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GraphMemory] Impossible de lire credentials.json, repli sur variables d’environnement:',
+        ),
+        expect.any(String),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('should handle corrupted credentials.json gracefully and fallback to env in GraphMemory', () => {
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.tempDir;
+    const corruptCredsPath = join(env.tempDir, 'corrupt_graph_creds.json');
+    safeWriteFileSync(corruptCredsPath, '{ corrupt json');
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = corruptCredsPath;
+    process.env.GEMINI_KEY = 'mock-gemini-key-fallback';
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const embeddings = initGraphMemoryEmbeddings();
+      expect(embeddings).not.toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GraphMemory] Impossible de lire credentials.json, repli sur variables d’environnement:',
+        ),
+        expect.any(String),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('should return null without throwing when neither credentials nor env keys are present in GraphMemory', () => {
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.tempDir;
     process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(env.tempDir, 'non_existent_creds.json');
     Reflect.deleteProperty(process.env, 'GEMINI_KEY');
     Reflect.deleteProperty(process.env, 'OPENAI_KEY');
 
     const embeddings = initGraphMemoryEmbeddings();
     expect(embeddings).toBeNull();
+  });
+});
+
+describe('Config Consumers Migration - Path Containment Helpers (#134)', () => {
+  let env: TestEnvironment;
+
+  beforeEach(() => {
+    env = setupTestEnv();
+  });
+
+  afterEach(() => {
+    teardownTestEnv(env);
+  });
+
+  it('should correctly detect if a path is inside a parent directory with isPathInside', () => {
+    const parent = join(resolveUserConfigDir(), 'parent_scope');
+    expect(isPathInside(parent, join(parent, 'sub', 'file.json'))).toBe(true);
+    expect(isPathInside(parent, join(parent, 'file.json'))).toBe(true);
+    expect(isPathInside(parent, parent)).toBe(false);
+    expect(isPathInside(parent, `${parent}_sibling/file.json`)).toBe(false);
+    expect(isPathInside(parent, join(resolveUserConfigDir(), 'other', 'file.json'))).toBe(false);
+  });
+
+  it('should accurately identify template/read-only configs with isTemplateOrReadOnlyConfig', () => {
+    const defaultsDir = resolveDefaultsConfigDir();
+    const legacyDir = resolveLegacyConfigDir();
+
+    expect(isTemplateOrReadOnlyConfig(join(defaultsDir, 'models_config.json'))).toBe(true);
+    expect(isTemplateOrReadOnlyConfig(join(legacyDir, 'models_config.json'))).toBe(true);
+    expect(isTemplateOrReadOnlyConfig(join(resolveUserConfigDir(), 'models_config.json'))).toBe(
+      false,
+    );
+    expect(isTemplateOrReadOnlyConfig('/custom/unrelated/config.json')).toBe(false);
+  });
+
+  it('should accurately detect symlinks pointing to template or read-only configs', () => {
+    const defaultsDir = resolveDefaultsConfigDir();
+    const targetFile = join(defaultsDir, 'models_config.json');
+    const symlinkPath = join(env.tempDir, 'symlink_to_template.json');
+
+    safeSymlinkSync(targetFile, symlinkPath);
+
+    expect(isPathInside(defaultsDir, symlinkPath)).toBe(true);
+    expect(isTemplateOrReadOnlyConfig(symlinkPath)).toBe(true);
   });
 });

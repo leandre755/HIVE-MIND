@@ -6,8 +6,7 @@ import { safeReadFileSync, safeWriteFileSync, safeMkdirSync } from '../../../uti
 import {
   resolveConfigPath,
   resolveUserConfigDir,
-  resolveDefaultsConfigDir,
-  resolveLegacyConfigDir,
+  isTemplateOrReadOnlyConfig,
 } from '../../../config/ConfigPathResolver.js';
 import { join } from 'node:path';
 
@@ -407,10 +406,7 @@ export default {
       }
       config.voice_transcription.mode = mode;
 
-      const defaultsDir = resolveDefaultsConfigDir();
-      const legacyDir = resolveLegacyConfigDir();
-      const isReadOnlyOrTemplate =
-        configPath.startsWith(defaultsDir) || configPath.startsWith(legacyDir);
+      const isReadOnlyOrTemplate = isTemplateOrReadOnlyConfig(configPath);
       const writePath = isReadOnlyOrTemplate
         ? join(resolveUserConfigDir(), 'config.json')
         : configPath;

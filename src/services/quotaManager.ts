@@ -64,14 +64,14 @@ function extractErrorMessage(error: unknown): string {
 }
 
 export class QuotaManager {
-  private client: typeof redisClient;
+  private readonly client: typeof redisClient;
   private quotas: Record<string, QuotaLimits>;
-  private localRateLimit: Map<string, number>;
+  private readonly localRateLimit: Map<string, number>;
   private redisDownSince: number | null;
   /** Reverse map: modelId → providerName (populated from models_config.json) */
   private modelToProvider: Map<string, string>;
   /** L0 in-memory cache: redisKey → { value, expiresAt } */
-  private _l0Cache: Map<string, { value: string | null; expiresAt: number }>;
+  private readonly _l0Cache: Map<string, { value: string | null; expiresAt: number }>;
 
   constructor() {
     this.client = redisClient;

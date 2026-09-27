@@ -1,37 +1,40 @@
 # Test Execution Log
 
-## 📅 Date: 2026-09-27 (Issue #134 — Migration des 13 consommateurs de configuration)
+## 📅 Date: 2026-09-27 (Issue #134 — Migration des 13 consommateurs de configuration & Remédiation PR #141)
 
 ### Périmètre
-Migration exhaustive des sites de consommation de configuration JSON vers `ConfigPathResolver` (`resolveConfigPath`) et éradication de `fs.readFileSync` au profit de `safeReadFileSync` :
-- `src/services/supabase.ts` (credentials.json)
-- `src/services/redisClient.ts` (credentials.json)
-- `src/services/graphMemory.ts` (credentials.json)
-- `src/core/ServiceContainer.ts` (credentials.json, models_config.json)
-- `src/services/quotaManager.ts` (models_config.json)
-- `src/providers/adapters/huggingface.ts` (credentials.json)
-- `src/services/voice/voiceProvider.ts` (credentials.json)
-- `src/plugins/base/admin/index.ts` (config.json + fallback d'écriture vers `~/.hivemind/config/config.json`)
-- `src/plugins/tools/daily_pulse/journal_generator.ts` (credentials.json)
-- `src/scripts/health-check.ts` (models_config.json, credentials.json)
-- `src/scripts/ingest_docs.js` (credentials.json)
-- `src/scripts/test_models.ts` (models_config.json)
-- `src/scripts/update_gemma.ts` (models_config.json)
-- `src/tests/unit/services/configConsumers.test.ts` (nouveau fichier de tests unitaires dédiés)
+Migration exhaustive des sites de consommation de configuration JSON vers `ConfigPathResolver` (`resolveConfigPath`), éradication de `fs.readFileSync` au profit de `safeReadFileSync`, et remédiation complète des retours PR #141 (Greptile 5 P1 + 2 P2, SonarCloud S2933, Macroscope, et audit ANTIBUG) :
+- `src/services/supabase.ts` (`credentials.json`, `SENSITIVE_PROJECT_CONFIGS`)
+- `src/services/redisClient.ts` (`credentials.json`, `switchToMock(redis)`)
+- `src/services/graphMemory.ts` (`credentials.json`, découplage résilient, isolation HIVE_LEGACY_CONFIG_DIR)
+- `src/core/ServiceContainer.ts` (`credentials.json`, `models_config.json`, validation Supabase stricte, validation clés IA sans masquage avec repli HF_TOKEN, mock Redis non bloquant)
+- `src/services/quotaManager.ts` (`models_config.json`, champs readonly SonarCloud S2933)
+- `src/providers/adapters/huggingface.ts` (`credentials.json`, `resolveHfToken`, `isValidHfToken`)
+- `src/services/voice/voiceProvider.ts` (`credentials.json`)
+- `src/plugins/base/admin/index.ts` (`config.json`, confinement d'écriture avec `isTemplateOrReadOnlyConfig`)
+- `src/plugins/tools/daily_pulse/journal_generator.ts` (`credentials.json`)
+- `src/scripts/health-check.ts` (`models_config.json`, `credentials.json`)
+- `src/scripts/ingest_docs.js` (`credentials.json`, `models_config.json`, `resolveDbTextDir` avec priorité `HIVE_DATA_DIR`)
+- `src/scripts/test_models.ts` (`models_config.json`)
+- `src/scripts/update_gemma.ts` (`models_config.json`, confinement d'écriture avec `isTemplateOrReadOnlyConfig`)
+- `src/config/ConfigPathResolver.ts` (`toCanonicalPath`, `safeRealPathSync`, détection symlink dans `isPathInside`)
+- `documentation/explanations/distribution_hive_mind.md` (harmonisation de la sensibilité de `credentials.json`)
+- `src/tests/unit/services/configConsumers.test.ts` (suite unitaire dédiée, 24/24 tests passés)
 
 ### Résultats d'exécution (sorties brutes)
 - `npm run build` (`tsc --noEmit`) : **PASSED (0 erreur)**.
 - `npm run lint:fast` (`oxlint --deny-warnings src/`) : **PASSED** — `Found 0 warnings and 0 errors.` (373 fichiers).
-- `npm test -- src/tests/unit/services/configConsumers.test.ts` : **PASSED (7/7 tests)** :
-  - `QuotaManager config loading` : surcharge `HIVE_CONFIG_MODELS_CONFIG_JSON`
-  - `VoiceProvider credentials loading` : surcharge `HIVE_CONFIG_CREDENTIALS_JSON`
-  - `Admin plugin _setVoiceMode config resolution and fallback` : lecture du mode et redirection d'écriture vers `~/.hivemind/config/config.json`
-  - `ServiceContainer config loading` : résolution par défaut et surcharges via environnement
-  - `HuggingFaceAdapter client initialization` : initialisation avec `HF_TOKEN` valide et repli `null` si placeholder
-- `npm run test:unit` : **PASSED (109/109 suites, 1108/1108 tests, 43.355 s)**.
+- `npx eslint src/config/ConfigPathResolver.ts src/core/ServiceContainer.ts src/providers/adapters/huggingface.ts src/services/quotaManager.ts src/tests/unit/services/configConsumers.test.ts` : **PASSED (0 warning, 0 error)**.
+- `npx prettier --check` (fichiers modifiés) : **PASSED** — `All matched files use Prettier code style!`.
+- `NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest src/tests/unit/services/configConsumers.test.ts` : **PASSED (24/24 tests, 13.221 s)**.
+- `npm run test:unit` : **PASSED (109/109 suites, 1125/1125 tests, 70.106 s)**.
+
+### Homologation sous-agents critiques (ANTIBUG)
+- `Fix Verification Critic` (`6982584b-cde4-44ed-8534-ec8ed6d80596`) : **AUDIT PASSED: Zero bugs, vulnerabilities, or regressions identified across the analyzed scope. Mention officielle : 100% production-grade / impressed**.
+- `Global System Critic` (`e5585f58-f06f-44d9-864f-6e9b521d6abe`) : **AUDIT PASSED: Zero bugs, vulnerabilities, or regressions identified across the analyzed scope. Mention d'homologation : 100% production-grade / impressed**.
 
 ### Régression
-Aucune régression détectée sur l'ensemble de la suite unitaire du projet.
+Aucune régression détectée sur l'ensemble des 109 suites unitaires du projet.
 
 ## 📅 Date: 2026-09-22 (fin de session — compaction taille PR #120 + validation)
 

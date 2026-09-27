@@ -6,9 +6,9 @@
  */
 
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { safeExistsSync, resolveWithinRoot } from '../utils/safeFs.js';
+import { safeExistsSync, safeRealPathSync, resolveWithinRoot } from '../utils/safeFs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -44,12 +44,46 @@ export const resolveDefaultsConfigDir = (): string =>
 export const resolveLegacyConfigDir = (): string =>
   getEnvDir(process.env.HIVE_LEGACY_CONFIG_DIR) ?? dirname(DEFAULTS_CONFIG_DIR);
 
+function toCanonicalPath(targetPath: string): string {
+  try {
+    if (safeExistsSync(targetPath)) {
+      return safeRealPathSync(targetPath);
+    }
+    const parent = dirname(targetPath);
+    if (safeExistsSync(parent)) {
+      return join(safeRealPathSync(parent), basename(targetPath));
+    }
+  } catch {
+    // repli lexical en cas d'erreur de résolution canonique
+  }
+  return resolve(targetPath);
+}
+
+export function isPathInside(parentDir: string, candidatePath: string): boolean {
+  try {
+    const root = toCanonicalPath(parentDir);
+    const candidate = toCanonicalPath(candidatePath);
+    const rel = relative(root, candidate);
+    return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}
+
+export function isTemplateOrReadOnlyConfig(configPath: string): boolean {
+  return (
+    isPathInside(resolveDefaultsConfigDir(), configPath) ||
+    isPathInside(resolveLegacyConfigDir(), configPath)
+  );
+}
+
 function getFileSpecificEnvPath(cleanName: string): string | undefined {
   const key = `HIVE_CONFIG_${cleanName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`;
   return getEnvDir(Reflect.get(process.env, key));
 }
 
 const SENSITIVE_PROJECT_CONFIGS = new Set([
+  'credentials.json',
   'models_config.json',
   'pricing.json',
   'scheduler.json',

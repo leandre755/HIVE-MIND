@@ -2,9 +2,8 @@ import { join } from 'node:path';
 import { safeMkdirSync, safeReadFileSync, safeWriteFileSync } from '../utils/safeFs.js';
 import {
   resolveConfigPath,
-  resolveDefaultsConfigDir,
-  resolveLegacyConfigDir,
   resolveUserConfigDir,
+  isTemplateOrReadOnlyConfig,
 } from '../config/ConfigPathResolver.js';
 
 type ModelEntry = {
@@ -42,9 +41,7 @@ if (!modelExists) {
   });
 }
 
-const defaultsDir = resolveDefaultsConfigDir();
-const legacyDir = resolveLegacyConfigDir();
-const isReadOnlyOrTemplate = configPath.startsWith(defaultsDir) || configPath.startsWith(legacyDir);
+const isReadOnlyOrTemplate = isTemplateOrReadOnlyConfig(configPath);
 const writePath = isReadOnlyOrTemplate
   ? join(resolveUserConfigDir(), 'models_config.json')
   : configPath;

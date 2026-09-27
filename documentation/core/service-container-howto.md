@@ -5,8 +5,7 @@ Ce guide pratique décrit la procédure pas-à-pas pour déclarer, enregistrer e
 ## Prérequis
 
 - Node.js >= 22 (ESM natif) et TypeScript configuré.
-- Dépendances du projet installées (`npm install`).
-- Fichiers de configuration de base présents (`src/config/credentials.json` et `src/config/models_config.json` en phase transitoire, avant l'achèvement de la migration du conteneur vers `ConfigPathResolver`).
+- Fichiers de configuration de base résolus via `ConfigPathResolver` (dans `~/.hivemind/config/`, `./config/` ou `src/config/defaults/`).
 
 ## Étapes de Réalisation
 

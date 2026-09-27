@@ -70,6 +70,113 @@ export interface ServiceRegistry {
 
 const DEFAULT_CONTAINER_OPTIONS: ContainerInitOptions = Object.freeze({ mode: 'full' });
 
+function isValidCredentialString(val: unknown): val is string {
+  if (typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith('VOTRE_') ||
+    trimmed.includes('SUPABASE_PROJECT_ID') ||
+    trimmed.startsWith('${')
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function resolveSupabaseCredentials(rawCredentials?: Partial<Credentials>): {
+  url: string;
+  key: string;
+} | null {
+  let url = rawCredentials?.supabase?.url;
+  let key = rawCredentials?.supabase?.service_role_key || rawCredentials?.supabase?.key;
+
+  if (url && Object.hasOwn(process.env, url)) {
+    const envUrl = Reflect.get(process.env, url);
+    if (typeof envUrl === 'string' && envUrl) url = envUrl;
+  }
+  if (key && Object.hasOwn(process.env, key)) {
+    const envKey = Reflect.get(process.env, key);
+    if (typeof envKey === 'string' && envKey) key = envKey;
+  }
+
+  if (!url || !isValidCredentialString(url)) {
+    url = process.env.SUPABASE_URL;
+  }
+  if (!key || !isValidCredentialString(key)) {
+    key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+  }
+
+  if (isValidCredentialString(url) && isValidCredentialString(key) && url.startsWith('http')) {
+    return { url: url.trim(), key: key.trim() };
+  }
+  return null;
+}
+
+function resolveKeyForProvider(provider: string, rawVal?: string): string | null {
+  const provLower = provider.toLowerCase();
+  let resolved: string | null = null;
+  if (typeof rawVal === 'string' && rawVal.trim()) {
+    resolved = resolveApiKey(rawVal, provLower);
+  }
+  if (!isValidCredentialString(resolved)) {
+    resolved = resolveApiKey('', provLower);
+  }
+  if (!isValidCredentialString(resolved) && provLower === 'huggingface') {
+    const hfEnv = process.env.HF_TOKEN || process.env.HUGGINGFACE_KEY;
+    if (isValidCredentialString(hfEnv)) {
+      resolved = hfEnv;
+    }
+  }
+  return isValidCredentialString(resolved) ? resolved : null;
+}
+
+export function countConfiguredAiKeys(famillesIa?: Record<string, string>): number {
+  const knownProviders = new Set<string>([
+    'gemini',
+    'openai',
+    'anthropic',
+    'mistral',
+    'groq',
+    'huggingface',
+    'minimax',
+    'codex',
+    'cohere',
+    'deepseek',
+    'openrouter',
+  ]);
+
+  if (famillesIa && typeof famillesIa === 'object') {
+    for (const key of Object.keys(famillesIa)) {
+      knownProviders.add(key.toLowerCase());
+    }
+  }
+
+  let count = 0;
+  for (const provider of knownProviders) {
+    const rawVal = famillesIa ? Reflect.get(famillesIa, provider) : undefined;
+    if (resolveKeyForProvider(provider, typeof rawVal === 'string' ? rawVal : undefined)) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolean {
+  let url = rawCredentials?.redis?.url;
+  if (url && Object.hasOwn(process.env, url)) {
+    const envUrl = Reflect.get(process.env, url);
+    if (typeof envUrl === 'string' && envUrl) url = envUrl;
+  }
+  if (!url || !isValidCredentialString(url)) {
+    url = process.env.REDIS_URL;
+  }
+  return (
+    isValidCredentialString(url) && (url.startsWith('redis://') || url.startsWith('rediss://'))
+  );
+}
+
 /**
  * Conteneur d'Injection de Dépendances
  * Gère le cycle de vie et l'accès aux services de l'application
@@ -95,7 +202,7 @@ export class ServiceContainer {
 
     const { credentials, modelsConfig } = this.loadConfig();
 
-    await this.registerBaseServices();
+    await this.registerBaseServices(credentials);
     await this.registerCoreMemoriesAndConsciousness();
 
     this.registerEmbeddingService(credentials, modelsConfig);
@@ -117,9 +224,38 @@ export class ServiceContainer {
     try {
       const rawCredentials = JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'));
       const rawModelsConfig = JSON.parse(safeReadFileSync(modelsPath, 'utf-8'));
+
+      const parsedCredentials = CredentialsSchema.parse(rawCredentials);
+      const parsedModelsConfig = ModelsConfigSchema.parse(rawModelsConfig);
+
+      // Validation stricte du chargement (0 valeur par défaut)
+      // 1. Supabase requis : url + clé valides (credentials.json ou variables SUPABASE_URL / SUPABASE_KEY)
+      const sbConfig = resolveSupabaseCredentials(parsedCredentials);
+      if (!sbConfig) {
+        throw new Error(
+          '❌ [ServiceContainer] Échec du chargement : Configuration Supabase manquante ou incomplète (supabase.url et supabase.key requis dans credentials.json ou via SUPABASE_URL / SUPABASE_KEY). Démarrage interrompu.',
+        );
+      }
+      parsedCredentials.supabase = sbConfig;
+
+      // 2. Clés IA requises : au moins 1 clé valide (credentials.json sous familles_ia ou variables d\'environnement)
+      const validKeyCount = countConfiguredAiKeys(parsedCredentials.familles_ia);
+      if (validKeyCount === 0) {
+        throw new Error(
+          "❌ [ServiceContainer] Échec du chargement : Aucune clé API d'IA configurée (au moins 1 clé requise dans credentials.json sous familles_ia ou via les variables d'environnement). Démarrage interrompu.",
+        );
+      }
+
+      // 3. Redis : optionnel / non-bloquant
+      if (!isRedisConfigured(parsedCredentials)) {
+        console.log(
+          'ℹ️ [ServiceContainer] Redis non configuré : poursuite du démarrage en mode mémoire local (in-memory mock).',
+        );
+      }
+
       return {
-        credentials: CredentialsSchema.parse(rawCredentials),
-        modelsConfig: ModelsConfigSchema.parse(rawModelsConfig),
+        credentials: parsedCredentials,
+        modelsConfig: parsedModelsConfig,
       };
     } catch (e) {
       console.error(
@@ -130,12 +266,15 @@ export class ServiceContainer {
     }
   }
 
-  private async registerBaseServices() {
+  private async registerBaseServices(credentials?: Partial<Credentials>) {
     this.register('logger', logger);
     this.register('supabase', db);
     this.register('config', appConfig);
 
-    const { redis } = await import('../services/redisClient.js');
+    const { redis, switchToMock } = await import('../services/redisClient.js');
+    if (!isRedisConfigured(credentials)) {
+      switchToMock(redis);
+    }
     this.register('redis', redis);
 
     const { adminService } = await import('../services/adminService.js');
