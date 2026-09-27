@@ -51,6 +51,7 @@ function getFileSpecificEnvPath(cleanName: string): string | undefined {
 
 const SENSITIVE_PROJECT_CONFIGS = new Set([
   'models_config.json',
+  'pricing.json',
   'scheduler.json',
   'services_config.json',
 ]);

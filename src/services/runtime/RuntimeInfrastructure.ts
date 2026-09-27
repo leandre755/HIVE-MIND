@@ -10,6 +10,7 @@ import {
 } from '../../utils/safeFs.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
 import { eventBus, BotEvents } from '../../core/events.js';
 import type { AgentBlueprint } from '../../core/blueprint/AgentBlueprint.js';
 import { enforceFormat } from '../../utils/ResponseFormatEnforcer.js';
@@ -59,6 +60,31 @@ interface PricingEntry {
 interface PricingConfig {
   readonly default: PricingEntry;
   readonly models: Record<string, PricingEntry>;
+}
+
+function isPricingObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPricingEntry(value: unknown): value is PricingEntry {
+  return (
+    isPricingObject(value) &&
+    typeof value.input === 'number' &&
+    Number.isFinite(value.input) &&
+    value.input >= 0 &&
+    typeof value.output === 'number' &&
+    Number.isFinite(value.output) &&
+    value.output >= 0
+  );
+}
+
+function isPricingConfig(value: unknown): value is PricingConfig {
+  return (
+    isPricingObject(value) &&
+    isPricingEntry(value.default) &&
+    isPricingObject(value.models) &&
+    Object.values(value.models).every(isPricingEntry)
+  );
 }
 
 /** Résultat d'un enregistrement d'usage */
@@ -120,15 +146,24 @@ export class RuntimeFinOps {
   constructor(maxBudget: number = 2.0) {
     this.maxSessionBudget = maxBudget;
 
+    let pricingPath: string | undefined;
     try {
-      const pricingPath = join(process.cwd(), 'src', 'config', 'pricing.json');
+      pricingPath = resolveConfigPath('pricing.json');
       if (existsSync(pricingPath)) {
-        this.pricing = JSON.parse(readFileSync(pricingPath, 'utf-8')) as PricingConfig;
+        const parsed: unknown = JSON.parse(readFileSync(pricingPath, 'utf-8'));
+        if (isPricingConfig(parsed)) {
+          this.pricing = parsed;
+        } else {
+          throw new Error('Invalid pricing configuration structure');
+        }
       } else {
         throw new Error('Pricing not found');
       }
-    } catch {
-      console.warn('[RuntimeFinOps] ⚠️ pricing.json non trouvé, utilisation des prix par défaut.');
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[RuntimeFinOps] ⚠️ pricing.json non trouvé ou invalide (${pricingPath ?? 'unknown'}: ${reason}), utilisation des prix par défaut.`,
+      );
       this.pricing = { default: { input: 0.15, output: 0.6 }, models: {} };
     }
   }
