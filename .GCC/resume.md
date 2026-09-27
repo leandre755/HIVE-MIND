@@ -21,16 +21,16 @@
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/config/ConfigPathResolver.ts`
-  - **Scope**: Extension de `isProjectConfigAllowed` à `scheduler.json` et simplification arrow functions.
-  - **Exact Technical Change**: `if (name !== 'models_config.json' && name !== 'scheduler.json') return true;`.
+  - **Scope**: Protection de `services_config.json` via `SENSITIVE_PROJECT_CONFIGS` subordonné à `HIVE_TRUST_PROJECT_CONFIG`.
+  - **Exact Technical Change**: `const SENSITIVE_PROJECT_CONFIGS = new Set(['models_config.json', 'scheduler.json', 'services_config.json']); if (!SENSITIVE_PROJECT_CONFIGS.has(cleanName.toLowerCase())) return true;`.
 - **File**: `src/providers/layer1/ServiceRegistry.ts`
-  - **Scope**: Consommation unifiée de `resolveConfigPath('services_config.json')`.
-  - **Exact Technical Change**: Suppression de `dirname`, `fileURLToPath`, `join`, `safeExistsSync` inutilisés, `defaultServicesConfigPath()` retourne `resolveConfigPath('services_config.json')`.
+  - **Scope**: Découplage d'importation direct depuis `ConfigPathResolver.js`.
+  - **Exact Technical Change**: `import { resolveConfigPath } from '../../config/ConfigPathResolver.js';` au lieu de `../../config/index.js`.
 - **File**: `documentation/explanations/distribution_hive_mind.md`
-  - **Scope**: Précision de l'opt-in de confiance pour `./config/`.
-  - **Exact Technical Change**: Ligne 42 mentionne `models_config.json` et `scheduler.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`.
+  - **Scope**: Documentation de l'opt-in pour les 3 fichiers sensibles.
+  - **Exact Technical Change**: Ligne 42 mentionne `models_config.json`, `scheduler.json` et `services_config.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`.
 - **File**: `src/tests/unit/config/ConfigPathResolverHierarchy.test.ts`
-  - **Scope**: Test Priority 2 vérifiant le rejet de `./config/scheduler.json` sans opt-in et son acceptation avec opt-in.
+  - **Scope**: Test Priority 2 étendu à `services_config.json`.
 - **File**: `src/tests/unit/config/ConfigIndex.test.ts` & `ConfigPathResolver.test.ts`
   - **Scope**: Condensation et rationalisation des fixtures sous le budget de gouvernance.
 - **File**: `.GCC/main.md` & `.GCC/branches/plan_issue_96_distribution.md`

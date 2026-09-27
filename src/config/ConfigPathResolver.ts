@@ -49,9 +49,14 @@ function getFileSpecificEnvPath(cleanName: string): string | undefined {
   return getEnvDir(Reflect.get(process.env, key));
 }
 
+const SENSITIVE_PROJECT_CONFIGS = new Set([
+  'models_config.json',
+  'scheduler.json',
+  'services_config.json',
+]);
+
 function isProjectConfigAllowed(cleanName: string): boolean {
-  const name = cleanName.toLowerCase();
-  if (name !== 'models_config.json' && name !== 'scheduler.json') return true;
+  if (!SENSITIVE_PROJECT_CONFIGS.has(cleanName.toLowerCase())) return true;
   return ['true', '1'].includes(process.env.HIVE_TRUST_PROJECT_CONFIG?.trim().toLowerCase() ?? '');
 }
 

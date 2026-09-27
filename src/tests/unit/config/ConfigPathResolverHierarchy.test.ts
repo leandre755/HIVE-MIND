@@ -59,21 +59,24 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     expect(resolveConfigPath('config.json')).toBe(resolve(cfg));
   });
 
-  it('Priority 2: should prioritize project ./config/ and enforce trust opt-in for models and scheduler', () => {
+  it('Priority 2: should prioritize project ./config/ and enforce trust opt-in for sensitive configs', () => {
     const e = createEnv(),
       prjSched = join(e.prjCfg, 'scheduler.json'),
       prjCred = join(e.prjCfg, 'credentials.json'),
-      prjMod = join(e.prjCfg, 'models_config.json');
-    [prjSched, prjCred, prjMod].forEach((f) => safeFs.safeWriteFileSync(f, '{"s":1}'));
+      prjMod = join(e.prjCfg, 'models_config.json'),
+      prjServ = join(e.prjCfg, 'services_config.json');
+    [prjSched, prjCred, prjMod, prjServ].forEach((f) => safeFs.safeWriteFileSync(f, '{"s":1}'));
     expect(resolveConfigPath('credentials.json')).toBe(resolve(prjCred));
 
     process.env.HIVE_LEGACY_CONFIG_DIR = e.envDir;
     process.env.HIVE_DEFAULTS_CONFIG_DIR = e.defDir;
     expect(resolveConfigPath('models_config.json')).not.toBe(resolve(prjMod));
     expect(resolveConfigPath('scheduler.json')).not.toBe(resolve(prjSched));
+    expect(resolveConfigPath('services_config.json')).not.toBe(resolve(prjServ));
     process.env.HIVE_TRUST_PROJECT_CONFIG = 'true';
     expect(resolveConfigPath('models_config.json')).toBe(resolve(prjMod));
     expect(resolveConfigPath('scheduler.json')).toBe(resolve(prjSched));
+    expect(resolveConfigPath('services_config.json')).toBe(resolve(prjServ));
   });
 
   it('Priority 3 & 4: should prioritize user config then fallback to legacy with warning', () => {

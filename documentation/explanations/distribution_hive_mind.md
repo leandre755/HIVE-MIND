@@ -39,7 +39,7 @@ hive-mind tui
 - Ajouter une commande `init` qui copie les configs utilisateur dans le dossier global unifié `~/.hivemind/config/`.
 - Charger les configs depuis l'ordre suivant :
   1. variables d'environnement explicites (`HIVE_CONFIG_<FILE>`, `HIVE_CONFIG_DIR`) ;
-  2. dossier projet courant (`./config/` ; `models_config.json` et `scheduler.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`) ;
+  2. dossier projet courant (`./config/` ; `models_config.json`, `scheduler.json` et `services_config.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`) ;
   3. `~/.hivemind/config/` (configuration utilisateur globale) ;
   4. defaults embarqués en lecture seule (`src/config/defaults/`).
 

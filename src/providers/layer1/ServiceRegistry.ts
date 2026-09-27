@@ -6,7 +6,7 @@
  */
 
 import { safeReadFileSync } from '../../utils/safeFs.js';
-import { resolveConfigPath } from '../../config/index.js';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
 import { ModelRegistry } from '../layer0/ModelRegistry.js';
 
 export interface ReliabilityDefaults {
