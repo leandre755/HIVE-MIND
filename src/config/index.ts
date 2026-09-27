@@ -81,8 +81,10 @@ export function loadJsonConfig(filename: string): Record<string, unknown> {
   const mainConfig = parseJsonSafe(filePath);
   if (sanitizeFilename(filename).toLowerCase() !== 'credentials.json') return mainConfig;
 
-  const projectPath = resolve(join(resolveProjectConfigDir(), 'credentials.json'));
-  if (filePath !== projectPath) return mainConfig;
+  const hasEnv = Boolean(process.env.HIVE_CONFIG_CREDENTIALS_JSON || process.env.HIVE_CONFIG_DIR);
+  if (hasEnv || filePath !== resolve(join(resolveProjectConfigDir(), 'credentials.json'))) {
+    return mainConfig;
+  }
 
   const userPath = resolve(join(resolveUserConfigDir(), 'credentials.json'));
   const userCreds = parseJsonSafe(userPath);

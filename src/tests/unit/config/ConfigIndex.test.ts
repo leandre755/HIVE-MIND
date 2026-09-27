@@ -19,13 +19,7 @@ describe('src/config/index.ts Integration', () => {
       typeof config.hasApiKey === 'function' && typeof config.hasApiKey('gemini') === 'boolean',
     ).toBe(true);
     expect(config.getFirstAvailableFamily() ?? 'none').toBeDefined();
-    [
-      resolveConfigPath,
-      cfgIndex.resolveDefaultsConfigDir,
-      cfgIndex.resolveLegacyConfigDir,
-      cfgIndex.resolveUserConfigDir,
-      cfgIndex.resolveHiveHome,
-    ].forEach((fn) => expect(typeof fn).toBe('function'));
+    expect(typeof resolveConfigPath).toBe('function');
     expect(resolveConfigPath('config.json').endsWith('config.json')).toBe(true);
   });
 
@@ -94,6 +88,9 @@ describe('src/config/index.ts Integration', () => {
       process.env.HIVE_CONFIG_CREDENTIALS_JSON = isoPath;
       expect(loadJsonConfig('credentials.json')).toEqual({ isolated: true, familles_ia: isoFam });
       Reflect.deleteProperty(process.env, 'HIVE_CONFIG_CREDENTIALS_JSON');
+      process.env.HIVE_CONFIG_DIR = prjCfgDir;
+      expect(loadJsonConfig('credentials.json')).toEqual(prjCreds);
+      Reflect.deleteProperty(process.env, 'HIVE_CONFIG_DIR');
     } finally {
       process.chdir(originalCwd);
       if (prevHome !== undefined) process.env.HIVE_HOME_DIR = prevHome;

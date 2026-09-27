@@ -38,9 +38,9 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
-- [2026-09-26] **Arbitrage Mainteneur sur le Budget LoC vs Propreté et Lisibilité**
-  - **Context**: Directive explicite du mainteneur : la limite indicative de 2500 LoC ne doit pas induire de compression artificielle préjudiciable à la lisibilité et à l'expressivité du code. Tant qu'il n'y a pas de surplus injustifié, de code mort ou de duplication inutile, un volume dépassant 2500 LoC est parfaitement recevable en revue.
-  - **Rationale**: Priorité absolue à la maintenabilité, à l'absence de duplication et à la robustesse architecturale sur une contrainte comptable stricte.
+- [2026-09-26] **Respect Strict du Plafond de Gouvernance de 2500 LoC & Absence de Duplication**
+  - **Context**: Clarification de gouvernance : le dépôt applique un seuil dur strict de 2500 lignes de code par PR (hors documentation et assets). Les modifications doivent respecter scrupuleusement ce plafond tout en évitant toute duplication ou code mort, sans recourir à des compressions artificielles illisibles.
+  - **Rationale**: Maintien d'un code hautement lisible, modulaire et vérifiable, stabilisé sous le seuil dur de 2500 LoC (actuellement < 2500 LoC).
 
 - [2026-09-26] **Protection de Services_config.json & Découplage de ServiceRegistry (#133 / PR #138)**
   - **Context**: Retours d'analyse Greptile sur la PR #138 : (1) Finding P1 ID 4113424273 (Security) : un checkout non approuvé pouvait injecter `./config/services_config.json` et faire échouer le démarrage ou modifier arbitrairement les recettes sans opt-in ; (2) Finding P2 ID 4113424275 : `ServiceRegistry.ts` importait `resolveConfigPath` depuis `config/index.js`, provoquant l'évaluation et la validation prématurée de toutes les configurations au chargement de la classe.

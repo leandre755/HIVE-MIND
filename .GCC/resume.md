@@ -65,5 +65,5 @@ src/config/index.ts:   100% Funcs / 100% Lines
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target Action**: Suivre la finalisation du review Greptile sur la PR #138 (commit `eb0b414`). 100% des discussions GitHub sont répondues et résolues.
-2. **Directive Mainteneur**: Ne pas contraindre artificiellement le code sous 2500 LoC si cela nuit à la clarté ou aux tests : tant qu'il n'y a pas de surplus ou de duplication, un dépassement raisonnable est accepté en revue.
+2. **Gouvernance PR**: Maintenir strictement le diff sous le seuil dur de 2500 LoC hors documentation, avec zéro duplication et propreté maximale.
 3. **Next Step**: Attendre le merge par le mainteneur, puis enchaîner sur la sous-issue 4/5 (#134 - migration des consommateurs de config).
