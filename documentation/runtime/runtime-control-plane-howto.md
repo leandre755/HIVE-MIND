@@ -1,6 +1,7 @@
 # How-To: Configure VIGIL Safety Policies and FinOps Limits (SS-21)
 
 ## Goal
+
 Learn how to restrict agent tool execution using `RuntimeSentinel`, enforce read-only filesystems via blueprints, and set budget limits for user sessions.
 
 ## 1. Enforcing Read-Only Filesystem in Agent Blueprint
@@ -22,7 +23,7 @@ const auditAgentBlueprint: AgentBlueprint = {
   },
   constraints: {
     read_only_fs: true,
-    max_budget_usd: 0.50,
+    max_budget_usd: 0.5,
     max_iterations: 8,
   },
   mindos: { drives: [] },
@@ -32,12 +33,13 @@ const sentinel = new RuntimeSentinel();
 ```
 
 When `read_only_fs: true` is active, `RuntimeSentinel` intercepts any call to `edit_file`, `write_file`, or `delete_file` before execution:
+
 ```typescript
 const result = await sentinel.evaluate(
   { function: { name: 'edit_file', arguments: '{"path":"main.ts"}' } },
   { authorityLevel: 'User', senderName: 'Alice', isGroup: false, chatId: 'c1' },
   [],
-  auditAgentBlueprint
+  auditAgentBlueprint,
 );
 
 console.log(result.allowed); // false
@@ -54,18 +56,23 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 
 ## 3. Configuring Session Budget & FinOps Multiplier
 
-In `config/pricing.json`:
+In `pricing.json` (resolved via `ConfigPathResolver` at `~/.hivemind/config/pricing.json`, `./config/pricing.json` with `HIVE_TRUST_PROJECT_CONFIG=1`, or embedded defaults in `src/config/defaults/pricing.json`):
+
+> [!IMPORTANT]
+> Rates in `pricing.json` are specified in **USD per million tokens ($/1M tokens)**. `RuntimeFinOps` calculates token cost using `(tokens * rate) / 1_000_000`. Supplying raw single-token fractions (such as `0.000001`) would artificially deflate calculated spending by a factor of 1,000,000 and render the session budget ineffective.
+
 ```json
 {
-  "default": { "input": 0.000001, "output": 0.000002 },
+  "default": { "input": 0.15, "output": 0.6 },
   "models": {
-    "gemini-1.5-flash": { "input": 0.000000075, "output": 0.0000003 },
-    "claude-3-5-sonnet": { "input": 0.000003, "output": 0.000015 }
+    "gemini-2.5-flash": { "input": 0.075, "output": 0.3 },
+    "claude-4-5-sonnet-20250929": { "input": 3.0, "output": 15.0 }
   }
 }
 ```
 
 Monitor session spending via `AIRuntimeInfrastructure` and `RuntimeFinOps`:
+
 ```typescript
 import { AIRuntimeInfrastructure } from '../../src/services/runtime/RuntimeInfrastructure.js';
 
@@ -73,6 +80,8 @@ const maxBudget = 2.0;
 const runtime = new AIRuntimeInfrastructure(maxBudget);
 const lambda = runtime.finOps.calculateLambda();
 if (lambda > 1.0) {
-  console.warn(`[FinOps] Budget pressure high (lambda = ${lambda.toFixed(2)}). Downgrading model tier.`);
+  console.warn(
+    `[FinOps] Budget pressure high (lambda = ${lambda.toFixed(2)}). Downgrading model tier.`,
+  );
 }
 ```

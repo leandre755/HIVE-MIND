@@ -1,6 +1,6 @@
 # ServiceContainer — Référence Technique
 
-Le module `ServiceContainer` est le registre central d'inversion de contrôle (IoC) pour l'application HIVE-MIND. Il gère l'enregistrement, l'instanciation différée (*lazy loading*) et l'injection des 32 services clés du système.
+Le module `ServiceContainer` est le registre central d'inversion de contrôle (IoC) pour l'application HIVE-MIND. Il gère l'enregistrement, l'instanciation différée (_lazy loading_) et l'injection des 32 services clés du système.
 
 - **Fichier source :** `src/core/ServiceContainer.ts`
 - **Point d'accès singleton :** `src/core/container.ts`
@@ -74,12 +74,15 @@ export interface ServiceRegistry {
 ### `ServiceContainer`
 
 #### Constructeur
+
 ```typescript
-constructor()
+constructor();
 ```
+
 Instancie un conteneur vierge avec une table associative interne `services: Map<string, ServiceEntry>` et un drapeau `initialized = false`.
 
 #### Méthode `init(options)`
+
 ```typescript
 public async init(options?: ContainerInitOptions): Promise<void>
 ```
@@ -87,21 +90,25 @@ public async init(options?: ContainerInitOptions): Promise<void>
 Initialise le conteneur en chargeant la configuration (`credentials.json` et `models_config.json`) et en enregistrant l'ensemble des fabriques de services selon le mode choisi.
 
 **Paramètres :**
-| Paramètre | Type | Obligatoire | Défaut | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `options` | `ContainerInitOptions` | Non | `{ mode: 'full' }` | Options de démarrage (`'full'` pour le démon, `'minimal'` pour CLI/tests). |
+
+| Paramètre | Type                   | Obligatoire | Défaut             | Description                                                                |
+| :-------- | :--------------------- | :---------- | :----------------- | :------------------------------------------------------------------------- |
+| `options` | `ContainerInitOptions` | Non         | `{ mode: 'full' }` | Options de démarrage (`'full'` pour le démon, `'minimal'` pour CLI/tests). |
 
 **Valeur de retour :**
+
 - `Promise<void>` : Se résout lorsque les services de base et les enregistrements sont configurés.
 
 **Exceptions :**
-| Type d'Erreur | Condition de Déclenchement |
-| :--- | :--- |
+
+| Type d'Erreur        | Condition de Déclenchement                                                 |
+| :------------------- | :------------------------------------------------------------------------- |
 | `ZodError` / `Error` | Fichiers de configuration JSON manquants ou non conformes aux schémas Zod. |
 
 ---
 
 #### Méthode `register(name, factory, options)`
+
 ```typescript
 public register(name: string, factory: unknown, options?: { singleton?: boolean }): this
 ```
@@ -109,18 +116,21 @@ public register(name: string, factory: unknown, options?: { singleton?: boolean 
 Enregistre une nouvelle fabrique de service ou une instance existante sous une clé unique.
 
 **Paramètres :**
-| Paramètre | Type | Obligatoire | Défaut | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `name` | `string` | Oui | — | Clé d'identification du service dans le registre. |
-| `factory` | `unknown` | Oui | — | Fonction fabrique retournant l'instance, ou instance directe. |
-| `options` | `{ singleton?: boolean }` | Non | `{ singleton: false }` | Si `singleton: true`, l'instance est mise en cache au premier appel. |
+
+| Paramètre | Type                      | Obligatoire | Défaut                 | Description                                                          |
+| :-------- | :------------------------ | :---------- | :--------------------- | :------------------------------------------------------------------- |
+| `name`    | `string`                  | Oui         | —                      | Clé d'identification du service dans le registre.                    |
+| `factory` | `unknown`                 | Oui         | —                      | Fonction fabrique retournant l'instance, ou instance directe.        |
+| `options` | `{ singleton?: boolean }` | Non         | `{ singleton: false }` | Si `singleton: true`, l'instance est mise en cache au premier appel. |
 
 **Valeur de retour :**
+
 - `this` : Permet le chaînage d'appels d'enregistrement.
 
 ---
 
 #### Méthode `get(name)`
+
 ```typescript
 public get<K extends keyof ServiceRegistry>(name: K): ServiceRegistry[K]
 public get<T = unknown>(name: string): T
@@ -129,21 +139,25 @@ public get<T = unknown>(name: string): T
 Résout et retourne l'instance du service demandé. Instancie le service s'il s'agit d'une fabrique non instanciée, met en cache si singleton, et injecte le conteneur si `setContainer` est implémenté.
 
 **Paramètres :**
-| Paramètre | Type | Obligatoire | Défaut | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `name` | `K` ou `string` | Oui | — | Nom typé du service dans `ServiceRegistry`. |
+
+| Paramètre | Type            | Obligatoire | Défaut | Description                                 |
+| :-------- | :-------------- | :---------- | :----- | :------------------------------------------ |
+| `name`    | `K` ou `string` | Oui         | —      | Nom typé du service dans `ServiceRegistry`. |
 
 **Valeur de retour :**
+
 - `ServiceRegistry[K]` ou `T` : Instance fortement typée du service demandé.
 
 **Exceptions :**
-| Type d'Erreur | Condition de Déclenchement |
-| :--- | :--- |
-| `Error` | Levée avec le message `[ServiceContainer] Service non trouvé: <name>` si le service n'est pas enregistré. |
+
+| Type d'Erreur | Condition de Déclenchement                                                                                |
+| :------------ | :-------------------------------------------------------------------------------------------------------- |
+| `Error`       | Levée avec le message `[ServiceContainer] Service non trouvé: <name>` si le service n'est pas enregistré. |
 
 ---
 
 #### Méthode `has(name)`
+
 ```typescript
 public has(name: string): boolean
 ```
@@ -151,16 +165,19 @@ public has(name: string): boolean
 Vérifie si un service est présent dans le registre.
 
 **Paramètres :**
-| Paramètre | Type | Obligatoire | Défaut | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `name` | `string` | Oui | — | Nom du service recherché. |
+
+| Paramètre | Type     | Obligatoire | Défaut | Description               |
+| :-------- | :------- | :---------- | :----- | :------------------------ |
+| `name`    | `string` | Oui         | —      | Nom du service recherché. |
 
 **Valeur de retour :**
+
 - `boolean` : `true` si le service est enregistré, sinon `false`.
 
 ---
 
 #### Méthode `getStats()`
+
 ```typescript
 public getStats(): ServiceStats
 ```
@@ -168,28 +185,32 @@ public getStats(): ServiceStats
 Retourne les métriques d'instanciation du conteneur en temps réel.
 
 **Valeur de retour :**
+
 - `ServiceStats` : Objet détaillant le total enregistré, les singletons, les instances créées et l'état par service.
 
 ## 3. Schéma de Configuration & Variables d'Environnement
 
-Le conteneur lit sa configuration depuis deux fichiers JSON validés par Zod :
-- `src/config/credentials.json` (`CredentialsSchema`)
-- `src/config/models_config.json` (`ModelsConfigSchema`)
+Dans l'état actuel de transition, le conteneur IoC (`ServiceContainer.ts:loadConfig`) lit ses configurations de démarrage depuis le chemin hérité `src/config/` (`src/config/credentials.json` et `src/config/models_config.json`) et valide leur contenu avec Zod.
 
-| Variable / Clé Config | Type | Obligatoire | Description |
-| :--- | :--- | :--- | :--- |
-| `credentials.familles_ia.gemini` | `string` | Non | Clé API Google Gemini (ou nom d'environnement résolu). |
-| `credentials.familles_ia.openai` | `string` | Non | Clé API OpenAI. |
-| `credentials.familles_ia.groq` | `string` | Non | Clé API Groq (utilisée pour transcription audio STT). |
-| `credentials.familles_ia.minimax` | `string` | Non | Clé API Minimax (synthèse vocale TTS). |
+Sa migration vers le résolveur universel `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) est en cours d'intégration dans le cadre du chantier de distribution autonome (#96 / #135). La cible standardisée s'articule ainsi :
+
+- `credentials.json` (`CredentialsSchema`) : résolu depuis `HIVE_CONFIG_CREDENTIALS_JSON` $\to$ `./config/credentials.json` (avec fusion automatique des clés sur `~/.hivemind/config/credentials.json`) $\to$ `~/.hivemind/config/credentials.json`.
+- `models_config.json` (`ModelsConfigSchema`) : résolu depuis `HIVE_CONFIG_MODELS_CONFIG_JSON` $\to$ `./config/models_config.json` (soumis à `HIVE_TRUST_PROJECT_CONFIG=1`) $\to$ `~/.hivemind/config/models_config.json` $\to$ `src/config/defaults/models_config.json`.
+
+| Variable / Clé Config             | Type     | Obligatoire | Description                                            |
+| :-------------------------------- | :------- | :---------- | :----------------------------------------------------- |
+| `credentials.familles_ia.gemini`  | `string` | Non         | Clé API Google Gemini (ou nom d'environnement résolu). |
+| `credentials.familles_ia.openai`  | `string` | Non         | Clé API OpenAI.                                        |
+| `credentials.familles_ia.groq`    | `string` | Non         | Clé API Groq (utilisée pour transcription audio STT).  |
+| `credentials.familles_ia.minimax` | `string` | Non         | Clé API Minimax (synthèse vocale TTS).                 |
 
 ## 4. Codes d'Erreur & États Internes
 
-| Erreur / Message | Signification | Comportement Système |
-| :--- | :--- | :--- |
-| `[ServiceContainer] Service non trouvé: <name>` | Accès à un service absent du conteneur | Lance une exception bloquante `Error` |
+| Erreur / Message                                                           | Signification                            | Comportement Système                                 |
+| :------------------------------------------------------------------------- | :--------------------------------------- | :--------------------------------------------------- |
+| `[ServiceContainer] Service non trouvé: <name>`                            | Accès à un service absent du conteneur   | Lance une exception bloquante `Error`                |
 | `[ServiceContainer] ❌ Tentative d'enregistrement de service NULL: <name>` | Appel à `register` avec une valeur falsy | Annule l'enregistrement et conserve l'état antérieur |
-| `[ServiceContainer] Service <name> déjà enregistré - remplacement` | Réenregistrement d'une clé existante | Avertissement console et remplacement de l'entrée |
+| `[ServiceContainer] Service <name> déjà enregistré - remplacement`         | Réenregistrement d'une clé existante     | Avertissement console et remplacement de l'entrée    |
 
 ## 5. Exemple d'Utilisation Minimal
 

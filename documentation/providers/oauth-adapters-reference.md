@@ -67,6 +67,7 @@ export interface CodeAssistRequestWrapper {
 ### Adaptateur `CodexAdapter` (`src/providers/adapters/codex.ts`)
 
 #### Méthode `chat(messages, options)`
+
 ```typescript
 public async chat(
   messages: ChatMessage[],
@@ -75,37 +76,30 @@ public async chat(
 ```
 
 **Paramètres :**
-| Paramètre | Type | Obligatoire | Défaut | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `messages` | `ChatMessage[]` | Oui | — | Historique de la conversation au format standard. |
-| `options` | `AdapterChatOptions` | Non | `{}` | Options : `model`, `temperature`, `max_tokens`, `tools`, `timeoutMs`. |
+
+| Paramètre  | Type                 | Obligatoire | Défaut | Description                                                           |
+| :--------- | :------------------- | :---------- | :----- | :-------------------------------------------------------------------- |
+| `messages` | `ChatMessage[]`      | Oui         | —      | Historique de la conversation au format standard.                     |
+| `options`  | `AdapterChatOptions` | Non         | `{}`   | Options : `model`, `temperature`, `max_tokens`, `tools`, `timeoutMs`. |
 
 **Valeur de retour :**
+
 - `Promise<AdapterChatResult>` : Résultat standardisé contenant `content`, `toolCalls`, `usage`.
 
 **Exceptions Levées :**
-| Type d'Erreur | Condition de Déclenchement |
-| :--- | :--- |
-| `Error: Aucun token d'accès Codex disponible` | Ni variable d'environnement ni fichier `auth.json` présent. |
+
+| Type d'Erreur                                  | Condition de Déclenchement                                        |
+| :--------------------------------------------- | :---------------------------------------------------------------- |
+| `Error: Aucun token d'accès Codex disponible`  | Ni variable d'environnement ni fichier `auth.json` présent.       |
 | `Error: Échec du rafraîchissement OAuth Codex` | Le `refresh_token` a été révoqué ou rejeté par `auth.openai.com`. |
-| `Error: Erreur Codex HTTP [status]` | L'endpoint Responses a retourné une erreur HTTP $\ge 400$. |
-
----
-
-#### Méthode `chatStream(messages, options)`
-```typescript
-public async *chatStream(
-  messages: ChatMessage[],
-  options?: AdapterChatOptions
-): AsyncIterable<StreamChunk>
-```
-Retourne un flux asynchrone émettant les blocs de texte et d'outils au format SSE Responses.
+| `Error: Erreur Codex HTTP [status]`            | L'endpoint Responses a retourné une erreur HTTP $\ge 400$.        |
 
 ---
 
 ### Adaptateur `AntigravityAdapter` (`src/providers/adapters/antigravity.ts`)
 
 #### Méthode `chat(messages, options)`
+
 ```typescript
 public async chat(
   messages: ChatMessage[],
@@ -117,6 +111,7 @@ public async chat(
 Identiques à `CodexAdapter.chat()`.
 
 **Fonctionnement Interne :**
+
 1. Valide le token Google OAuth (délai $T - 300\text{ s}$).
 2. Formate le payload `CodeAssistRequest` avec dialecte Gemini.
 3. Émet la requête via `TlsImpersonator` et envoie la télémétrie `ClearcutSimulator`.
@@ -125,15 +120,19 @@ Identiques à `CodexAdapter.chat()`.
 
 ## 3. Schéma de Configuration & Variables d'Environnement
 
-| Variable d'Environnement | Type | Défaut | Obligatoire | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `CODEX_ACCESS_TOKEN` | `string` | — | Non | Jeton d'accès JWT OpenAI Codex (production). |
-| `CODEX_REFRESH_TOKEN` | `string` | — | Non | Jeton de rafraîchissement OAuth OpenAI. |
-| `ANTIGRAVITY_ACCESS_TOKEN` | `string` | — | Non | Jeton d'accès Google Cloud Code Assist. |
-| `ANTIGRAVITY_REFRESH_TOKEN` | `string` | — | Non | Jeton de rafraîchissement Google OAuth. |
-| `ANTIGRAVITY_PROJECT_ID` | `string` | `rising-fact-p41fc`| Non | Identifiant du projet Google Cloud ciblé. |
+| Variable d'Environnement    | Type     | Défaut              | Obligatoire | Description                                  |
+| :-------------------------- | :------- | :------------------ | :---------- | :------------------------------------------- |
+| `CODEX_ACCESS_TOKEN`        | `string` | —                   | Non         | Jeton d'accès JWT OpenAI Codex (production). |
+| `CODEX_REFRESH_TOKEN`       | `string` | —                   | Non         | Jeton de rafraîchissement OAuth OpenAI.      |
+| `ANTIGRAVITY_ACCESS_TOKEN`  | `string` | —                   | Non         | Jeton d'accès Google Cloud Code Assist.      |
+| `ANTIGRAVITY_REFRESH_TOKEN` | `string` | —                   | Non         | Jeton de rafraîchissement Google OAuth.      |
+| `ANTIGRAVITY_PROJECT_ID`    | `string` | `rising-fact-p41fc` | Non         | Identifiant du projet Google Cloud ciblé.    |
 
-### Fichier local de développement (`~/.codex/auth.json`)
+### Fichier local de développement transitoire (`~/.codex/auth.json`)
+
+> [!NOTE]
+> Ce fichier hérité de la CLI OpenAI est utilisé à titre transitoire en développement. Dans la version distribuable finale, HIVE-MIND déploiera ses propres **scripts de connexion** simulant les flux OAuth réels et persistera ses jetons dans `~/.hivemind/config/`.
+
 ```json
 {
   "tokens": {
@@ -149,11 +148,11 @@ Identiques à `CodexAdapter.chat()`.
 
 ## 4. Codes d'Erreur & États Internes
 
-| Code / Statut | Signification | Comportement Système |
-| :--- | :--- | :--- |
-| `AUTH_EXPIRED` | Le jeton d'accès a expiré ($T_{\text{exp}} - \text{now} \le 300\text{ s}$). | Déclenche automatiquement un appel de rafraîchissement proactif. |
-| `ERR_REFRESH_FAILED` | Le `refresh_token` est invalide ou révoqué. | Lève une `AuthError` invitant l'administrateur à se réauthentifier via la CLI. |
-| `TLS_HANDSHAKE_ERROR` | L'endpoint distant a rejeté la négociation de chiffrement. | Vérifier la configuration des suites de chiffrement de `TlsImpersonator`. |
+| Code / Statut         | Signification                                                               | Comportement Système                                                           |
+| :-------------------- | :-------------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| `AUTH_EXPIRED`        | Le jeton d'accès a expiré ($T_{\text{exp}} - \text{now} \le 300\text{ s}$). | Déclenche automatiquement un appel de rafraîchissement proactif.               |
+| `ERR_REFRESH_FAILED`  | Le `refresh_token` est invalide ou révoqué.                                 | Lève une `AuthError` invitant l'administrateur à se réauthentifier via la CLI. |
+| `TLS_HANDSHAKE_ERROR` | L'endpoint distant a rejeté la négociation de chiffrement.                  | Vérifier la configuration des suites de chiffrement de `TlsImpersonator`.      |
 
 ---
 
@@ -163,7 +162,7 @@ Identiques à `CodexAdapter.chat()`.
 import { codexAdapter } from '../../src/providers/adapters/codex.js';
 
 const messages = [
-  { role: 'user' as const, content: 'Écris un algorithme de tri rapide en TypeScript.' }
+  { role: 'user' as const, content: 'Écris un algorithme de tri rapide en TypeScript.' },
 ];
 
 const result = await codexAdapter.chat(messages, {
@@ -183,4 +182,5 @@ if (result.usage) {
 
 - **Invariant Never-Throw de `decodeJwt`** : Tout token corrompu, vide ou tronqué retourne `null` sans jamais interrompre la boucle Node.js.
 - **Marge de Sécurité Proactive** : `REFRESH_MARGIN_SECONDS = 300`. Aucun appel réseau n'est émis avec un jeton valide pour moins de 5 minutes.
-- **Atomicité des Écritures Fichier** : Les écritures dans `~/.codex/auth.json` préservent l'intégralité des métadonnées existantes.
+- **Atomicité des Écritures Fichier** : Les écritures dans le fichier d'authentification préservent l'intégralité des métadonnées existantes.
+- **Émancipation des Fichiers Hôte Tiers** : L'accès aux fichiers par défaut du système hôte (`~/.codex/auth.json`) sera remplacé par des scripts de connexion HIVE-MIND simulant les flux OAuth réels pour sanctuariser les jetons dans la configuration applicative propre.

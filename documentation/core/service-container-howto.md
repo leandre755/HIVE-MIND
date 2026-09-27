@@ -1,11 +1,12 @@
 # Comment Enregistrer et Résoudre un Nouveau Service dans ServiceContainer
 
-Ce guide pratique décrit la procédure pas-à-pas pour déclarer, enregistrer et consommer un nouveau service applicatif dans le conteneur IoC de HIVE-MIND, ainsi que pour substituer un service par une doublure de test (*mock*).
+Ce guide pratique décrit la procédure pas-à-pas pour déclarer, enregistrer et consommer un nouveau service applicatif dans le conteneur IoC de HIVE-MIND, ainsi que pour substituer un service par une doublure de test (_mock_).
 
 ## Prérequis
+
 - Node.js >= 22 (ESM natif) et TypeScript configuré.
 - Dépendances du projet installées (`npm install`).
-- Fichiers de configuration de base présents (`src/config/credentials.json` et `src/config/models_config.json`).
+- Fichiers de configuration de base présents (`src/config/credentials.json` et `src/config/models_config.json` en phase transitoire, avant l'achèvement de la migration du conteneur vers `ConfigPathResolver`).
 
 ## Étapes de Réalisation
 
@@ -36,7 +37,9 @@ Ouvrez `src/core/ServiceContainer.ts` et ajoutez la clé typée correspondante d
 ```typescript
 export interface ServiceRegistry {
   // ... services existants ...
-  metricsService: InstanceType<typeof import('../services/custom/MetricsService.js').MetricsService>;
+  metricsService: InstanceType<
+    typeof import('../services/custom/MetricsService.js').MetricsService
+  >;
 }
 ```
 
@@ -93,6 +96,7 @@ npx jest src/tests/unit/core/ServiceContainer.test.ts --runInBand
 ```
 
 Résultat attendu dans le terminal :
+
 ```text
 PASS src/tests/unit/core/ServiceContainer.test.ts
   ServiceContainer
@@ -108,8 +112,8 @@ Time:        1.245 s
 
 ## Guide de Dépannage (Troubleshooting)
 
-| Symptôme / Message d'Erreur | Cause Probable | Solution Immédiate |
-| :--- | :--- | :--- |
-| `Error: [ServiceContainer] Service non trouvé: <name>` | Le service est demandé via `container.get()` avant d'avoir été enregistré via `container.register()`. | Vérifier que l'enregistrement a bien eu lieu lors de la phase d'amorçage ou appeler `container.init()`. |
-| `TypeError: container.get(...) is not a function` | La fabrique enregistrée a retourné `undefined` ou n'a pas été enveloppée dans une fonction `() => new Service()`. | S'assurer que le deuxième argument passé à `register()` est bien une instance valide ou une fonction fabrique. |
-| `Warning: Service <name> déjà enregistré - remplacement` | Deux modules enregistrent le même nom de service avec des fabriques concurrentes. | Harmoniser l'enregistrement dans un point d'initialisation unique ou vérifier les doublons d'appels. |
+| Symptôme / Message d'Erreur                              | Cause Probable                                                                                                    | Solution Immédiate                                                                                             |
+| :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
+| `Error: [ServiceContainer] Service non trouvé: <name>`   | Le service est demandé via `container.get()` avant d'avoir été enregistré via `container.register()`.             | Vérifier que l'enregistrement a bien eu lieu lors de la phase d'amorçage ou appeler `container.init()`.        |
+| `TypeError: container.get(...) is not a function`        | La fabrique enregistrée a retourné `undefined` ou n'a pas été enveloppée dans une fonction `() => new Service()`. | S'assurer que le deuxième argument passé à `register()` est bien une instance valide ou une fonction fabrique. |
+| `Warning: Service <name> déjà enregistré - remplacement` | Deux modules enregistrent le même nom de service avec des fabriques concurrentes.                                 | Harmoniser l'enregistrement dans un point d'initialisation unique ou vérifier les doublons d'appels.           |

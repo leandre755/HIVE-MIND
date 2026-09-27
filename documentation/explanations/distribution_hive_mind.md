@@ -43,14 +43,35 @@ hive-mind tui
   3. `~/.hivemind/config/` (configuration utilisateur globale) ;
   4. defaults embarqués en lecture seule (`src/config/defaults/`).
 
-### Modifications code nécessaires
+#### Emplacements des fichiers et valeurs par défaut
 
-- Ajouter un vrai script `build` qui émet `dist/` au lieu de seulement lancer `tsc --noEmit`.
-- Ajouter `files` dans `package.json` pour publier seulement `dist/`, `README.md`, `LICENSE` et les configs templates.
-- Remplacer les chemins codés en dur comme `/home/omni/.codex/auth.json` par une résolution via `os.homedir()`.
-- Ajouter un `ConfigPathResolver` dans la couche service/config.
-- Ajouter une commande `hive-mind init`.
-- Séparer `config defaults` et `config utilisateur`.
+| Fichier de configuration | Emplacement utilisateur cible             | Template par défaut (`defaults/`)          | Comportement / Valeurs par défaut si absent                                                                                                                                                                        | Sensibilité projet (`./config/`)                      |
+| :----------------------- | :---------------------------------------- | :----------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `config.json`            | `~/.hivemind/config/config.json`          | `src/config/defaults/config.json`          | Protection anti-spam (10 msgs max, cooldown 2s, timeout 120s) et mode voix restreint                                                                                                                               | Non sensible (chargé directement)                     |
+| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe, ses clés sont fusionnées sur les clés globales                                                                                                                        | Non bloqué par opt-in (clés locales autorisées)       |
+| `models_config.json`     | `~/.hivemind/config/models_config.json`   | `src/config/defaults/models_config.json`   | Catalogue exhaustif des modèles IA et routes (Gemini, Claude, GPT, Mistral, Groq...)                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `pricing.json`           | `~/.hivemind/config/pricing.json`         | `src/config/defaults/pricing.json`         | Fallback mémoire : $0.15/1M tokens (input), $0.60/1M tokens (output)                                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `scheduler.json`         | `~/.hivemind/config/scheduler.json`       | `src/config/defaults/scheduler.json`       | 15 tâches planifiées activées par défaut (exemples : dailyGreeting à 8h, reminderCheck à 1min, memoryCleanup à 3h, auto-goal execution...). Consulter `src/config/defaults/scheduler.json` pour la grille complète | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+| `services_config.json`   | `~/.hivemind/config/services_config.json` | `src/config/defaults/services_config.json` | Recettes standard (EXECUTOR=codestral, CRITIC=mistral-large, PLANNER=codestral)                                                                                                                                    | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
+
+#### Espaces de données et stockage local
+
+- **Racine utilisateur (`hiveHome`)** : `~/.hivemind/` (détermine l'emplacement par défaut de la configuration utilisateur `~/.hivemind/config/`, modifiable via `HIVE_HOME_DIR`).
+- **Surcharge de configuration (`HIVE_CONFIG_DIR`)** : `HIVE_CONFIG_DIR` ne déplace pas le répertoire utilisateur (`userConfigDir`), mais injecte un répertoire candidat prioritaire au palier 1 pour chaque fichier qui y est présent. En cas de `HIVE_CONFIG_DIR` partiellement peuplé, les autres fichiers continuent d'être résolus via la cascade standard (projet, utilisateur, defaults).
+- **Données et stockage persistant (`storage` / `storage_hm`)** :
+  - **Comportement actif au runtime** : Sans variable `STORAGE_DIR`, les composants actifs écrivent dans `./storage_hm` au sein du répertoire de travail (`<cwd>/storage_hm`), que `PermissionManager` lie symboliquement à `<cwd>/Sandbox1/storage_hm`.
+  - **Précautions de montage et surcharge en production** :
+    - Fournir impérativement un **chemin absolu** (ex. `STORAGE_DIR=/var/lib/hive-mind/storage_hm` ou via expansion shell `$HOME/.sandbox1/storage_hm`). L'utilisation d'un tilde littéral `~` dans les fichiers `.env` ou manifestes Docker n'est pas interprétée par le runtime Node et créerait un répertoire littéral `<cwd>/~/`.
+    - **Portée de `STORAGE_DIR` et médias téléchargés** : Définir `STORAGE_DIR` délocalise les captures d'écran du navigateur (`BrowserService`), sauf si `AGENT_BROWSER_SCREENSHOT_DIR` définit un autre emplacement. `send_sticker` lit les fichiers existants dans `STORAGE_DIR/stickers`, mais ne génère pas de stickers ; `create_sticker` envoie un buffer sans écrire de fichier. `STORAGE_DIR` **ne délocalise pas les médias téléchargés** : le Core écrit les documents, vidéos et audios reçus via les canaux de messagerie directement dans `<cwd>/hm_storage/tmp_download/` sans consulter cette variable. Ce répertoire reste local à l'espace de travail.
+    - **Persistance des fichiers d'agents et migration de lien symbolique** : Définir uniquement `STORAGE_DIR` ne déplace pas le lien symbolique `<cwd>/storage_hm`, qui pointe par défaut sur `<cwd>/Sandbox1/storage_hm`. Pour externaliser l'intégralité des fichiers créés par les agents, l'opérateur doit configurer conjointement `SANDBOX_DIR=/chemin/vers/sandbox` et `STORAGE_DIR=/chemin/vers/sandbox/storage_hm` (ou monter le volume sur `<cwd>/Sandbox1/storage_hm`).
+    - **Procédure pour installation existante (symlink résiduel)** : Si un lien symbolique `<cwd>/storage_hm` préexiste (pointant vers l'ancien `Sandbox1/storage_hm`), `PermissionManager` ne le recrée pas automatiquement, alors qu'il met à jour sa liste de répertoires autorisés avec le nouveau `SANDBOX_DIR`. Les écritures d'agents traversant l'ancien lien résoudront vers l'ancien chemin non autorisé et seront rejetées (`access violation`). Lors d'une migration, l'opérateur doit impérativement migrer les données et supprimer l'ancien lien (`rm <cwd>/storage_hm`) avant de redémarrer le démon, afin que `PermissionManager` puisse recréer un lien propre vers la nouvelle cible.
+
+### Modifications code restantes pour la distribution (#135)
+
+- Ajouter un script de build émettant `dist/` (Node SEA / packaging).
+- Configurer le champ `files` dans `package.json` pour publier `dist/`, les templates embarqués et les manifestes.
+- Ajouter les commandes CLI de lifecycle (`hive-mind init`, `hive-mind doctor`).
+- Déployer les scripts de connexion dédiés pour les providers OAuth (éliminant la lecture des fichiers hôte).
 
 ### Avantages
 
@@ -181,27 +202,31 @@ La meilleure trajectoire est progressive :
 
 ## Changements prioritaires à faire dans le code
 
-### 1. Séparer configuration par défaut et configuration utilisateur
+### 1. Séparer configuration par défaut et configuration utilisateur (Migration Partielle — PR #138 & #139)
 
-Actuellement, `src/config/models_config.json` est lu directement depuis le code source. Pour une distribution installée, ce fichier doit devenir un default embarqué, pas le fichier utilisateur principal.
+La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) pour le Smart Router, le Runtime FinOps, et le Scheduler. Il sépare formellement :
 
-À créer :
+- Les templates embarqués par défaut en lecture seule dans `src/config/defaults/` (`config.json`, `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
+- La configuration utilisateur globale sanctuarisée dans `~/.hivemind/config/`.
+- La configuration projet locale (`./config/`), soumise à l'opt-in de sécurité `HIVE_TRUST_PROJECT_CONFIG=1` pour les fichiers sensibles (`models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
+- La fusion intelligente sans 401 pour `credentials.json` (les clés projet surchargent les clés globales utilisateur).
 
-- `src/config/ConfigPathResolver.ts`
-- `src/config/defaults/`
-- `~/.hivemind/config/config.json`
-- `~/.hivemind/config/models_config.json`
-- `~/.hivemind/config/credentials.json`
+> [!WARNING]
+> **Migration du conteneur en attente (#135)** :
+> L'initialisation du conteneur IoC (`ServiceContainer.loadConfig()` dans `src/core/ServiceContainer.ts`) charge encore directement `src/config/credentials.json` et `src/config/models_config.json` pour instancier les services `embeddings` et `voiceProvider`. Si une installation ne fournit que les fichiers sous `~/.hivemind/config/`, le conteneur complet échouera à démarrer. La transition complète de `ServiceContainer.loadConfig()` vers `ConfigPathResolver` fait l'objet de l'étape de packaging #135.
 
-### 2. Supprimer les chemins absolus utilisateur
+### 2. Supprimer les chemins absolus utilisateur et émanciper HIVE-MIND des fichiers hôte
 
-Les fichiers comme `/home/omni/.codex/auth.json` doivent devenir :
+Les chemins absolus codés en dur (ex: `/home/omni/...`) sont strictement proscrits au profit de `os.homedir()` et du `ConfigPathResolver`.
 
-```text
-path.join(os.homedir(), '.codex', 'auth.json')
-```
+**Évolution architecturale majeure pour les providers OAuth :**
+Dans les versions futures distribuables, HIVE-MIND **n'utilisera plus les fichiers d'authentification par défaut sur le système hôte** (comme le fichier `~/.codex/auth.json` utilisé en repli de développement par l'adaptateur Codex, tandis qu'Antigravity s'appuie actuellement sur ses variables d'environnement dédiées).
+À la place, HIVE-MIND intégrera des **scripts de connexion dédiés** (ex. `hive-mind login-provider <provider>`) simulant les véritables protocoles d'autorisation OAuth (Device Authorization Grant, flux PKCE, ou boucle locale HTTP).
+Ces scripts généreront et stockeront les jetons directement dans l'arborescence sanctuarisée de HIVE-MIND (`~/.hivemind/config/` ou coffre-fort sécurisé), garantissant :
 
-Même règle pour Antigravity, Gemini CLI, caches, médias et logs.
+- L'autonomie totale de l'application vis-à-vis des CLI tierces installées sur le système de l'opérateur.
+- L'absence de régression ou de corruption mutuelle de sessions entre HIVE-MIND et d'autres logiciels hôtes.
+- Une isolation parfaite pour les conteneurs et déploiements autonomes.
 
 ### 3. Introduire des commandes de lifecycle
 

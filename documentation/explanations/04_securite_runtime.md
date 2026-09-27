@@ -132,7 +132,10 @@ La classe `RalphController` intercepte les réponses de l'agent en fin de boucle
 
 #### FinOps et Budget KKT Lagrangien
 
-Les coûts sont calculés à partir de `src/config/pricing.json` et enregistrés pour chaque appel réussi.
+Les coûts sont calculés à partir du fichier `pricing.json`, résolu dynamiquement par `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) :
+
+- **Chemins de résolution** : `HIVE_CONFIG_PRICING_JSON` $\to$ `./config/pricing.json` (sanctuarisé par l'opt-in `HIVE_TRUST_PROJECT_CONFIG=1` pour empêcher un checkout tiers non approuvé de neutraliser le kill switch avec des tarifs nuls) $\to$ `~/.hivemind/config/pricing.json` $\to$ repli hérité déprécié $\to$ template par défaut embarqué `src/config/defaults/pricing.json`.
+- **Résilience mémoire** : En cas d'absence totale ou d'invalidation syntaxique du fichier, `RuntimeFinOps` bascule sans crash sur les tarifs par défaut intégrés en mémoire ($0.15 / 1M tokens en entrée, $0.60 / 1M tokens en sortie).
 
 **Kill Switch** : Si le budget cumulé de session dépasse `maxSessionBudget` (défaut : $2.00), l'exception `BUDGET_EXCEEDED` est propagée via l'event bus et l'exécution s'arrête immédiatement.
 
@@ -173,4 +176,4 @@ $$\lambda = \left(\frac{\text{coût session}}{\text{budget max}}\right)^4$$
 - `src/services/ptc/WakeSystem.ts` — Tâches longues et réveil Redis
 - `src/core/security/PermissionManager.ts` — HITL et confinement
 - `src/services/runtime/RuntimeInfrastructure.ts` — Sentinel VIGIL, Ralph, FinOps KKT
-- `src/config/pricing.json` — Coûts unitaires des modèles
+- `pricing.json` (résolu via `ConfigPathResolver`, template dans `src/config/defaults/pricing.json`) — Coûts unitaires des modèles et règles FinOps

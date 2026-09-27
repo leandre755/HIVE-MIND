@@ -1,18 +1,18 @@
 # Comment Configurer le Routage Intelligent et le Circuit Breaker de Layer 1
 
-Ce guide pratique explique comment consommer le routeur de haut niveau **Layer 1 SmartLayer**, configurer des recettes logiques de services avec des chaînes de repli (*fallback chains*), et tester la résilience du disjoncteur face aux pannes distantes.
+Ce guide pratique explique comment consommer le routeur de haut niveau **Layer 1 SmartLayer**, configurer des recettes logiques de services avec des chaînes de repli (_fallback chains_), et tester la résilience du disjoncteur face aux pannes distantes.
 
 ## Prérequis
 
 - Node.js $\ge 22.0.0$ (ESM natif) et TypeScript configuré.
-- Fichiers `src/config/models_config.json` et `src/config/services_config.json` initialisés.
+- Fichiers `models_config.json` et `services_config.json` résolus par `ConfigPathResolver` (au niveau `~/.hivemind/config/`, `./config/` avec `HIVE_TRUST_PROJECT_CONFIG=1`, ou templates `src/config/defaults/`).
 - Variables d'environnement configurées pour au moins deux fournisseurs (ex. `OPENAI_API_KEY` et `ANTHROPIC_API_KEY`) pour permettre le basculement automatique.
 
 ## Étapes de Réalisation
 
 ### 1. Déclarer une recette logique dans `services_config.json`
 
-Ouvrez ou créez `src/config/services_config.json` et définissez une chaîne de repli ordonnée sous `service_recipes` :
+Ouvrez ou créez votre fichier `services_config.json` (recommandé dans `~/.hivemind/config/services_config.json`, ou `./config/services_config.json` avec `HIVE_TRUST_PROJECT_CONFIG=1`) et définissez une chaîne de repli ordonnée sous `service_recipes` :
 
 ```json
 {
@@ -62,10 +62,15 @@ async function executeTask() {
       deadlineMs: 45000,
     });
 
-    console.log(`[Succès] Réponse obtenue via : ${response.usedModel} (Tentatives : ${response.attemptsCount})`);
+    console.log(
+      `[Succès] Réponse obtenue via : ${response.usedModel} (Tentatives : ${response.attemptsCount})`,
+    );
     console.log(response.result.content);
   } catch (error) {
-    console.error('[Échec critique] Tous les modèles de la cascade ont échoué :', (error as Error).message);
+    console.error(
+      '[Échec critique] Tous les modèles de la cascade ont échoué :',
+      (error as Error).message,
+    );
   }
 }
 ```
@@ -121,6 +126,7 @@ console.log('Disjoncteur gpt-4o ouvert ?', isOpen); // true
 ## Cas Particuliers & Variantes
 
 ### Variante A : Ciblage direct d'un modèle spécifique
+
 Si vous souhaitez interroger un modèle précis sans passer par une recette nommée, passez directement son identifiant :
 
 ```typescript
@@ -131,6 +137,7 @@ const result = await smartLayer.execute({
 ```
 
 ### Variante B : Forcer un signal d'interruption global
+
 Pour lier la cascade à un signal d'annulation (ex. timeout global de l'agent) :
 
 ```typescript
@@ -149,6 +156,7 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 ```
 
 Résultat attendu dans le terminal :
+
 ```text
 PASS src/tests/unit/providers/layer1.test.ts
   Layer 1 - ModelHealthRegistry & Circuit Breaker
@@ -173,8 +181,8 @@ Tests:       18 passed, 1 total
 
 ## Guide de Dépannage (Troubleshooting)
 
-| Symptôme / Message d'Erreur | Cause Probable | Solution Immédiate |
-| :--- | :--- | :--- |
+| Symptôme / Message d'Erreur                             | Cause Probable                                                                          | Solution Immédiate                                                                                                             |
+| :------------------------------------------------------ | :-------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
 | `SmartLayer: Request for "XYZ" failed after 4 attempts` | Tous les modèles déclarés dans la recette ont échoué ou ont leurs disjoncteurs ouverts. | Vérifier la connectivité réseau, la validité des clés d'API et ajouter des modèles de repli tiers dans `services_config.json`. |
-| `Error: [__streamStarted: true]` | Une coupure réseau ou une erreur distante est survenue en cours de diffusion SSE. | Normal (protection anti-corruption) : redémarrer la tâche ou inviter l'utilisateur à reformuler. |
-| `ServiceRecipeNotFound` ou repli sur modèle par défaut | La recette demandée n'est pas déclarée dans `services_config.json`. | Vérifier l'orthographe de `serviceOrCategory` ou déclarer la recette sous `service_recipes`. |
+| `Error: [__streamStarted: true]`                        | Une coupure réseau ou une erreur distante est survenue en cours de diffusion SSE.       | Normal (protection anti-corruption) : redémarrer la tâche ou inviter l'utilisateur à reformuler.                               |
+| `ServiceRecipeNotFound` ou repli sur modèle par défaut  | La recette demandée n'est pas déclarée dans `services_config.json`.                     | Vérifier l'orthographe de `serviceOrCategory` ou déclarer la recette sous `service_recipes`.                                   |

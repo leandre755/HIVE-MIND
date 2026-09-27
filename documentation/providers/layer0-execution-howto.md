@@ -6,7 +6,7 @@ Ce guide pratique décrit étape par étape comment configurer, exécuter et tes
 
 - Node.js $\ge 22.0.0$ (ESM natif) avec TypeScript configuré.
 - Dépendances du projet installées (`npm install`).
-- Un fichier `src/config/models_config.json` valide ou un mock de configuration.
+- Un fichier `models_config.json` valide résolu par `ConfigPathResolver` (au niveau `~/.hivemind/config/`, `./config/` avec `HIVE_TRUST_PROJECT_CONFIG=1`, ou les templates embarqués `src/config/defaults/models_config.json`).
 - Au moins une clé d'API valide définie dans l'environnement (ex. `OPENAI_API_KEY`) ou transmise via `ExecutionOpts`.
 
 ## Étapes de Réalisation
@@ -51,7 +51,9 @@ async function runSingleCompletion() {
 
     console.log('Contenu généré :', response.content);
     if (response.usage) {
-      console.log(`Jetons utilisés : ${response.usage.totalTokens} (Prompt: ${response.usage.promptTokens}, Completion: ${response.usage.completionTokens})`);
+      console.log(
+        `Jetons utilisés : ${response.usage.totalTokens} (Prompt: ${response.usage.promptTokens}, Completion: ${response.usage.completionTokens})`,
+      );
     }
   } catch (error) {
     console.error('Échec de la requête :', (error as Error).message);
@@ -137,6 +139,7 @@ if (toolResult.toolCalls && toolResult.toolCalls.length > 0) {
 ## Cas Particuliers & Variantes
 
 ### Variante A : Mocker l'appel réseau pour les tests unitaires
+
 Pour tester votre logique sans consommer de quota d'API distant, utilisez `jest.spyOn(global, 'fetch')` :
 
 ```typescript
@@ -151,13 +154,14 @@ const mockResponse = new Response(
     ],
     usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
   }),
-  { status: 200, headers: { 'Content-Type': 'application/json' } }
+  { status: 200, headers: { 'Content-Type': 'application/json' } },
 );
 
 jest.spyOn(global, 'fetch').mockResolvedValueOnce(mockResponse);
 ```
 
 ### Variante B : Forcer une clé API dédiée
+
 Pour utiliser une clé de compte spécifique sans modifier les variables globales :
 
 ```typescript
@@ -175,6 +179,7 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 ```
 
 Résultat attendu dans le terminal :
+
 ```text
 PASS src/tests/unit/providers/layer0.test.ts
   Layer 0 - Domain Errors (errors.ts)
@@ -213,9 +218,9 @@ Tests:       24 passed, 24 total
 
 ## Guide de Dépannage (Troubleshooting)
 
-| Symptôme / Message d'Erreur | Cause Probable | Solution Immédiate |
-| :--- | :--- | :--- |
-| `AuthError: No API key available for provider "openai"` | La variable d'environnement `OPENAI_API_KEY` n'est pas définie dans `.env` et aucune clé n'est fournie dans `opts.apiKey`. | Renseigner `OPENAI_API_KEY` dans votre environnement ou passer `opts.apiKey`. |
-| `InvalidRequestError: Model "xyz" is not registered in models_config.json` | L'identifiant de modèle demandé n'existe pas dans le dictionnaire `familles.<provider>.modeles`. | Vérifier l'orthographe du modèle dans `src/config/models_config.json` ou appeler `ModelRegistry.getInstance().listModels()`. |
-| `NetworkError: ExecutionLayer: request timed out or was aborted after 60000ms` | La connexion réseau a été rompue ou le modèle a mis plus de temps à répondre que le plafond configuré. | Augmenter `opts.timeoutMs` (ex. `120000`) pour les modèles lents à fort raisonnement. |
-| `RateLimitError: Rate limit exceeded (429)` | Quota atteint ou saturation temporaire chez le fournisseur. | Récupérer `error.retryAfterMs` et attendre avant de retenter, ou confier la gestion du repli à Layer 1 (`SmartLayer`). |
+| Symptôme / Message d'Erreur                                                    | Cause Probable                                                                                                             | Solution Immédiate                                                                                                                                                      |
+| :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AuthError: No API key available for provider "openai"`                        | La variable d'environnement `OPENAI_API_KEY` n'est pas définie dans `.env` et aucune clé n'est fournie dans `opts.apiKey`. | Renseigner `OPENAI_API_KEY` dans votre environnement ou passer `opts.apiKey`.                                                                                           |
+| `InvalidRequestError: Model "xyz" is not registered in models_config.json`     | L'identifiant de modèle demandé n'existe pas dans le dictionnaire `familles.<provider>.modeles`.                           | Vérifier l'orthographe du modèle dans `models_config.json` (`~/.hivemind/config/models_config.json` ou defaults) ou appeler `ModelRegistry.getInstance().listModels()`. |
+| `NetworkError: ExecutionLayer: request timed out or was aborted after 60000ms` | La connexion réseau a été rompue ou le modèle a mis plus de temps à répondre que le plafond configuré.                     | Augmenter `opts.timeoutMs` (ex. `120000`) pour les modèles lents à fort raisonnement.                                                                                   |
+| `RateLimitError: Rate limit exceeded (429)`                                    | Quota atteint ou saturation temporaire chez le fournisseur.                                                                | Récupérer `error.retryAfterMs` et attendre avant de retenter, ou confier la gestion du repli à Layer 1 (`SmartLayer`).                                                  |

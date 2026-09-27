@@ -38,7 +38,7 @@ interface TransportInterface {
   sendUniversalResponse(
     chatId: string,
     response: UniversalResponse,
-    options?: SendOptions
+    options?: SendOptions,
   ): Promise<void>;
   onMessage(callback: (msg: NormalizedMessage) => Promise<void>): void;
   downloadMedia(msg: NormalizedMessage): Promise<Buffer | null>;
@@ -108,7 +108,16 @@ Le `EnvResolver` (`src/services/envResolver.ts`) détecte les clés numérotées
 
 #### Sélection et cascade de modèles
 
-La configuration des cascades est définie dans `src/config/models_config.json` :
+La configuration des cascades et recettes de modèles est résolue dynamiquement par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) à travers deux circuits de recettes distincts :
+
+- **Fichiers cibles et distinction des flux d'exécution** :
+  1. `models_config.json` (`reglages_generaux.service_recipes` et `chat_recipes`) : **Seul circuit actif pour le démon au runtime**.
+     - **Planification ordinaire vs Recette de correction** : La planification normale (`plan()`) et la révision de plan (`_replan()`) dans le `Planner` effectuent des appels de chat standards via `providerRouter.chat()` gouvernés par les cascades de `chat_recipes` (ex. `AGENTIC` ou route par défaut). La recette de service `PLANNER` définie sous `reglages_generaux.service_recipes` est invoquée par `_requestSelfCorrection()` lors d'une nouvelle tentative après un échec de validation des arguments ou d'exécution d'un outil. Modifier cette recette n'influence donc pas les plans normaux, mais peut modifier l'auto-correction après ces échecs.
+     - **Autres recettes de service du Core** : Les composants internes comme le `Sentinel` (`SAFETY_SENTINEL`), le `Critic` (`CRITIC`), l'`ActionEvaluator` (`ACTION_EVALUATOR`) et le `DreamService` (`DREAM_SERVICE`) transitent par `providerRouter.callServiceRecipe()`, qui lit exclusivement dans `models_config.json.reglages_generaux.service_recipes`.
+  2. `services_config.json` : Définit le catalogue de recettes pour l'API programmatique `SmartLayer.execute()` et le `ServiceRegistry` (recettes embarquées disponibles : `EXECUTOR`, `CRITIC`, `OBSERVER`, `PLANNER`, `DREAM_SERVICE`, `SAFETY_SENTINEL` ; note : `CODING` est une catégorie de chat dans `chat_recipes`, et non une recette de service). Aucun flux en production n'invoque actuellement `SmartLayer.execute()`. Modifier ces recettes dans `services_config.json` n'a aucun effet sur les exécutions du démon.
+- **Hiérarchie de découverte** : Surcharges d'environnement (`HIVE_CONFIG_MODELS_CONFIG_JSON`, `HIVE_CONFIG_SERVICES_CONFIG_JSON`, `HIVE_CONFIG_DIR`) $\to$ Configuration projet (`./config/`) sanctuarisée par l'opt-in `HIVE_TRUST_PROJECT_CONFIG=1` $\to$ Configuration utilisateur globale (`~/.hivemind/config/`) $\to$ Repli hérité avec warning $\to$ Templates embarqués par défaut (`src/config/defaults/`).
+
+Exemple d'extrait de configuration de cascades (`models_config.json`) :
 
 ```json
 {
