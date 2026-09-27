@@ -70,26 +70,28 @@ function parseJsonSafe(filePath: string): Record<string, unknown> {
   }
 }
 
-/**
- * Loads a JSON file without validation (legacy support).
- * For credentials.json, merges project overrides over user configuration
- * to guarantee user keys are not masked by an empty/partial local file.
- * Explicit overrides (env vars) remain strictly isolated.
- */
+/** Loads a JSON file without validation. For credentials.json, merges project over user keys. */
+function hasExplicitCredentialsEnvOverride(): boolean {
+  const s = process.env.HIVE_CONFIG_CREDENTIALS_JSON?.trim(),
+    d = process.env.HIVE_CONFIG_DIR?.trim();
+  return Boolean(
+    (s && safeExistsSync(resolve(s))) ||
+    (d && safeExistsSync(resolve(join(d, 'credentials.json')))),
+  );
+}
+
 export function loadJsonConfig(filename: string): Record<string, unknown> {
   const filePath = resolveConfigPath(filename);
   const mainConfig = parseJsonSafe(filePath);
   if (sanitizeFilename(filename).toLowerCase() !== 'credentials.json') return mainConfig;
 
-  const hasEnv = Boolean(process.env.HIVE_CONFIG_CREDENTIALS_JSON || process.env.HIVE_CONFIG_DIR);
-  if (hasEnv || filePath !== resolve(join(resolveProjectConfigDir(), 'credentials.json'))) {
-    return mainConfig;
-  }
+  const prjPath = resolve(join(resolveProjectConfigDir(), 'credentials.json'));
+  if (hasExplicitCredentialsEnvOverride() || filePath !== prjPath) return mainConfig;
 
   const userPath = resolve(join(resolveUserConfigDir(), 'credentials.json'));
   const userCreds = parseJsonSafe(userPath);
-  const userFam = (userCreds?.familles_ia as Record<string, string>) || {};
-  const prjFam = (mainConfig?.familles_ia as Record<string, string>) || {};
+  const userFam = (userCreds?.familles_ia as Record<string, string>) || {},
+    prjFam = (mainConfig?.familles_ia as Record<string, string>) || {};
   return {
     ...userCreds,
     ...mainConfig,

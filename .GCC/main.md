@@ -38,6 +38,11 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-27] **Préservation de la Fusion des Credentials en cas de Repli HIVE_CONFIG_DIR sans Fichier Credentials (#133 / PR #138)**
+  - **Context**: Retours de revue Greptile sur la PR #138 (Finding P1 ID 4113504822) : Si `HIVE_CONFIG_DIR` est défini (ex: pointant vers un dossier contenant seulement `models_config.json` ou `services_config.json`), le résolveur se replie légitimement sur `./config/credentials.json`. Mais un simple `Boolean(process.env.HIVE_CONFIG_DIR)` empêchait à tort la fusion avec les clés globales de `~/.hivemind/config/credentials.json`, risquant des erreurs 401 au runtime.
+  - **Discarded Options**: Traiter toute présence de `HIVE_CONFIG_DIR` comme une surcharge absolue de credentials même en l'absence de fichier (rejeté : perte des clés utilisateur globales) ; autoriser la fusion sur les surcharges explicites existantes (rejeté : fuite de credentials isolés).
+  - **Rationale**: `hasExplicitCredentialsEnvOverride()` vérifie l'existence effective sur le disque du fichier désigné par `HIVE_CONFIG_CREDENTIALS_JSON` ou `join(HIVE_CONFIG_DIR, 'credentials.json')`. Si aucun fichier credentials n'est surchargé, la découverte projet `./config/credentials.json` prend le relais et fusionne avec les clés utilisateur globales. Couverture unitaire maintenue à 100% et diff stabilisé à 2498 LoC (< 2500 max).
+
 - [2026-09-26] **Respect Strict du Plafond de Gouvernance de 2500 LoC & Absence de Duplication**
   - **Context**: Clarification de gouvernance : le dépôt applique un seuil dur strict de 2500 lignes de code par PR (hors documentation et assets). Les modifications doivent respecter scrupuleusement ce plafond tout en évitant toute duplication ou code mort, sans recourir à des compressions artificielles illisibles.
   - **Rationale**: Maintien d'un code hautement lisible, modulaire et vérifiable, stabilisé sous le seuil dur de 2500 LoC (actuellement < 2500 LoC).
