@@ -2,28 +2,27 @@
 
 ## 🎯 Functional Outcome & Task Reality
 - **Requested Task**:
-  1. Résoudre le finding Greptile P1 (ID 4113504822) sur la PR #138 (sous-issue #133 / épopée #96) :
-     - Préservation de la fusion des clés utilisateur globales (`~/.hivemind/config/credentials.json`) lors du repli sur `./config/credentials.json` quand `HIVE_CONFIG_DIR` est défini mais ne contient pas de fichier `credentials.json`.
-     - Préservation stricte de l'isolation lorsqu'un fichier de credentials explicite est présent sur disque via `HIVE_CONFIG_CREDENTIALS_JSON` ou `join(HIVE_CONFIG_DIR, 'credentials.json')`.
-  2. Maintenir la couverture unitaire à 100% sur les composants critiques et le diff PR sous le plafond dur de gouvernance (<= 2500 LoC).
+  1. Résoudre les findings Greptile sur la PR #138 (sous-issue #133 / épopée #96) :
+     - Finding P1 (ID 4113504822) : Préservation de la fusion des clés utilisateur globales (`~/.hivemind/config/credentials.json`) lors du repli sur `./config/credentials.json` quand `HIVE_CONFIG_DIR` est défini sans `credentials.json`.
+     - Finding P1 (ID 4113563965) : Isolation inconditionnelle stricte lorsque `HIVE_CONFIG_CREDENTIALS_JSON` est défini, empêchant la réutilisation de clés personnelles même si le secret n'est pas encore monté sur disque.
+  2. Maintenir la couverture unitaire à 100% et le diff PR sous le plafond dur de gouvernance (2497 / 2500 LoC).
   3. Contre-audit indépendant d'intégrité, de sécurité et de non-régression.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
   - `npm test -- --coverage src/tests/unit/config` : 5 suites passées, 18/18 tests au vert.
   - Couverture unitaire : `ConfigPathResolver.ts` : 100% Stmts (56/56), 100% Branch (34/34), 100% Funcs (11/11), 100% Lines (54/54) ; `src/config/index.ts` : 100% Funcs (4/4), 100% Lines.
   - `npm test -- src/tests/unit/providers/layer1.test.ts src/tests/unit/providers/adapterRegistry.test.ts` : 2 suites passées, 41/41 tests au vert.
-  - Résolution P1 (ID 4113504822) : `hasExplicitCredentialsEnvOverride()` vérifie l'existence réelle du fichier sur disque. S'il n'existe pas, le repli sur `./config/credentials.json` fusionne les clés utilisateur globales sans fuite ni 401.
-  - Résolution P1 (ID 4113327061, ID 4113424273) : `models_config.json`, `scheduler.json` et `services_config.json` restent strictement confinés et subordonnés à `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`.
-  - Résolution P1 (ID 4113327068, ID 4113424275) : `ServiceRegistry.defaultServicesConfigPath()` importe directement depuis `ConfigPathResolver.js` sans évaluer prématurément le singleton de configuration.
-  - Budget de gouvernance PR respecté : `TOTAL: 2498` lignes de code (< plafond dur de 2500 lignes mesuré par le script de gouvernance GitHub Actions).
+  - Résolution P1 (ID 4113563965) : `hasExplicitCredentialsEnvOverride()` retourne `true` dès que `HIVE_CONFIG_CREDENTIALS_JSON` est défini (`Boolean(s)`), sanctuarisant l'isolation sans fuite vers les identifiants personnels même si le secret n'est pas monté.
+  - Résolution P1 (ID 4113504822) : Pour `HIVE_CONFIG_DIR`, l'isolation n'est activée que si `credentials.json` existe réellement sur disque. En son absence, le repli sur `./config/credentials.json` fusionne avec `~/.hivemind/config/credentials.json` sans 401.
+  - Budget de gouvernance PR respecté : `TOTAL: 2497` lignes de code (< 2500 max).
 
 ## ⚡ Technical Diffs / Atomic Modifications
 - **File**: `src/config/index.ts`
-  - **Scope**: Raffinement de la détection de surcharge explicite des credentials.
-  - **Exact Technical Change**: Remplacement de la vérification booléenne brute de variable d'environnement par `hasExplicitCredentialsEnvOverride()` qui teste l'existence effective sur disque (`safeExistsSync(resolve(s))` ou `safeExistsSync(resolve(join(d, 'credentials.json')))`).
+  - **Scope**: Raffinement de l'isolation des secrets explicites vs repli de répertoire.
+  - **Exact Technical Change**: `function hasExplicitCredentialsEnvOverride(): boolean { const s = process.env.HIVE_CONFIG_CREDENTIALS_JSON?.trim(), d = process.env.HIVE_CONFIG_DIR?.trim(); return Boolean(s || (d && safeExistsSync(resolve(join(d, 'credentials.json'))))); }`.
 - **File**: `src/tests/unit/config/ConfigIndex.test.ts`
-  - **Scope**: Test d'intégration de repli avec `HIVE_CONFIG_DIR` pointant vers un dossier vide et fusion des identifiants utilisateur.
-  - **Exact Technical Change**: Ajout du scénario `process.env.HIVE_CONFIG_DIR = join(tempBase, 'empty')` vérifiant `loadJsonConfig('credentials.json')` fusionnant les clés projet et utilisateur.
+  - **Scope**: Tests d'isolation de secret absent et de repli avec fusion.
+  - **Exact Technical Change**: Ajout du scénario `HIVE_CONFIG_CREDENTIALS_JSON = join(tempBase, 'unmounted.json')` (vérification de non-réutilisation des clés utilisateur) et `HIVE_CONFIG_DIR = join(tempBase, 'empty')` (vérification de fusion avec les clés utilisateur).
 - **File**: `src/tests/unit/config/ConfigPathResolverHierarchy.test.ts`
   - **Scope**: Factorisation des vérifications sensibles pour respecter le budget LoC.
   - **Exact Technical Change**: Factorisation en boucles `sens.forEach` pour `models_config.json`, `scheduler.json` et `services_config.json`.

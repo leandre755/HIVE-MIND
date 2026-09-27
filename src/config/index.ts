@@ -74,10 +74,7 @@ function parseJsonSafe(filePath: string): Record<string, unknown> {
 function hasExplicitCredentialsEnvOverride(): boolean {
   const s = process.env.HIVE_CONFIG_CREDENTIALS_JSON?.trim(),
     d = process.env.HIVE_CONFIG_DIR?.trim();
-  return Boolean(
-    (s && safeExistsSync(resolve(s))) ||
-    (d && safeExistsSync(resolve(join(d, 'credentials.json')))),
-  );
+  return Boolean(s || (d && safeExistsSync(resolve(join(d, 'credentials.json')))));
 }
 
 export function loadJsonConfig(filename: string): Record<string, unknown> {

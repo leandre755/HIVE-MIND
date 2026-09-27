@@ -85,6 +85,8 @@ describe('src/config/index.ts Integration', () => {
       safeWriteFileSync(isoPath, JSON.stringify(iso));
       process.env.HIVE_CONFIG_CREDENTIALS_JSON = isoPath;
       expect(loadJsonConfig('credentials.json')).toEqual(iso);
+      process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(tempBase, 'unmounted.json');
+      expect(loadJsonConfig('credentials.json')).toEqual(prjCreds);
       Reflect.deleteProperty(process.env, 'HIVE_CONFIG_CREDENTIALS_JSON');
       process.env.HIVE_CONFIG_DIR = prjCfgDir;
       expect(loadJsonConfig('credentials.json')).toEqual(prjCreds);
