@@ -4,10 +4,15 @@
  * Single entry point for all application settings with Zod validation.
  */
 
-import { safeReadFileSync, safeExistsSync, resolveWithinRoot } from '../utils/safeFs.js';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join, resolve } from 'node:path';
+import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { envResolver } from '../services/envResolver.js';
+import {
+  resolveConfigPath,
+  resolveUserConfigDir,
+  resolveProjectConfigDir,
+  sanitizeFilename,
+} from './ConfigPathResolver.js';
 import {
   AppConfigSchema,
   ModelsConfigSchema,
@@ -16,8 +21,6 @@ import {
   ModelsConfig,
   SchedulerConfig,
 } from './config.schema.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Environment variables are loaded natively via --env-file
 
@@ -28,8 +31,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * @param {import('zod').ZodSchema<T>} schema - The Zod schema for validation.
  * @returns {T} - The validated configuration object.
  */
-function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSchema<T>): T {
-  const filePath = resolveWithinRoot(__dirname, filename);
+export function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSchema<T>): T {
+  const filePath = resolveConfigPath(filename);
   if (!safeExistsSync(filePath)) {
     console.warn(`[Config] File not found: ${filename}`);
     return {} as T;
@@ -53,17 +56,44 @@ function loadAndValidateConfig<T>(filename: string, schema: import('zod').ZodSch
   }
 }
 
-/**
- * Loads a JSON file without validation (legacy support).
- */
-function loadJsonConfig(filename: string): Record<string, unknown> {
-  const filePath = resolveWithinRoot(__dirname, filename);
+function parseJsonSafe(filePath: string): Record<string, unknown> {
   if (!safeExistsSync(filePath)) return {};
   try {
-    return JSON.parse(safeReadFileSync(filePath, 'utf-8')) as Record<string, unknown>;
+    const raw = safeReadFileSync(filePath, 'utf-8');
+    if (!raw.trim()) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
+}
+
+/** Loads a JSON file without validation. For credentials.json, merges project over user keys. */
+function hasExplicitCredentialsEnvOverride(): boolean {
+  const s = process.env.HIVE_CONFIG_CREDENTIALS_JSON?.trim(),
+    d = process.env.HIVE_CONFIG_DIR?.trim();
+  return Boolean(s || (d && safeExistsSync(resolve(join(d, 'credentials.json')))));
+}
+
+export function loadJsonConfig(filename: string): Record<string, unknown> {
+  const filePath = resolveConfigPath(filename);
+  const mainConfig = parseJsonSafe(filePath);
+  if (sanitizeFilename(filename).toLowerCase() !== 'credentials.json') return mainConfig;
+
+  const prjPath = resolve(join(resolveProjectConfigDir(), 'credentials.json'));
+  if (hasExplicitCredentialsEnvOverride() || filePath !== prjPath) return mainConfig;
+
+  const userPath = resolve(join(resolveUserConfigDir(), 'credentials.json'));
+  const userCreds = parseJsonSafe(userPath);
+  const userFam = (userCreds?.familles_ia as Record<string, string>) || {},
+    prjFam = (mainConfig?.familles_ia as Record<string, string>) || {};
+  return {
+    ...userCreds,
+    ...mainConfig,
+    familles_ia: { ...userFam, ...prjFam },
+  };
 }
 
 /**
@@ -183,3 +213,5 @@ export const config: HIVEConfig = {
 };
 
 export default config;
+
+export * from './ConfigPathResolver.js';

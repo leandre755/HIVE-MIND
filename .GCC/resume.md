@@ -1,61 +1,50 @@
 # Session Handoff
 
 ## 🎯 Functional Outcome & Task Reality
-- **Requested Task**: Exécuter la sous-issue #132 (étape 2/5 du plan de distribution #96) : remplacer l'import dynamique calculé des adapters providers par un registre statique `adapterRegistry` bundler-friendly, avec tests de complétude, conformité ProviderAdapter, idempotence, et non-régression.
+- **Requested Task**:
+  1. Résoudre le dernier finding Greptile P2 (ID 4113623542) sur la PR #138 (sous-issue #133 / épopée #96) :
+     - "Isolation non vérifiée" : Rendre le test d'isolation de `HIVE_CONFIG_CREDENTIALS_JSON` strictement discriminant dans `src/tests/unit/config/ConfigIndex.test.ts` en restaurant les identifiants utilisateur `userCreds` (`gemini: 'u-gemini'`) avant l'assertion sur le secret non monté `unmounted.json`.
+  2. Maintenir la couverture unitaire à 100% sur le module config et respecter le budget de gouvernance PR (< 2500 LoC).
+  3. Contre-audit indépendant par les sous-agents critiques (100% Production-Grade).
+  4. Répondre et fermer la discussion Greptile sur GitHub via l'API GraphQL.
 - **Functional Status**: SUCCESS
 - **Behavioral Proof**:
-  - `src/providers/adapters/registry.ts` créé avec imports statiques des 8 adaptateurs (`openai`, `gemini`, `anthropic`, `groq`, `huggingface`, `cohere`, `cloudflare`, `modal`) et export de `adapterRegistry: Readonly<Record<string, ProviderAdapter>>` scellé via `Object.freeze`.
-  - `src/providers/index.ts:loadAdapters()` refactorisé pour consommer directement `adapterRegistry` ; élimination totale de `pathToFileURL` et de toute boucle d'import dynamique calculé au runtime.
-  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts` : 15/15 tests passés.
-  - `npm test -- src/tests/unit/providers` : 12/12 suites passées, 201/201 tests passés (élimination complète des avertissements Jest de dynamic import d'adapters en arrière-plan).
-  - `npm run test:unit` : 105 suites passées, 1081 tests passés, 0 échec (29.261 s).
-  - `npm test -- src/tests/unit/providers/adapterRegistry.test.ts --coverage --collectCoverageFrom=src/providers/adapters/registry.ts` : 100% de couverture de statements/branches/fonctions/lignes sur `registry.ts`.
+  - `npm test -- --coverage src/tests/unit/config` : 5 suites passées, 18/18 tests au vert.
+  - Couverture unitaire : `ConfigPathResolver.ts` : 100% Stmts (56/56), 100% Branch (34/34), 100% Funcs (11/11), 100% Lines (54/54) ; `src/config/index.ts` : 100% Funcs (4/4), 100% Lines.
+  - `npm test -- src/tests/unit/providers/layer1.test.ts src/tests/unit/providers/adapterRegistry.test.ts` : 2 suites passées, 41/41 tests au vert.
+  - Résolution Finding P2 (ID 4113623542) : `safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds))` exécuté avant `process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(tempBase, 'unmounted.json')`, garantissant que `expect(loadJsonConfig('credentials.json')).toEqual(prjCreds)` échouerait immédiatement si une fuite vers les identifiants utilisateur globaux survenait.
+  - Budget de gouvernance PR respecté : `TOTAL: 2497` lignes de code (< 2500 max).
 
 ## ⚡ Technical Diffs / Atomic Modifications
-- **File**: `src/providers/adapters/registry.ts`
-  - **Scope**: Registre statique des adaptateurs providers natifs
-  - **Exact Technical Change**: Imports statiques de `openai`, `gemini`, `anthropic`, `groq`, `huggingface`, `cohere`, `cloudflare`, `modal` ; export de `adapterRegistry` typé `Readonly<Record<string, ProviderAdapter>>` et scellé avec `Object.freeze`.
-- **File**: `src/providers/index.ts`
-  - **Scope**: Routeur multi-familles et chargement des adaptateurs
-  - **Exact Technical Change**: Retrait de `pathToFileURL` de l'import `url` ; import de `adapterRegistry` depuis `./adapters/registry.js` ; refactorisation de `loadAdapters()` en itérant sur `Object.entries(adapterRegistry)` ; retour direct du singleton `loadPromise` pour idempotence référentielle.
-- **File**: `src/tests/unit/providers/adapterRegistry.test.ts`
-  - **Scope**: Tests unitaires du registre statique et de non-régression de `loadAdapters()`
-  - **Exact Technical Change**: 14 tests unitaires couvrant l'exhaustivité des 8 entrées, l'immuabilité `Object.freeze`, la conformité `ProviderAdapter`, la méthode `embed`, l'enregistrement effectif dans `providerRouter.adapters`, l'idempotence stricte, et l'absence d'import calculé dans `src/providers/index.ts` par lecture de source `safeReadFileSync`.
-- **File**: `.GCC/branches/plan_issue_96_distribution.md`
-  - **Scope**: Plan tactique de distribution #96
-  - **Exact Technical Change**: Étape 2 marquée complétée avec preuves de validation brutes.
+- **File**: `src/tests/unit/config/ConfigIndex.test.ts`
+  - **Scope**: Restauration des credentials utilisateur avant le test d'isolation de secret non monté.
+  - **Exact Technical Change**: Déplacement de `safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds))` avant l'assignation de `process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(tempBase, 'unmounted.json')` et suppression de la réécriture redondante à l'étape suivante.
 - **File**: `.GCC/main.md`
-  - **Scope**: Contexte global et registre des décisions
-  - **Exact Technical Change**: Enregistrement de la décision [2026-09-26] sur le registre statique des providers ; ajout de l'étape 2 à `Current Status` ; mise à jour de `Next Session Direction`.
+  - **Scope**: Consignation de la décision d'intégrité [2026-09-27] pour le finding P2 ID 4113623542.
+- **File**: `.GCC/resume.md`
+  - **Scope**: Synthèse de la résolution et directives de clôture.
 
 ## 🛠️ Static Codebase Health
-- **Verification Command Run**: `npm run build && npm run lint:fast && npm run format:check && npm run test:unit`
+- **Verification Command Run**: `npm run build && npm run lint:fast && npx eslint src/config src/tests/unit/config --max-warnings=0`
 - **Linter/Compiler Status**:
 ```text
 > hive-mind@1.0.0 build
 > tsc --noEmit
-(sortie vide = 0 erreur)
+(0 erreur)
 
 > hive-mind@1.0.0 lint:fast
 > oxlint --deny-warnings src/
 Found 0 warnings and 0 errors.
-Finished in 582ms on 367 files with 96 rules using 4 threads.
+Finished in 191ms on 372 files with 96 rules using 4 threads.
 
-npm run format:check
-All matched files use Prettier code style!
-
-npm run test:unit
-Test Suites: 105 passed, 105 total
-Tests:       1081 passed, 1081 total
-Snapshots:   0 total
-Time:        29.261 s
-Ran all test suites matching src/tests/unit.
+npx eslint src/config src/tests/unit/config --max-warnings=0
+(0 erreur, 0 warning)
 ```
 
 ## 🚧 Unfinished Work & Technical Failures
-- **Blocker / Failure Explanation**: Aucun bloquant fonctionnel ou technique sur #132. Code implémenté, validé, PR #137 ouverte sur GitHub (13/14 checks passés, 15/15 tests unitaires du registre). CodeRabbit et Greptile ont fourni des retours d'amélioration documentaire et de tests pris en compte. Attente de la validation finale des revues sur la PR #137 avant passage à l'étape 3 (#133).
+- **Merge Gate**: L'approbation finale et la fusion sur `master` restent l'autorité exclusive du mainteneur humain (invariants §4 et §5).
+- **Prochaine étape**: Dès la validation / fusion de la PR #138, basculer sur `master` et démarrer la sous-issue 4/5 (#134 - migration des consommateurs de config).
 
 ## 👉 Handover Directives for the Next Agent
-1. **Target PR / File**: PR #137 (https://github.com/leandre755/HIVE-MIND/pull/137) et `.GCC/branches/plan_issue_96_distribution.md`.
-2. **Immediate Action**: Vérifier le passage à SUCCESS de CodeRabbit et Greptile sur la PR #137 suite aux commits `651163e` et aux ajustements documentaires. Une fois la PR #137 fusionnée par le mainteneur, démarrer l'Étape 3 (#133 — `ConfigPathResolver`).
-3. **Verification Command**: `npm run build && npm run lint:fast && npm run test:unit`
+1. **Target Action**: Pousser vers `feat/config-path-resolver` et clore la discussion du finding Greptile P2 ID 4113623542 via GraphQL.
+2. **Gouvernance PR**: Diff PR à 2497 LoC (< 2500 max), 100% conforme.

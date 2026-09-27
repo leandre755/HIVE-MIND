@@ -4,8 +4,8 @@
  * Loads models_config.json and resolves the configuration for each model.
  */
 
-import { join } from 'node:path';
-import { safeExistsSync, safeReadFileSync } from '../../utils/safeFs.js';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
+import { safeReadFileSync } from '../../utils/safeFs.js';
 import {
   ModelCapabilities,
   ProtocolDialect,
@@ -31,24 +31,14 @@ export interface ResolvedModelConfig {
 }
 
 export function defaultModelsConfigPath(): string {
-  const cwdPath = join(process.cwd(), 'src/config/models_config.json');
-  if (safeExistsSync(cwdPath)) return cwdPath;
-  const rootPath = join(process.cwd(), 'config/models_config.json');
-  if (safeExistsSync(rootPath)) return rootPath;
-  return cwdPath;
+  return resolveConfigPath('models_config.json');
 }
 
 /**
  * Resolves the default path for services_config.json.
- * Uses the same cwd-based resolution as defaultModelsConfigPath() to avoid
- * importing ServiceRegistry (which would create a circular dependency).
  */
 function defaultServicesConfigPath(): string {
-  const cwdPath = join(process.cwd(), 'src/config/services_config.json');
-  if (safeExistsSync(cwdPath)) return cwdPath;
-  const rootPath = join(process.cwd(), 'config/services_config.json');
-  if (safeExistsSync(rootPath)) return rootPath;
-  return cwdPath;
+  return resolveConfigPath('services_config.json');
 }
 
 /**
