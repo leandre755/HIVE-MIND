@@ -74,10 +74,18 @@ function isValidCredentialString(val: unknown): val is string {
   if (typeof val !== 'string') return false;
   const trimmed = val.trim();
   if (!trimmed) return false;
+  const upper = trimmed.toUpperCase();
   if (
-    trimmed.startsWith('VOTRE_') ||
-    trimmed.includes('SUPABASE_PROJECT_ID') ||
-    trimmed.startsWith('${')
+    upper.includes('VOTRE_') ||
+    upper.includes('YOUR_') ||
+    upper.includes('SUPABASE_PROJECT_ID') ||
+    trimmed.startsWith('${') ||
+    trimmed === 'https://VOTRE_PROJET.supabase.co' ||
+    upper.includes('VOTRE_PROJET') ||
+    upper === 'DUMMY' ||
+    upper === 'PLACEHOLDER' ||
+    upper === 'UNDEFINED' ||
+    upper === 'NULL'
   ) {
     return false;
   }
@@ -88,7 +96,7 @@ export function resolveSupabaseCredentials(rawCredentials?: Partial<Credentials>
   url: string;
   key: string;
 } | null {
-  let url = rawCredentials?.supabase?.url;
+  let url = rawCredentials?.supabase?.project_url || rawCredentials?.supabase?.url;
   let key = rawCredentials?.supabase?.service_role_key || rawCredentials?.supabase?.key;
 
   if (url && Object.hasOwn(process.env, url)) {
@@ -100,7 +108,7 @@ export function resolveSupabaseCredentials(rawCredentials?: Partial<Credentials>
     if (typeof envKey === 'string' && envKey) key = envKey;
   }
 
-  if (!url || !isValidCredentialString(url)) {
+  if (!url || !isValidCredentialString(url) || !url.startsWith('http')) {
     url = process.env.SUPABASE_URL;
   }
   if (!key || !isValidCredentialString(key)) {
@@ -122,7 +130,10 @@ function resolveKeyForProvider(provider: string, rawVal?: string): string | null
   if (!isValidCredentialString(resolved)) {
     resolved = resolveApiKey('', provLower);
   }
-  if (!isValidCredentialString(resolved) && provLower === 'huggingface') {
+  if (
+    !isValidCredentialString(resolved) &&
+    (provLower === 'huggingface' || provLower === 'hf_token')
+  ) {
     const hfEnv = process.env.HF_TOKEN || process.env.HUGGINGFACE_KEY;
     if (isValidCredentialString(hfEnv)) {
       resolved = hfEnv;
@@ -131,8 +142,30 @@ function resolveKeyForProvider(provider: string, rawVal?: string): string | null
   return isValidCredentialString(resolved) ? resolved : null;
 }
 
+function getFamilleIaValue(
+  famillesIa: Record<string, string> | undefined,
+  provider: string,
+): string | undefined {
+  if (!famillesIa || typeof famillesIa !== 'object') return undefined;
+  const provLower = provider.toLowerCase();
+  for (const [k, v] of Object.entries(famillesIa)) {
+    if (k.toLowerCase() === provLower && typeof v === 'string') {
+      return v;
+    }
+  }
+  if (provLower === 'huggingface') {
+    for (const [k, v] of Object.entries(famillesIa)) {
+      const kLower = k.toLowerCase();
+      if ((kLower === 'hf_token' || kLower === 'huggingface_key') && typeof v === 'string') {
+        return v;
+      }
+    }
+  }
+  return undefined;
+}
+
 export function countConfiguredAiKeys(famillesIa?: Record<string, string>): number {
-  const knownProviders = new Set<string>([
+  const knownProviders = [
     'gemini',
     'openai',
     'anthropic',
@@ -144,18 +177,29 @@ export function countConfiguredAiKeys(famillesIa?: Record<string, string>): numb
     'cohere',
     'deepseek',
     'openrouter',
-  ]);
+  ];
+
+  const evaluatedProviders = new Set<string>();
 
   if (famillesIa && typeof famillesIa === 'object') {
     for (const key of Object.keys(famillesIa)) {
-      knownProviders.add(key.toLowerCase());
+      const kLower = key.toLowerCase();
+      if (kLower === 'hf_token' || kLower === 'huggingface_key') {
+        evaluatedProviders.add('huggingface');
+      } else {
+        evaluatedProviders.add(kLower);
+      }
     }
   }
 
+  for (const p of knownProviders) {
+    evaluatedProviders.add(p);
+  }
+
   let count = 0;
-  for (const provider of knownProviders) {
-    const rawVal = famillesIa ? Reflect.get(famillesIa, provider) : undefined;
-    if (resolveKeyForProvider(provider, typeof rawVal === 'string' ? rawVal : undefined)) {
+  for (const provider of evaluatedProviders) {
+    const rawVal = getFamilleIaValue(famillesIa, provider);
+    if (resolveKeyForProvider(provider, rawVal)) {
       count++;
     }
   }
@@ -165,16 +209,22 @@ export function countConfiguredAiKeys(famillesIa?: Record<string, string>): numb
 
 export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolean {
   let url = rawCredentials?.redis?.url;
-  if (url && Object.hasOwn(process.env, url)) {
-    const envUrl = Reflect.get(process.env, url);
-    if (typeof envUrl === 'string' && envUrl) url = envUrl;
-  }
-  if (!url || !isValidCredentialString(url)) {
+  if (url && typeof url === 'string') {
+    url = url.trim();
+    if (!url.startsWith('redis://') && !url.startsWith('rediss://')) {
+      const envUrl = Object.hasOwn(process.env, url) ? Reflect.get(process.env, url) : undefined;
+      url =
+        (typeof envUrl === 'string' && envUrl ? envUrl.trim() : undefined) || process.env.REDIS_URL;
+    }
+  } else {
     url = process.env.REDIS_URL;
   }
-  return (
-    isValidCredentialString(url) && (url.startsWith('redis://') || url.startsWith('rediss://'))
-  );
+
+  if (!url || !isValidCredentialString(url)) {
+    return false;
+  }
+
+  return url.startsWith('redis://') || url.startsWith('rediss://');
 }
 
 /**

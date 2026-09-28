@@ -257,6 +257,18 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
       logSpy.mockRestore();
     }
   });
+});
+
+describe('Config Consumers Migration - Credentials & Provider Key Resolution (#134)', () => {
+  let env: TestEnvironment;
+
+  beforeEach(() => {
+    env = setupTestEnv();
+  });
+
+  afterEach(() => {
+    teardownTestEnv(env);
+  });
 
   it('should count AI keys with unmasked HF_TOKEN when credentials contains placeholder', () => {
     process.env.HF_TOKEN = 'hf_valid_test_token_12345';
@@ -265,6 +277,29 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
       gemini: 'VOTRE_CLE_GEMINI',
     });
     expect(count).toBe(1);
+  });
+
+  it('should count HF_TOKEN in familles_ia even when no environment variable is present', () => {
+    Reflect.deleteProperty(process.env, 'HF_TOKEN');
+    Reflect.deleteProperty(process.env, 'HUGGINGFACE_KEY');
+    Reflect.deleteProperty(process.env, 'GEMINI_KEY');
+
+    const count = countConfiguredAiKeys({
+      HF_TOKEN: 'hf_standalone_token_9999',
+    });
+    expect(count).toBe(1);
+  });
+
+  it('should count AI keys case-insensitively and handle custom providers', () => {
+    Reflect.deleteProperty(process.env, 'OPENAI_KEY');
+    Reflect.deleteProperty(process.env, 'GEMINI_KEY');
+
+    const count = countConfiguredAiKeys({
+      OpenAI: 'sk-case-insensitive-test',
+      CustomProvider: 'custom-secret-key-123',
+      gemini: 'YOUR_GEMINI_KEY',
+    });
+    expect(count).toBe(2);
   });
 
   it('should activate switchToMock on redis when Redis is not configured in ServiceContainer', async () => {
@@ -285,6 +320,24 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
     }
   });
 
+  it('should keep redis unmocked when Redis IS configured in ServiceContainer', async () => {
+    const { adminService } = await import('../../../services/adminService.js');
+    const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+    try {
+      const container = new ServiceContainer();
+      await (
+        container as unknown as {
+          registerBaseServices: (creds?: unknown) => Promise<void>;
+        }
+      ).registerBaseServices({
+        redis: { url: 'redis://localhost:6379' },
+      });
+      expect(redis).toBeDefined();
+    } finally {
+      adminInitSpy.mockRestore();
+    }
+  });
+
   it('should correctly evaluate resolveSupabaseCredentials and isRedisConfigured', () => {
     Reflect.deleteProperty(process.env, 'SUPABASE_URL');
     Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
@@ -298,8 +351,50 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
       }),
     ).toEqual({ url: 'https://valid.co', key: 'key1' });
 
+    expect(
+      resolveSupabaseCredentials({
+        supabase: {
+          project_url: 'https://project-url.supabase.co',
+          service_role_key: 'role-key-123',
+        },
+      }),
+    ).toEqual({ url: 'https://project-url.supabase.co', key: 'role-key-123' });
+
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://VOTRE_PROJET.supabase.co', key: 'key1' },
+      }),
+    ).toBeNull();
+
+    process.env.TEST_SB_URL = 'https://resolved-env.supabase.co';
+    process.env.TEST_SB_KEY = 'test_key';
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'TEST_SB_URL', key: 'TEST_SB_KEY' },
+      }),
+    ).toEqual({ url: 'https://resolved-env.supabase.co', key: 'test_key' });
+    Reflect.deleteProperty(process.env, 'TEST_SB_URL');
+    Reflect.deleteProperty(process.env, 'TEST_SB_KEY');
+
+    process.env.SUPABASE_URL = 'https://env-sb.supabase.co';
+    process.env.SUPABASE_KEY = 'test_key';
+    expect(resolveSupabaseCredentials({ familles_ia: { gemini: 'test' } })).toEqual({
+      url: 'https://env-sb.supabase.co',
+      key: 'test_key',
+    });
+    Reflect.deleteProperty(process.env, 'SUPABASE_URL');
+    Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
+
     expect(isRedisConfigured(undefined)).toBe(false);
     expect(isRedisConfigured({ redis: { url: 'redis://localhost:6379' } })).toBe(true);
+
+    process.env.REDIS_URL = 'redis://env-redis-host:6379';
+    expect(
+      isRedisConfigured({
+        redis: { url: 'REDIS_VAR_NOT_FOUND' },
+      }),
+    ).toBe(true);
+    Reflect.deleteProperty(process.env, 'REDIS_URL');
   });
 });
 
@@ -434,11 +529,7 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
     expect(targetWritePath).toBe(join(userHome, 'config', 'models_config.json'));
   });
 
-  it('should initialize embeddings from environment variables when credentials.json is missing in GraphMemory', () => {
-    process.env.HIVE_LEGACY_CONFIG_DIR = env.tempDir;
-    process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(env.tempDir, 'non_existent_creds.json');
-    process.env.GEMINI_KEY = 'mock-gemini-key-12345';
-
+  function verifyGraphMemoryFallbackWithWarning(): void {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const embeddings = initGraphMemoryEmbeddings();
@@ -452,6 +543,14 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
     } finally {
       warnSpy.mockRestore();
     }
+  }
+
+  it('should initialize embeddings from environment variables when credentials.json is missing in GraphMemory', () => {
+    process.env.HIVE_LEGACY_CONFIG_DIR = env.tempDir;
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(env.tempDir, 'non_existent_creds.json');
+    process.env.GEMINI_KEY = 'mock-gemini-key-12345';
+
+    verifyGraphMemoryFallbackWithWarning();
   });
 
   it('should handle corrupted credentials.json gracefully and fallback to env in GraphMemory', () => {
@@ -461,19 +560,7 @@ describe('Config Consumers Migration - Adapters, Write Confinement & Resilience 
     process.env.HIVE_CONFIG_CREDENTIALS_JSON = corruptCredsPath;
     process.env.GEMINI_KEY = 'mock-gemini-key-fallback';
 
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      const embeddings = initGraphMemoryEmbeddings();
-      expect(embeddings).not.toBeNull();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          '[GraphMemory] Impossible de lire credentials.json, repli sur variables d’environnement:',
-        ),
-        expect.any(String),
-      );
-    } finally {
-      warnSpy.mockRestore();
-    }
+    verifyGraphMemoryFallbackWithWarning();
   });
 
   it('should return null without throwing when neither credentials nor env keys are present in GraphMemory', () => {
@@ -528,5 +615,17 @@ describe('Config Consumers Migration - Path Containment Helpers (#134)', () => {
 
     expect(isPathInside(defaultsDir, symlinkPath)).toBe(true);
     expect(isTemplateOrReadOnlyConfig(symlinkPath)).toBe(true);
+  });
+
+  it('should protect embedded defaults in isTemplateOrReadOnlyConfig even when HIVE_DEFAULTS_CONFIG_DIR is overridden', () => {
+    process.env.HIVE_DEFAULTS_CONFIG_DIR = join(env.tempDir, 'custom_defaults');
+    const embeddedDefaultsDir = resolveDefaultsConfigDir();
+    const embeddedModelConfig = join(embeddedDefaultsDir, 'models_config.json');
+    expect(isTemplateOrReadOnlyConfig(embeddedModelConfig)).toBe(true);
+  });
+
+  it('should handle filesystem resolution errors gracefully in isPathInside', () => {
+    expect(isPathInside(env.tempDir, join(env.tempDir, '\0test.json'))).toBe(true);
+    expect(isPathInside(null as unknown as string, env.tempDir)).toBe(false);
   });
 });

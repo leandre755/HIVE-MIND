@@ -73,6 +73,7 @@ export function isPathInside(parentDir: string, candidatePath: string): boolean 
 export function isTemplateOrReadOnlyConfig(configPath: string): boolean {
   return (
     isPathInside(resolveDefaultsConfigDir(), configPath) ||
+    isPathInside(DEFAULTS_CONFIG_DIR, configPath) ||
     isPathInside(resolveLegacyConfigDir(), configPath)
   );
 }
