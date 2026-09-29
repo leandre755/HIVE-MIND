@@ -227,6 +227,40 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
     expect(() => (container as unknown as { loadConfig: () => unknown }).loadConfig()).toThrow(
       /Aucune clé API d'IA configurée/,
     );
+    expect(() =>
+      (container as unknown as { loadConfig: (mode?: string) => unknown }).loadConfig('minimal'),
+    ).not.toThrow();
+  });
+
+  it('should initialize successfully in minimal mode without AI keys configured in ServiceContainer', async () => {
+    Reflect.deleteProperty(process.env, 'GEMINI_KEY');
+    Reflect.deleteProperty(process.env, 'OPENAI_KEY');
+    Reflect.deleteProperty(process.env, 'ANTHROPIC_KEY');
+    Reflect.deleteProperty(process.env, 'GROQ_KEY');
+    Reflect.deleteProperty(process.env, 'MISTRAL_KEY');
+    Reflect.deleteProperty(process.env, 'HF_TOKEN');
+    Reflect.deleteProperty(process.env, 'HUGGINGFACE_KEY');
+
+    const customCreds = {
+      supabase: { url: 'https://custom.supabase.co', key: 'custom-key' },
+      familles_ia: { gemini: 'VOTRE_CLE_GEMINI' },
+    };
+    const credsPath = join(env.tempDir, 'minimal_no_ai_creds.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const { adminService } = await import('../../../services/adminService.js');
+    const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+    try {
+      const container = new ServiceContainer();
+      await container.init({ mode: 'minimal' });
+      expect(container.has('supabase')).toBe(true);
+      expect(container.has('redis')).toBe(true);
+      expect(container.has('adminService')).toBe(true);
+      expect(container.has('memory')).toBe(false);
+    } finally {
+      adminInitSpy.mockRestore();
+    }
   });
 
   it('should log clear message and continue when Redis is absent in ServiceContainer', () => {

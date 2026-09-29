@@ -9,13 +9,13 @@
   * `0 valeur par defauts`
   * Commits co-auth avec `leandre755 <ntamonchristleandre@gmail.com>` et `CHRISTL8_8 <68484279+leandre755@users.noreply.github.com>`.
   * Pousser la branche `refactor/config-consumers-migration`, attendre 15 minutes, examiner les revues et itérer jusqu'à 15/15 checks CI verts.
-- **Functional Status**: READY_TO_PUSH (Correctifs finalisés, 100% de couverture de patch atteinte, zéro défaut détecté par les sous-agents critiques).
+- **Functional Status**: READY_TO_PUSH (Correctif Macroscope High mode minimal appliqué, 100% patch coverage statement & branch, 0 défaut validé par les sous-agents critiques).
 - **Behavioral Proof**:
   - `npm run build` (`tsc --noEmit`) : 0 erreur.
   - `npm run lint:fast` (`oxlint`) : 0 erreur, 0 warning sur 373 fichiers.
   - `npx prettier --check` : 100% conforme.
   - `npx eslint src/core/ServiceContainer.ts src/tests/unit/services/configConsumers.test.ts` : 0 erreur, 0 warning.
-  - `npm run test:unit` : 109/109 suites passées (1132 tests passés au vert en 57s).
+  - `npm run test:unit` : 109/109 suites passées (1132 tests passés au vert).
   - Patch statement coverage : 100.0% (0 ligne non couverte).
   - Patch branch coverage : 100.0% (0 branche non couverte).
   - Validation contradictoire : 100% validé par `Specific Fix Verifier` et `Global System Critic`.
@@ -25,13 +25,13 @@
 - **Linter/Compiler Status**: 100% au vert.
 
 ## 🚧 Unfinished Work & Technical Failures
-- **None**: Tous les défauts et points de couverture résolus. Prêt pour commit et push co-authentifié.
+- **None**: Tous les retours de revue et points de couverture résolus. Prêt pour commit et push co-authentifié.
 
 ## 👉 Handover Directives for the Next Agent
 1. **Target File**: [`.GCC/resume.md`](file:///home/omni/Code/HIVE-MIND/.GCC/resume.md)
 2. **Immediate Action**:
    - Commiter les modifications avec les co-auteurs et le message conventionnel :
-     `fix(config): resolve Greptile P1/P2 reviews, fix resolveEnvOrDirect empty fallback and ensure 100% patch coverage`
+     `fix(config): allow minimal mode container init without AI keys for admin CLI commands`
    - Pousser via le script canonique `run_push.sh`.
    - Surveiller la CI sur PR #141 jusqu'à 15/15 checks au vert.
 3. **Verification Command**:

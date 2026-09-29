@@ -47,6 +47,7 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
     5. Greptile (P2) : Test de non-mock Redis vérifiant l'absence de propriétés propres `isOpen`/`isReady` sur le singleton et restauration dans `finally`.
     6. Codecov patch coverage : 100% de couverture de statements et de branches sur l'ensemble des lignes ajoutées de `ServiceContainer.ts`.
     7. Audit médico-légal ANTIBUG : Correction d'une dérive dans `resolveEnvOrDirect` qui renvoyait le nom de variable littérale quand la variable d'environnement existait avec une chaîne vide (`""`), rétablissant le renvoi de `undefined` et le fallback correct.
+    8. Macroscope (High) : En mode minimal (`mode: 'minimal'`), le démarrage des commandes d'administration CLI (`initAdminEnv`) ne requiert pas de clés API d'IA (`loadConfig(options.mode)` conditionne le contrôle sur `mode !== 'minimal'`), et retourne immédiatement après `registerBaseServices()`.
   - **Discarded Options**: Ignorer les avertissements ou les branches partielles (rejeté : politique zéro dette technique et exigence 100% de couverture sur le patch diff).
   - **Rationale**: Tous les checks CI locaux au vert (tsc, oxlint, eslint, prettier, jest 109/109 suites), validation 100% approuvée par les deux sous-agents critiques indépendants (`Specific Fix Verifier` et `Global System Critic`).
 

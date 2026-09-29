@@ -318,9 +318,14 @@ export class ServiceContainer {
     if (this.initialized) return;
     this.mode = options.mode;
 
-    const { credentials, modelsConfig } = this.loadConfig();
+    const { credentials, modelsConfig } = this.loadConfig(options.mode);
 
     await this.registerBaseServices(credentials);
+    if (options.mode === 'minimal') {
+      this.initialized = true;
+      return;
+    }
+
     await this.registerCoreMemoriesAndConsciousness();
 
     this.registerEmbeddingService(credentials, modelsConfig);
@@ -335,7 +340,10 @@ export class ServiceContainer {
     this.initialized = true;
   }
 
-  private loadConfig(): { credentials: Credentials; modelsConfig: ModelsConfig } {
+  private loadConfig(mode: 'full' | 'minimal' = 'full'): {
+    credentials: Credentials;
+    modelsConfig: ModelsConfig;
+  } {
     const credentialsPath = resolveConfigPath('credentials.json');
     const modelsPath = resolveConfigPath('models_config.json');
 
@@ -358,12 +366,14 @@ export class ServiceContainer {
       }
       parsedCredentials.supabase = sbConfig;
 
-      // 2. Clés IA requises : au moins 1 clé valide (credentials.json sous familles_ia ou variables d\'environnement)
-      const validKeyCount = countConfiguredAiKeys(parsedCredentials.familles_ia);
-      if (validKeyCount === 0) {
-        throw new Error(
-          "❌ [ServiceContainer] Échec du chargement : Aucune clé API d'IA configurée (au moins 1 clé requise dans credentials.json sous familles_ia ou via les variables d'environnement). Démarrage interrompu.",
-        );
+      // 2. Clés IA requises en mode full (ou par défaut) : au moins 1 clé valide (credentials.json sous familles_ia ou variables d\'environnement)
+      if (mode !== 'minimal') {
+        const validKeyCount = countConfiguredAiKeys(parsedCredentials.familles_ia);
+        if (validKeyCount === 0) {
+          throw new Error(
+            "❌ [ServiceContainer] Échec du chargement : Aucune clé API d'IA configurée (au moins 1 clé requise dans credentials.json sous familles_ia ou via les variables d'environnement). Démarrage interrompu.",
+          );
+        }
       }
 
       // 3. Redis : optionnel / non-bloquant
