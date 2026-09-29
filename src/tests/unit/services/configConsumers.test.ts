@@ -32,6 +32,7 @@ import { redis } from '../../../services/redisClient.js';
 import { HuggingFaceAdapter } from '../../../providers/adapters/huggingface.js';
 import { initGraphMemoryEmbeddings } from '../../../services/graphMemory.js';
 import adminPlugin from '../../../plugins/base/admin/index.js';
+import { db, initSupabaseClient } from '../../../services/supabase.js';
 
 interface TestEnvironment {
   tempDir: string;
@@ -845,5 +846,171 @@ describe('Config Consumers Migration - Path Containment Helpers (#134)', () => {
   it('should handle filesystem resolution errors gracefully in isPathInside', () => {
     expect(isPathInside(env.tempDir, join(env.tempDir, '\0test.json'))).toBe(true);
     expect(isPathInside(null as unknown as string, env.tempDir)).toBe(false);
+  });
+
+  describe('Supabase Client normalization & dynamic reinitialization', () => {
+    it('should strip quotes and instantiate client with initSupabaseClient', () => {
+      const client = initSupabaseClient('"https://test.supabase.co"', '"secret-key"');
+      expect(client).not.toBeNull();
+
+      const singleQuoteClient = initSupabaseClient("'https://single.supabase.co'", "'secret-key'");
+      expect(singleQuoteClient).not.toBeNull();
+
+      const unquotedClient = initSupabaseClient('https://unquoted.supabase.co', 'secret-key');
+      expect(unquotedClient).not.toBeNull();
+    });
+
+    it('should resolve environment variables with or without quotes in initSupabaseClient', () => {
+      process.env.TEST_CUSTOM_SB_URL = '"https://env-quoted.supabase.co"';
+      process.env.TEST_CUSTOM_SB_KEY = "'env-key-quoted'";
+
+      const client = initSupabaseClient('TEST_CUSTOM_SB_URL', 'TEST_CUSTOM_SB_KEY');
+      expect(client).not.toBeNull();
+
+      Reflect.deleteProperty(process.env, 'TEST_CUSTOM_SB_URL');
+      Reflect.deleteProperty(process.env, 'TEST_CUSTOM_SB_KEY');
+    });
+
+    it('should fallback to process.env.SUPABASE_URL and process.env.SUPABASE_SERVICE_ROLE_KEY', () => {
+      process.env.SUPABASE_URL = '"https://fallback.supabase.co"';
+      process.env.SUPABASE_SERVICE_ROLE_KEY = '"fallback-role-key"';
+
+      const client = initSupabaseClient();
+      expect(client).not.toBeNull();
+    });
+
+    it('should return null when URL is placeholder, invalid or missing in initSupabaseClient', () => {
+      Reflect.deleteProperty(process.env, 'SUPABASE_URL');
+      Reflect.deleteProperty(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+      Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
+
+      expect(initSupabaseClient('"https://VOTRE_PROJET.supabase.co"', 'key')).toBeNull();
+      expect(initSupabaseClient('not-a-valid-http-url', 'key')).toBeNull();
+      expect(initSupabaseClient(undefined, undefined)).toBeNull();
+    });
+
+    it('should reinitialize db.client dynamically via db.reinit', () => {
+      const client = db.reinit('"https://reinit.supabase.co"', '"reinit-key"');
+      expect(client).not.toBeNull();
+      expect(db.client).toBe(client);
+
+      Reflect.deleteProperty(process.env, 'SUPABASE_URL');
+      Reflect.deleteProperty(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+      Reflect.deleteProperty(process.env, 'SUPABASE_KEY');
+
+      const nullClient = db.reinit(undefined, undefined);
+      expect(nullClient).toBeNull();
+      expect(db.client).toBeNull();
+    });
+
+    it('should reinitialize db in ServiceContainer.registerBaseServices when credentials.supabase.url is present', async () => {
+      const customCreds = {
+        supabase: { url: '"https://container-quoted.supabase.co"', key: '"quoted-key"' },
+        familles_ia: { gemini: 'VOTRE_CLE_GEMINI' },
+      };
+      const credsPath = join(env.tempDir, 'quoted_sb_creds.json');
+      safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+      process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+      const { adminService } = await import('../../../services/adminService.js');
+      const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+      try {
+        const container = new ServiceContainer();
+        await container.init({ mode: 'minimal' });
+        const registeredDb = container.get<{ client: unknown }>('supabase');
+        expect(registeredDb.client).not.toBeNull();
+      } finally {
+        adminInitSpy.mockRestore();
+      }
+    });
+
+    it('should not call db.reinit when credentials.supabase.url is absent in registerBaseServices', async () => {
+      const reinitSpy = jest.spyOn(db, 'reinit');
+      const { adminService } = await import('../../../services/adminService.js');
+      const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+      try {
+        const container = new ServiceContainer();
+        await (
+          container as unknown as { registerBaseServices: (c?: unknown) => Promise<void> }
+        ).registerBaseServices({});
+        expect(reinitSpy).not.toHaveBeenCalled();
+      } finally {
+        reinitSpy.mockRestore();
+        adminInitSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('Forensic Remediations & Production Resilience', () => {
+    it('should initialize successfully in pure environment variable deployment without credentials.json', async () => {
+      process.env.HIVE_CONFIG_CREDENTIALS_JSON = join(env.tempDir, 'non_existent_credentials.json');
+      process.env.SUPABASE_URL = 'https://pure-env.supabase.co';
+      process.env.SUPABASE_KEY = 'pure-env-service-key-xyz';
+      process.env.GEMINI_KEY = 'mock-pure-env-gemini-key';
+
+      const { adminService } = await import('../../../services/adminService.js');
+      const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+      try {
+        const container = new ServiceContainer();
+        await container.init({ mode: 'minimal' });
+        expect(container.has('supabase')).toBe(true);
+        expect(container.has('config')).toBe(true);
+      } finally {
+        adminInitSpy.mockRestore();
+      }
+    });
+
+    it('should resolve placeholder keys like VOTRE_CLE_GEMINI to process.env.GEMINI_KEY in ServiceContainer', () => {
+      const customCreds = {
+        supabase: { url: 'https://test-placeholder.supabase.co', key: 'service-key-valid-123' },
+        familles_ia: { gemini: 'VOTRE_CLE_GEMINI' },
+      };
+      const credsPath = join(env.tempDir, 'placeholder_creds.json');
+      safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+      process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+      process.env.GEMINI_KEY = 'real-env-gemini-key-from-environment';
+
+      const container = new ServiceContainer();
+      const config = (
+        container as unknown as {
+          loadConfig: (mode?: string) => { credentials: { familles_ia?: Record<string, string> } };
+        }
+      ).loadConfig('full');
+      expect(config.credentials.familles_ia?.gemini).toBe('VOTRE_CLE_GEMINI');
+      expect(countConfiguredAiKeys(config.credentials.familles_ia)).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should strictly reject empty keys and placeholders in initSupabaseClient', () => {
+      expect(initSupabaseClient('https://test.supabase.co', '')).toBeNull();
+      expect(initSupabaseClient('https://test.supabase.co', '   ')).toBeNull();
+      expect(initSupabaseClient('https://test.supabase.co', 'VOTRE_CLE_SERVICE')).toBeNull();
+      expect(initSupabaseClient('https://test.supabase.co', 'YOUR_KEY_HERE')).toBeNull();
+      expect(initSupabaseClient('https://test.supabase.co', 'valid-secret-key-123')).not.toBeNull();
+    });
+
+    it('should not classify UUIDs or usernames with hyphens as groups in resolveContextFromLegacyId', async () => {
+      const resolveUserSpy = jest.spyOn(db, 'resolveUser').mockResolvedValue('user-uuid-123');
+      const resolveGroupSpy = jest.spyOn(db, 'resolveGroup').mockResolvedValue('group-uuid-456');
+
+      try {
+        const userContext = await db.resolveContextFromLegacyId('user-42');
+        expect(resolveUserSpy).toHaveBeenCalledWith('cli', 'user-42');
+        expect(resolveGroupSpy).not.toHaveBeenCalled();
+        expect(userContext?.type).toBe('user');
+
+        const uuidContext = await db.resolveContextFromLegacyId(
+          '123e4567-e89b-12d3-a456-426614174000',
+        );
+        expect(resolveUserSpy).toHaveBeenCalledWith('cli', '123e4567-e89b-12d3-a456-426614174000');
+        expect(uuidContext?.type).toBe('user');
+
+        const groupContext = await db.resolveContextFromLegacyId('group_support');
+        expect(resolveGroupSpy).toHaveBeenCalledWith('cli', 'group_support');
+        expect(groupContext?.type).toBe('group');
+      } finally {
+        resolveUserSpy.mockRestore();
+        resolveGroupSpy.mockRestore();
+      }
+    });
   });
 });

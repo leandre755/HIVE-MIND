@@ -1,4 +1,4 @@
-import { safeReadFileSync } from '../utils/safeFs.js';
+import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { resolveApiKey } from '../config/keyResolver.js';
 import { EmbeddingsService, EmbeddingConfig } from '../services/ai/EmbeddingsService.js';
@@ -333,7 +333,7 @@ export class ServiceContainer {
     await this.registerVoiceServices(credentials, modelsConfig);
     await this.registerMemoryServices();
 
-    const geminiKey = resolveApiKey(credentials.familles_ia?.gemini || '', 'gemini');
+    const geminiKey = resolveKeyForProvider('gemini', credentials.familles_ia?.gemini);
     await this.registerLiveAndDreamServices(geminiKey);
     await this.registerBrowserAndProviderRouter();
 
@@ -348,8 +348,14 @@ export class ServiceContainer {
     const modelsPath = resolveConfigPath('models_config.json');
 
     try {
-      const rawCredentials = JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'));
-      const rawModelsConfig = JSON.parse(safeReadFileSync(modelsPath, 'utf-8'));
+      const rawCredentials =
+        credentialsPath && safeExistsSync(credentialsPath)
+          ? JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'))
+          : {};
+      const rawModelsConfig =
+        modelsPath && safeExistsSync(modelsPath)
+          ? JSON.parse(safeReadFileSync(modelsPath, 'utf-8'))
+          : {};
 
       const parsedCredentials = CredentialsSchema.parse(rawCredentials);
       const parsedModelsConfig = ModelsConfigSchema.parse(rawModelsConfig);
@@ -398,6 +404,9 @@ export class ServiceContainer {
 
   private async registerBaseServices(credentials?: Partial<Credentials>) {
     this.register('logger', logger);
+    if (credentials?.supabase?.url) {
+      db.reinit(credentials.supabase.url, credentials.supabase.key);
+    }
     this.register('supabase', db);
     this.register('config', appConfig);
 
@@ -436,13 +445,13 @@ export class ServiceContainer {
   }
 
   private registerEmbeddingService(credentials: Credentials, modelsConfig: ModelsConfig) {
-    const keyGemini = credentials.familles_ia?.gemini ?? '';
-    const keyOpenai = credentials.familles_ia?.openai ?? '';
+    const keyGemini = credentials.familles_ia?.gemini;
+    const keyOpenai = credentials.familles_ia?.openai;
     const cfg = modelsConfig.reglages_generaux.embeddings.primary;
 
     const embeddingConfig: EmbeddingConfig = {
-      geminiKey: resolveApiKey(keyGemini, 'gemini') ?? undefined,
-      openaiKey: resolveApiKey(keyOpenai, 'openai') ?? undefined,
+      geminiKey: resolveKeyForProvider('gemini', keyGemini) ?? undefined,
+      openaiKey: resolveKeyForProvider('openai', keyOpenai) ?? undefined,
       model: cfg.model,
       dimensions: cfg.dimensions,
     };
@@ -469,16 +478,16 @@ export class ServiceContainer {
 
   private async registerMinimaxVoice(credentials: Credentials, modelsConfig: ModelsConfig) {
     const { MinimaxVoiceService } = await import('../services/voice/minimax.js');
-    const rawKey = credentials.familles_ia?.minimax ?? '';
-    const minimaxKey = resolveApiKey(rawKey, 'minimax') ?? '';
+    const rawKey = credentials.familles_ia?.minimax;
+    const minimaxKey = resolveKeyForProvider('minimax', rawKey) ?? '';
     const voiceConfig = modelsConfig.voice_provider?.minimax_config ?? {};
     this.register('voiceService', new MinimaxVoiceService(minimaxKey, voiceConfig));
   }
 
   private async registerGroqSTT(credentials: Credentials, modelsConfig: ModelsConfig) {
     const { GroqTranscriptionService } = await import('../services/transcription/groqSTT.js');
-    const rawKey = credentials.familles_ia?.groq ?? '';
-    const groqKey = resolveApiKey(rawKey, 'groq') ?? '';
+    const rawKey = credentials.familles_ia?.groq;
+    const groqKey = resolveKeyForProvider('groq', rawKey) ?? '';
     const sttConfig = modelsConfig.voice_provider?.stt_models?.[0] ?? {};
     this.register('transcriptionService', new GroqTranscriptionService(groqKey, sttConfig));
   }

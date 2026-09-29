@@ -1,34 +1,14 @@
 -- ============================================================================
--- OMNI-CHANNEL SCHEMA (HIVE-MIND Phase 5) - IDEMPOTENT SCRIPT
+-- OMNI-CHANNEL SCHEMA (HIVE-MIND Phase 5) - IDEMPOTENT & IN-PLACE UPGRADE SCRIPT
+-- ============================================================================
+-- Ce script est strictement idempotent et non destructif.
+-- Il peut être exécuté sur une base vierge OU sur une base de données existante
+-- sans perte de données, en appliquant automatiquement les ajouts de colonnes,
+-- contraintes uniques et fonctions RPC nécessaires.
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
-
--- ============================================================================
--- SECTION 0: CLEANUP (Idempotency)
--- ============================================================================
-
-DROP TABLE IF EXISTS public.bot_tools CASCADE;
-DROP TABLE IF EXISTS public.reminders CASCADE;
-DROP TABLE IF EXISTS public.autonomous_goals CASCADE;
-DROP TABLE IF EXISTS public.action_scores CASCADE;
-DROP TABLE IF EXISTS public.agent_actions CASCADE;
-DROP TABLE IF EXISTS public.relationships CASCADE;
-DROP TABLE IF EXISTS public.entities CASCADE;
-DROP TABLE IF EXISTS public.facts CASCADE;
-DROP TABLE IF EXISTS public.memories CASCADE;
-DROP TABLE IF EXISTS public.agent_workspace CASCADE;
-DROP TABLE IF EXISTS public.user_warnings CASCADE;
-DROP TABLE IF EXISTS public.group_whitelist CASCADE;
-DROP TABLE IF EXISTS public.group_member_history CASCADE;
-DROP TABLE IF EXISTS public.group_filters CASCADE;
-DROP TABLE IF EXISTS public.group_configs CASCADE;
-DROP TABLE IF EXISTS public.group_admins CASCADE;
-DROP TABLE IF EXISTS public.global_admins CASCADE;
-DROP TABLE IF EXISTS public.groups CASCADE;
-DROP TABLE IF EXISTS public.user_identities CASCADE;
-DROP TABLE IF EXISTS public.users CASCADE;
 
 -- ============================================================================
 -- SECTION 1: USERS (Contacts) & IDENTITIES
@@ -36,17 +16,68 @@ DROP TABLE IF EXISTS public.users CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  jid text UNIQUE,
+  jid text,
   username text,
   interaction_count bigint DEFAULT 0,
-  language varchar(10),
-  timezone varchar(50),
+  language character varying,
+  timezone character varying,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   hash character varying,
-  CONSTRAINT users_pkey PRIMARY KEY (id),
-  CONSTRAINT users_hash_key UNIQUE (hash)
+  CONSTRAINT users_pkey PRIMARY KEY (id)
 );
+
+-- Colonnes additionnelles sur base existante
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS jid text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS username text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS interaction_count bigint DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS language character varying;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS timezone character varying;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS hash character varying;
+
+-- Contraintes uniques idempotentes pour users
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'users_jid_key' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_jids AS (
+      SELECT ctid,
+             regexp_replace(jid, ':[0-9]+@', '@') AS norm_jid,
+             ROW_NUMBER() OVER (
+               PARTITION BY regexp_replace(jid, ':[0-9]+@', '@')
+               ORDER BY created_at ASC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.users
+      WHERE jid IS NOT NULL
+    )
+    UPDATE public.users u
+    SET jid = CASE WHEN d.rn > 1 THEN NULL ELSE d.norm_jid END
+    FROM duplicate_jids d
+    WHERE u.ctid = d.ctid AND (d.rn > 1 OR u.jid <> d.norm_jid);
+
+    ALTER TABLE public.users ADD CONSTRAINT users_jid_key UNIQUE (jid);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'users_hash_key' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_hashes AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (PARTITION BY hash ORDER BY created_at ASC NULLS LAST, ctid ASC) AS rn
+      FROM public.users
+      WHERE hash IS NOT NULL
+    )
+    UPDATE public.users u
+    SET hash = NULL
+    FROM duplicate_hashes d
+    WHERE u.ctid = d.ctid AND d.rn > 1;
+
+    ALTER TABLE public.users ADD CONSTRAINT users_hash_key UNIQUE (hash);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.user_identities (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -57,9 +88,33 @@ CREATE TABLE IF NOT EXISTS public.user_identities (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_identities_pkey PRIMARY KEY (id),
-  CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
-  CONSTRAINT user_identities_platform_user_id_key UNIQUE (platform, platform_user_id)
+  CONSTRAINT user_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+
+ALTER TABLE public.user_identities ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.user_identities ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.user_identities ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'user_identities_platform_user_id_key' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_identities AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY platform, platform_user_id
+               ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.user_identities
+      WHERE platform IS NOT NULL AND platform_user_id IS NOT NULL
+    )
+    DELETE FROM public.user_identities
+    WHERE ctid IN (SELECT ctid FROM duplicate_identities WHERE rn > 1);
+
+    ALTER TABLE public.user_identities ADD CONSTRAINT user_identities_platform_user_id_key UNIQUE (platform, platform_user_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- SECTION 2: GROUPS & ADMINS
@@ -76,9 +131,36 @@ CREATE TABLE IF NOT EXISTS public.groups (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT groups_pkey PRIMARY KEY (id),
-  CONSTRAINT groups_platform_group_id_key UNIQUE (platform, platform_group_id),
   CONSTRAINT groups_founder_id_fkey FOREIGN KEY (founder_id) REFERENCES public.users(id) ON DELETE SET NULL
 );
+
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS bot_mission text;
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS founder_id uuid;
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'groups_platform_group_id_key' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_groups AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY platform, platform_group_id
+               ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.groups
+      WHERE platform IS NOT NULL AND platform_group_id IS NOT NULL
+    )
+    DELETE FROM public.groups
+    WHERE ctid IN (SELECT ctid FROM duplicate_groups WHERE rn > 1);
+
+    ALTER TABLE public.groups ADD CONSTRAINT groups_platform_group_id_key UNIQUE (platform, platform_group_id);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.global_admins (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -86,9 +168,17 @@ CREATE TABLE IF NOT EXISTS public.global_admins (
   role text CHECK (role = ANY (ARRAY['owner'::text, 'moderator'::text])),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT global_admins_pkey PRIMARY KEY (id),
-  CONSTRAINT global_admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
-  CONSTRAINT global_admins_user_id_key UNIQUE (user_id)
+  CONSTRAINT global_admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'global_admins_user_id_key' AND connamespace = 'public'::regnamespace
+  ) THEN
+    ALTER TABLE public.global_admins ADD CONSTRAINT global_admins_user_id_key UNIQUE (user_id);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.group_admins (
   group_id uuid NOT NULL,
@@ -179,6 +269,12 @@ CREATE TABLE IF NOT EXISTS public.memories (
   CONSTRAINT memories_pkey PRIMARY KEY (id)
 );
 
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS decay_score numeric DEFAULT 0.5;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS archived_at timestamp with time zone;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS recall_count integer DEFAULT 0;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS embedding vector(1024);
+
 CREATE TABLE IF NOT EXISTS public.agent_workspace (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   context_id uuid NOT NULL,
@@ -191,9 +287,37 @@ CREATE TABLE IF NOT EXISTS public.agent_workspace (
   last_accessed timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT agent_workspace_pkey PRIMARY KEY (id),
-  CONSTRAINT agent_workspace_context_key_unique UNIQUE (context_id, key)
+  CONSTRAINT agent_workspace_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}'::text[];
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS embedding vector(1024);
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS variance double precision DEFAULT 1.0;
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS access_count integer DEFAULT 0;
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS last_accessed timestamp with time zone DEFAULT now();
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.agent_workspace ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'agent_workspace_context_key_unique' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_workspace AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY context_id, key
+               ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.agent_workspace
+      WHERE context_id IS NOT NULL AND key IS NOT NULL
+    )
+    DELETE FROM public.agent_workspace
+    WHERE ctid IN (SELECT ctid FROM duplicate_workspace WHERE rn > 1);
+
+    ALTER TABLE public.agent_workspace ADD CONSTRAINT agent_workspace_context_key_unique UNIQUE (context_id, key);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.facts (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -201,9 +325,31 @@ CREATE TABLE IF NOT EXISTS public.facts (
   key text NOT NULL,
   value text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT facts_pkey PRIMARY KEY (id),
-  CONSTRAINT facts_context_key_unique UNIQUE (context_id, key)
+  CONSTRAINT facts_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.facts ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'facts_context_key_unique' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_facts AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY context_id, key
+               ORDER BY created_at DESC NULLS LAST, id DESC
+             ) AS rn
+      FROM public.facts
+      WHERE context_id IS NOT NULL AND key IS NOT NULL
+    )
+    DELETE FROM public.facts
+    WHERE ctid IN (SELECT ctid FROM duplicate_facts WHERE rn > 1);
+
+    ALTER TABLE public.facts ADD CONSTRAINT facts_context_key_unique UNIQUE (context_id, key);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.entities (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -215,9 +361,14 @@ CREATE TABLE IF NOT EXISTS public.entities (
   embedding vector(1024),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT entities_pkey PRIMARY KEY (id),
-  CONSTRAINT entities_context_name_unique UNIQUE (context_id, name)
+  CONSTRAINT entities_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS embedding vector(1024);
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS public.relationships (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -230,9 +381,84 @@ CREATE TABLE IF NOT EXISTS public.relationships (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT relationships_pkey PRIMARY KEY (id),
   CONSTRAINT relationships_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.entities(id) ON DELETE CASCADE,
-  CONSTRAINT relationships_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.entities(id) ON DELETE CASCADE,
-  CONSTRAINT relationships_source_target_type_unique UNIQUE (source_id, target_id, relation_type)
+  CONSTRAINT relationships_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.entities(id) ON DELETE CASCADE
 );
+
+ALTER TABLE public.relationships ADD COLUMN IF NOT EXISTS strength double precision DEFAULT 1.0;
+ALTER TABLE public.relationships ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.relationships ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'entities_context_name_unique' AND connamespace = 'public'::regnamespace
+  ) THEN
+    CREATE TEMP TABLE IF NOT EXISTS entity_survivor_map ON COMMIT DROP AS
+    WITH ranked_entities AS (
+      SELECT id,
+             FIRST_VALUE(id) OVER (
+               PARTITION BY context_id, name
+               ORDER BY updated_at DESC NULLS LAST, created_at ASC NULLS LAST, ctid ASC
+             ) AS survivor_id,
+             ROW_NUMBER() OVER (
+               PARTITION BY context_id, name
+               ORDER BY updated_at DESC NULLS LAST, created_at ASC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.entities
+      WHERE context_id IS NOT NULL AND name IS NOT NULL
+    )
+    SELECT id AS old_id, survivor_id AS new_id
+    FROM ranked_entities
+    WHERE rn > 1 AND id <> survivor_id;
+
+    UPDATE public.relationships r
+    SET source_id = m.new_id
+    FROM entity_survivor_map m
+    WHERE r.source_id = m.old_id;
+
+    UPDATE public.relationships r
+    SET target_id = m.new_id
+    FROM entity_survivor_map m
+    WHERE r.target_id = m.old_id;
+
+    WITH duplicate_repointed_rels AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY source_id, target_id, relation_type
+               ORDER BY created_at ASC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.relationships
+      WHERE source_id IS NOT NULL AND target_id IS NOT NULL AND relation_type IS NOT NULL
+    )
+    DELETE FROM public.relationships
+    WHERE ctid IN (SELECT ctid FROM duplicate_repointed_rels WHERE rn > 1);
+
+    DELETE FROM public.entities
+    WHERE id IN (SELECT old_id FROM entity_survivor_map);
+
+    DROP TABLE IF EXISTS entity_survivor_map;
+
+    ALTER TABLE public.entities ADD CONSTRAINT entities_context_name_unique UNIQUE (context_id, name);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'relationships_source_target_type_unique' AND connamespace = 'public'::regnamespace
+  ) THEN
+    WITH duplicate_rels AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (
+               PARTITION BY source_id, target_id, relation_type
+               ORDER BY created_at ASC NULLS LAST, ctid ASC
+             ) AS rn
+      FROM public.relationships
+      WHERE source_id IS NOT NULL AND target_id IS NOT NULL AND relation_type IS NOT NULL
+    )
+    DELETE FROM public.relationships
+    WHERE ctid IN (SELECT ctid FROM duplicate_rels WHERE rn > 1);
+
+    ALTER TABLE public.relationships ADD CONSTRAINT relationships_source_target_type_unique UNIQUE (source_id, target_id, relation_type);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.agent_actions (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -246,6 +472,8 @@ CREATE TABLE IF NOT EXISTS public.agent_actions (
   steps jsonb DEFAULT '[]'::jsonb,
   CONSTRAINT agent_actions_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.agent_actions ADD COLUMN IF NOT EXISTS steps jsonb DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS public.action_scores (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -263,6 +491,13 @@ CREATE TABLE IF NOT EXISTS public.action_scores (
   CONSTRAINT action_scores_action_id_fkey FOREIGN KEY (action_id) REFERENCES public.agent_actions(id) ON DELETE CASCADE
 );
 
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS execution_time_ms integer;
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS result_quality numeric DEFAULT 0.5;
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS user_feedback character varying;
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS detected_reaction text;
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS learned text;
+ALTER TABLE public.action_scores ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS public.autonomous_goals (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone DEFAULT now(),
@@ -279,6 +514,10 @@ CREATE TABLE IF NOT EXISTS public.autonomous_goals (
   trigger_condition jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT autonomous_goals_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.autonomous_goals ADD COLUMN IF NOT EXISTS trigger_type text DEFAULT 'TIME'::text;
+ALTER TABLE public.autonomous_goals ADD COLUMN IF NOT EXISTS trigger_event text;
+ALTER TABLE public.autonomous_goals ADD COLUMN IF NOT EXISTS trigger_condition jsonb DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS public.reminders (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -299,6 +538,9 @@ CREATE TABLE IF NOT EXISTS public.bot_tools (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT bot_tools_pkey PRIMARY KEY (name)
 );
+
+ALTER TABLE public.bot_tools ADD COLUMN IF NOT EXISTS embedding vector(1024);
+ALTER TABLE public.bot_tools ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
 
 -- ============================================================================
 -- SECTION 5: RPC FUNCTIONS
@@ -331,6 +573,19 @@ BEGIN
     AND 1 - (memories.embedding <=> query_embedding) > match_threshold
   ORDER BY memories.embedding <=> query_embedding
   LIMIT match_count;
+END;
+$$;
+
+-- Function for CMA synaptic boost
+CREATE OR REPLACE FUNCTION cma_boost_memory(memory_ids bigint[])
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE memories
+  SET recall_count = recall_count + 1,
+      decay_score = LEAST(1.0, decay_score + 0.2)
+  WHERE id = ANY(memory_ids);
 END;
 $$;
 

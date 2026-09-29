@@ -2,7 +2,7 @@
 // Client Supabase pour la persistance cloud - Omni-Channel Ready
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { safeReadFileSync } from '../utils/safeFs.js';
+import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
 import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import ws from 'ws';
 
@@ -35,46 +35,107 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
+function stripQuotes(value: string | undefined): string | undefined {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function isSupabaseUrlValid(url?: string): boolean {
+  if (!url || !url.startsWith('http')) return false;
+  const upper = url.toUpperCase();
+  return (
+    !upper.includes('VOTRE_PROJET') &&
+    !upper.includes('YOUR_PROJECT') &&
+    upper !== 'DUMMY' &&
+    upper !== 'PLACEHOLDER'
+  );
+}
+
+function isSupabaseKeyValid(key?: string): boolean {
+  if (!key || key.trim() === '') return false;
+  const upper = key.toUpperCase();
+  return (
+    !upper.startsWith('VOTRE_') &&
+    !upper.startsWith('YOUR_') &&
+    !upper.includes('VOTRE_CLE') &&
+    !upper.includes('YOUR_KEY') &&
+    upper !== 'DUMMY' &&
+    upper !== 'PLACEHOLDER' &&
+    upper !== 'UNDEFINED' &&
+    upper !== 'NULL'
+  );
+}
+
+function resolveEnvOrVal(val?: string): string | undefined {
+  const unquoted = stripQuotes(val);
+  if (!unquoted) return undefined;
+  if (Object.hasOwn(process.env, unquoted)) {
+    const envVal = Reflect.get(process.env, unquoted);
+    if (typeof envVal === 'string' && envVal) return stripQuotes(envVal);
+  }
+  return unquoted;
+}
+
+export function initSupabaseClient(url?: string, key?: string): SupabaseClient | null {
+  const projUrl = resolveEnvOrVal(url) || stripQuotes(process.env.SUPABASE_URL);
+  const projKey =
+    resolveEnvOrVal(key) ||
+    stripQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY);
+
+  if (isSupabaseUrlValid(projUrl) && isSupabaseKeyValid(projKey)) {
+    // IMPORTANT : Utiliser service_role_key pour contourner Row Level Security
+    return createClient(projUrl!, projKey!, {
+      auth: {
+        persistSession: false,
+      },
+      realtime: {
+        transport: ws as unknown as typeof globalThis.WebSocket,
+      },
+    });
+  }
+  return null;
+}
+
 // Charger les credentials
 let credentials: Credentials | null;
 try {
   const credentialsPath = resolveConfigPath('credentials.json');
-  credentials = JSON.parse(safeReadFileSync(credentialsPath, 'utf-8')) as Credentials;
+  credentials =
+    credentialsPath && safeExistsSync(credentialsPath)
+      ? (JSON.parse(safeReadFileSync(credentialsPath, 'utf-8')) as Credentials)
+      : null;
 } catch (error: unknown) {
   console.warn(`⚠️ Erreur lecture credentials: ${extractErrorMessage(error)}`);
   credentials = null;
 }
 
 // Créer le client Supabase
-let supabase: SupabaseClient | null = null;
+let supabase: SupabaseClient | null = initSupabaseClient(
+  credentials?.supabase?.project_url || credentials?.supabase?.url,
+  credentials?.supabase?.service_role_key || credentials?.supabase?.key,
+);
 
-let projUrl = credentials?.supabase?.project_url || credentials?.supabase?.url;
-let projKey = credentials?.supabase?.service_role_key || credentials?.supabase?.key;
-
-// Resolve Env Vars if needed
-if (projUrl && Object.hasOwn(process.env, projUrl)) {
-  const envUrl = Reflect.get(process.env, projUrl);
-  if (typeof envUrl === 'string' && envUrl) projUrl = envUrl;
-}
-if (projKey && Object.hasOwn(process.env, projKey)) {
-  const envKey = Reflect.get(process.env, projKey);
-  if (typeof envKey === 'string' && envKey) projKey = envKey;
-}
-
-// Direct fallback to common env vars if still empty
-if (!projUrl) projUrl = process.env.SUPABASE_URL;
-if (!projKey) projKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-
-if (projUrl && projUrl.startsWith('http') && projUrl !== 'https://VOTRE_PROJET.supabase.co') {
-  // IMPORTANT : Utiliser service_role_key pour contourner Row Level Security
-  supabase = createClient(projUrl, projKey ?? '', {
-    auth: {
-      persistSession: false,
-    },
-    realtime: {
-      transport: ws as unknown as typeof globalThis.WebSocket,
-    },
-  });
+function determineIfGroup(legacyId: string, isWhatsApp: boolean): boolean {
+  if (isWhatsApp) {
+    return legacyId.toLowerCase().endsWith('@g.us');
+  }
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(legacyId);
+  if (isUuid || legacyId.startsWith('user-') || legacyId.startsWith('user_')) {
+    return false;
+  }
+  return (
+    legacyId.startsWith('chat_') ||
+    legacyId.startsWith('group_') ||
+    legacyId.startsWith('channel_') ||
+    legacyId.includes('-')
+  );
 }
 
 /**
@@ -82,6 +143,11 @@ if (projUrl && projUrl.startsWith('http') && projUrl !== 'https://VOTRE_PROJET.s
  */
 export const db = {
   get client() {
+    return supabase;
+  },
+
+  reinit(url?: string, key?: string): SupabaseClient | null {
+    supabase = initSupabaseClient(url, key);
     return supabase;
   },
 
@@ -117,7 +183,7 @@ export const db = {
       .select('user_id')
       .eq('platform', platform)
       .eq('platform_user_id', platformUserId)
-      .single();
+      .maybeSingle();
 
     if (identity) return identity.user_id;
 
@@ -133,17 +199,31 @@ export const db = {
       return null;
     }
 
-    // 3. Créer le lien d'identité (UPSERT pour éviter race condition)
+    // 3. Créer le lien d'identité (UPSERT avec ignoreDuplicates pour éviter d'écraser une identité concurrente)
     const { error: errId } = await supabase
       .from('user_identities')
       .upsert(
         { user_id: newUser.id, platform, platform_user_id: platformUserId },
-        { onConflict: 'platform,platform_user_id' },
+        { onConflict: 'platform,platform_user_id', ignoreDuplicates: true },
       );
 
     if (errId) {
       console.error('[DB] Erreur création user_identity:', errId);
+      await supabase.from('users').delete().eq('id', newUser.id);
       return null;
+    }
+
+    // 4. Vérifier quelle identité est effectivement liée (en cas d'insertion concurrente)
+    const { data: finalIdentity } = await supabase
+      .from('user_identities')
+      .select('user_id')
+      .eq('platform', platform)
+      .eq('platform_user_id', platformUserId)
+      .maybeSingle();
+
+    if (finalIdentity && finalIdentity.user_id !== newUser.id) {
+      await supabase.from('users').delete().eq('id', newUser.id);
+      return finalIdentity.user_id;
     }
 
     return newUser.id;
@@ -164,7 +244,7 @@ export const db = {
       .select('id')
       .eq('platform', platform)
       .eq('platform_group_id', platformGroupId)
-      .single();
+      .maybeSingle();
 
     if (group) return group.id;
 
@@ -273,9 +353,7 @@ export const db = {
       platform = 'telegram';
     }
 
-    const isGroup = isWhatsApp
-      ? legacyId.toLowerCase().endsWith('@g.us')
-      : legacyId.includes('-') || legacyId.startsWith('chat_');
+    const isGroup = determineIfGroup(legacyId, isWhatsApp);
 
     if (isGroup) {
       const id = await this.resolveGroup(platform, legacyId);

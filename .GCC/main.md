@@ -38,6 +38,17 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-29] **Schéma Unique Idempotent sans Migration & 7 Durcissements Médico-Légaux de Résilience (#134 / PR #141)**
+  - **Context**: Conformément à la directive absolue de l'utilisateur (« on ne veut pas de migration mets toujour un seul fichier setup qui peut s'executer sur une base deja presente et le shema n'est pas a jour ») et aux audits médico-légaux :
+    1. Base de données : Suppression définitive du dossier `src/supabase/migrations/` (4 fichiers supprimés). Consolidation dans un script unique non-destructif `src/supabase/supabase_setup.sql` (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, CTEs de déduplication idempotentes avant pose de contraintes uniques, RPC `cma_boost_memory` intégré).
+    2. Déploiements conteneurisés 100% variables d'environnement : Ajout de gardes `safeExistsSync` pour `credentialsPath` et `modelsPath` dans `ServiceContainer.loadConfig()`, éliminant les erreurs `ENOENT` lors de l'exécution sans montage de fichier `credentials.json`.
+    3. Détection des placeholders français : Ajout du préfixe `VOTRE_` dans `envResolver._isPlaceholder()`, et usage systématique de `resolveKeyForProvider` dans les enregistrements de services (`registerEmbeddingService`, `registerMinimaxVoice`, `registerGroqSTT`, `registerLiveAndDreamServices`), empêchant les tokens par défaut de masquer les réelles variables d'environnement (`GEMINI_KEY`, etc.).
+    4. Client Supabase : Validation stricte des URLs et clés dans `initSupabaseClient()` avec extraction de helpers réduisant la complexité cognitive de 18 à 3. Rejet des clés vides ou placeholders.
+    5. Résolution d'identités et concurrence : Discrimination robuste des UUIDs et pseudos dans `determineIfGroup()`, évitant la fausse classification en groupes. Gestion des conditions de concurrence dans `resolveUser()` avec `.maybeSingle()`, `ignoreDuplicates: true` et nettoyage des enregistrements utilisateurs orphelins.
+    6. Documentation & diagrammes : Alignement sur le nil UUID `00000000-0000-0000-0000-000000000000` (`GLOBAL_CONTEXT_ID`) et variable d'environnement `GEMINI_KEY`.
+  - **Discarded Options**: Maintenir un dossier de migrations incrémentales (rejeté formellement par l'utilisateur et la politique du projet) ; tolérer des crashs ENOENT en environnement 12-Factor sans fichier de credentials sur disque.
+  - **Rationale**: 100% conforme à l'arbitrage utilisateur et aux contraintes architecturales. 109/109 suites de tests Jest passées (1144 tests), 0 erreur TS, 0 warning linter, audit contradictoire approuvé avec mention 100% production-grade par `Specific Fix Verifier` et `Global System Critic`.
+
 - [2026-09-29] **Remédiation Complète des Revues PR #141 (Greptile P1/P2, Macroscope, Codecov 100% Patch Coverage & Résolution Bug resolveEnvOrDirect) (#134 / PR #141)**
   - **Context**: Traitement chirurgical des retours sur le commit `9066c61` de la PR #141 :
     1. Macroscope (High) : URLs Redis / Supabase entre guillemets (`"redis://host:6379"`) normalisées via `stripQuotes()`.

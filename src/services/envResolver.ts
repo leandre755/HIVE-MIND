@@ -155,6 +155,7 @@ export class EnvResolver {
     return (
       value.startsWith('${') ||
       value.startsWith('YOUR_') ||
+      value.startsWith('VOTRE_') ||
       value === 'undefined' ||
       value === 'null'
     );
