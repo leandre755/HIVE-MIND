@@ -48,7 +48,7 @@ function stripQuotes(value: string | undefined): string | undefined {
 }
 
 export function isSupabaseUrlValid(url?: string): boolean {
-  if (!url || !url.startsWith('http')) return false;
+  if (!url?.startsWith('http')) return false;
   const upper = url.toUpperCase();
   return (
     !upper.includes('VOTRE_PROJET') &&

@@ -38,6 +38,16 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-29] **Désindexation des Scripts d'Outillage de Développement & Confinement Local dans `.gitignore` (#134 / PR #141)**
+  - **Context**: Sur arbitrage explicite de l'utilisateur (« cancelle ce push les script doivent etre ignorer quand je dis cript je parle de ceux qui ne sont pas du code qui nous aide dans le tache de developpement ») :
+    1. Retrait de l'index Git (`git rm --cached`) des scripts d'assistance (`scripts/fix_github_ip.c`, `scripts/run_gh.sh`, `scripts/run_push.sh`), conservés intacts localement pour les opérations réseau.
+    2. Ajout de `scripts/fix_github_ip.*`, `scripts/run_gh.sh`, `scripts/run_push.sh` dans `.gitignore`.
+    3. Élimination complète des alertes SonarCloud (`shelldre:S7688`) qui portaient sur ces scripts d'outillage bash.
+    4. Réduction du volume de diff de la PR à 2438 LoC (marge de sécurité de 62 lignes sous le plafond de 2500 LoC).
+    5. Maintien de la correction `typescript:S6582` (optional chaining sur `isSupabaseUrlValid`) dans `src/services/supabase.ts`.
+  - **Discarded Options**: Réécriture d'historique avec push force (rejeté sur sélection explicite utilisateur et interdit par l'invariant §5 de sécurité).
+  - **Rationale**: 100% conformité aux règles d'ingénierie et de gouvernance. Codebase et PR assainies, 0 artefact d'outillage dans le dépôt source.
+
 - [2026-09-29] **Stabilisation Réseau, Homologation sous le Plafond de Gouvernance (2490 LoC <= 2500) & Remédiation Médico-Légale Finale (#134 / PR #141)**
   - **Context**: Finalisation de la PR #141 avant poussée :
     1. Résolution de l'erreur PostgREST PGRST116 dans `db.getGroupFounder` via `.limit(1).maybeSingle()`.
@@ -45,7 +55,8 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
     3. Isolation hermétique du singleton `redis` dans `configConsumers.test.ts` via helper `resetRedis` exécuté en `beforeEach` et `afterEach`, éliminant les interférences entre tests sans violer `security/detect-object-injection`.
     4. Relocalisation des scripts réseau dans `scripts/` (`fix_github_ip.c`, `run_push.sh`, `run_gh.sh`) avec droits d'exécution et exclusion du binaire `.so` dans `.gitignore`.
     5. Mise à jour d'`undici` vers `7.30.0` dans `package-lock.json` éliminant la vulnérabilité GHSA high/critical d'audit npm.
-    6. Consolidation compacte des suites de test maintenant le budget de lignes à 2496 LoC (seuil strict <= 2500 de `.github/workflows/governance.yml`).
+    6. Résolution des alertes SonarCloud : conformité `shelldre:S7688` (`[[` au lieu de `[` dans `scripts/run_gh.sh` et `scripts/run_push.sh`) éliminant le déclassement de fiabilité (C Reliability Rating -> A), et optional chaining sur `isSupabaseUrlValid` (`typescript:S6582`).
+    7. Consolidation compacte des suites de test maintenant le budget de lignes à 2496 LoC (seuil strict <= 2500 de `.github/workflows/governance.yml`).
   - **Discarded Options**: Diviser la PR ou recourir à des hacks de linter (interdit par les règles projet).
   - **Rationale**: 100% conformité aux règles d'ingénierie et de gouvernance. 57/57 tests `configConsumers.test.ts` passés, 29/29 tests `supabaseDb.test.ts` passés, 109/109 suites unitaires au vert (1158 tests), tsc clean, oxlint clean, eslint clean.
 
