@@ -278,6 +278,11 @@ export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolea
   return url.startsWith('redis://') || url.startsWith('rediss://');
 }
 
+export function fileExists(path?: string | null): boolean {
+  if (!path) return false;
+  return safeExistsSync(path);
+}
+
 export function normalizeFamillesIa(
   famillesIa?: Record<string, string>,
 ): Record<string, string> | undefined {
@@ -348,14 +353,12 @@ export class ServiceContainer {
     const modelsPath = resolveConfigPath('models_config.json');
 
     try {
-      const rawCredentials =
-        credentialsPath && safeExistsSync(credentialsPath)
-          ? JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'))
-          : {};
-      const rawModelsConfig =
-        modelsPath && safeExistsSync(modelsPath)
-          ? JSON.parse(safeReadFileSync(modelsPath, 'utf-8'))
-          : {};
+      const rawCredentials = fileExists(credentialsPath)
+        ? JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'))
+        : {};
+      const rawModelsConfig = fileExists(modelsPath)
+        ? JSON.parse(safeReadFileSync(modelsPath, 'utf-8'))
+        : {};
 
       const parsedCredentials = CredentialsSchema.parse(rawCredentials);
       const parsedModelsConfig = ModelsConfigSchema.parse(rawModelsConfig);
@@ -408,6 +411,7 @@ export class ServiceContainer {
       db.reinit(credentials.supabase.url, credentials.supabase.key);
     }
     this.register('supabase', db);
+    this.register('db', db);
     this.register('config', appConfig);
 
     const { redis, switchToMock } = await import('../services/redisClient.js');

@@ -103,14 +103,18 @@ export function initSupabaseClient(url?: string, key?: string): SupabaseClient |
   return null;
 }
 
+export function fileExists(path?: string | null): boolean {
+  if (!path) return false;
+  return safeExistsSync(path);
+}
+
 // Charger les credentials
 let credentials: Credentials | null;
 try {
   const credentialsPath = resolveConfigPath('credentials.json');
-  credentials =
-    credentialsPath && safeExistsSync(credentialsPath)
-      ? (JSON.parse(safeReadFileSync(credentialsPath, 'utf-8')) as Credentials)
-      : null;
+  credentials = fileExists(credentialsPath)
+    ? (JSON.parse(safeReadFileSync(credentialsPath, 'utf-8')) as Credentials)
+    : null;
 } catch (error: unknown) {
   console.warn(`⚠️ Erreur lecture credentials: ${extractErrorMessage(error)}`);
   credentials = null;
@@ -522,12 +526,13 @@ export const db = {
 
     if (!data?.founder_id) return null;
 
-    // On va chercher l'ID brut pour la rétrocompatibilité
+    // On va chercher l'ID brut pour la rétrocompatibilité (sans PGRST116 si multi-identités)
     const { data: idData } = await supabase
       .from('user_identities')
       .select('platform_user_id')
       .eq('user_id', data.founder_id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     return idData?.platform_user_id || null;
   },

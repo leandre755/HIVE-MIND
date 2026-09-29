@@ -6,6 +6,8 @@ dist/
 coverage/
 .next/
 .turbo/
+*.so
+
 
 # ============================================================
 # Environment & secrets (never commit)
