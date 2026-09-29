@@ -2,17 +2,14 @@
 // Unified Voice Provider - Routes TTS/STT to appropriate adapters
 // Features: Dynamic quota-based switching, multi-model support
 
-import { safeReadFileSync as readFileSync } from '../../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../../utils/safeFs.js';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
 import { resolveCredentials } from '../../config/keyResolver.js';
 
 import { MinimaxTTSAdapter } from '../../providers/adapters/minimaxTTS.js';
 import { GeminiTTSAdapter } from '../../providers/adapters/geminiTTS.js';
 import { GttsTTSAdapter } from '../../providers/adapters/gttsTTS.js';
 import { GeminiLiveAdapter } from '../../providers/adapters/geminiLive.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -84,8 +81,8 @@ function stripInlineAudioTags(text: string): string {
 
 function loadCredentials(): Credentials {
   try {
-    const credsPath = join(__dirname, '..', '..', 'config', 'credentials.json');
-    const creds = JSON.parse(readFileSync(credsPath, 'utf-8'));
+    const credsPath = resolveConfigPath('credentials.json');
+    const creds = JSON.parse(safeReadFileSync(credsPath, 'utf-8'));
     const resolved = resolveCredentials(creds);
     return (resolved.familles_ia as Credentials) ?? {};
   } catch (error: unknown) {

@@ -4,10 +4,7 @@
 
 import { createClient } from 'redis';
 import { safeReadFileSync } from '../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -18,9 +15,7 @@ function extractErrorMessage(error: unknown): string {
 // Chargement sécurisé de l'URL depuis les credentials
 const getRedisUrl = (): string => {
   try {
-    const creds = JSON.parse(
-      safeReadFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
-    );
+    const creds = JSON.parse(safeReadFileSync(resolveConfigPath('credentials.json'), 'utf-8'));
     let url: string | undefined = creds.redis?.url;
 
     // Si la valeur est un nom de variable d'environnement (pas une URL), la résoudre

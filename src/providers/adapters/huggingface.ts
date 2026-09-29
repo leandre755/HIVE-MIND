@@ -2,9 +2,10 @@
 // Adaptateur pour Hugging Face Router (surface OpenAI-compatible via le SDK officiel)
 
 import OpenAI, { APIError } from 'openai';
-import { safeReadFileSync as readFileSync } from '../../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../../utils/safeFs.js';
+import { resolveConfigPath } from '../../config/ConfigPathResolver.js';
+
+import { resolveApiKey } from '../../config/keyResolver.js';
 
 import type {
   AdapterChatOptions,
@@ -14,14 +15,41 @@ import type {
 } from '../types.js';
 import { requireModel } from '../requireModel.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 /** Forme du fichier `config/credentials.json` réellement lue par cet adapter. */
 interface CredentialsFile {
-  familles_ia?: { HF_TOKEN?: string };
+  familles_ia?: {
+    HF_TOKEN?: string;
+    huggingface?: string;
+    [key: string]: unknown;
+  };
 }
 
-class HuggingFaceAdapter {
+function isValidHfToken(token?: string | null): token is string {
+  if (!token || typeof token !== 'string') return false;
+  const trimmed = token.trim();
+  return trimmed !== '' && !trimmed.startsWith('VOTRE') && !trimmed.startsWith('${');
+}
+
+function resolveHfToken(creds?: CredentialsFile | null): string | null {
+  const candidates: (string | undefined)[] = [
+    creds?.familles_ia?.huggingface,
+    creds?.familles_ia?.HF_TOKEN,
+    process.env.HF_TOKEN,
+    process.env.HUGGINGFACE_KEY,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'string') continue;
+    const resolved = resolveApiKey(candidate, 'huggingface');
+    if (isValidHfToken(resolved)) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+export class HuggingFaceAdapter {
   name = 'huggingface';
 
   /** `null` tant qu'aucun token exploitable n'a été trouvé (voir `_initClient`). */
@@ -33,18 +61,21 @@ class HuggingFaceAdapter {
   }
 
   _initClient() {
+    let creds: CredentialsFile | null = null;
     try {
-      const credsPath = join(__dirname, '..', '..', 'config', 'credentials.json');
-      const creds = JSON.parse(readFileSync(credsPath, 'utf-8')) as CredentialsFile;
-      const token = creds.familles_ia?.HF_TOKEN;
-
-      if (token && !token.startsWith('VOTRE')) {
-        this.client = new OpenAI({
-          baseURL: 'https://router.huggingface.co/v1',
-          apiKey: token,
-        });
-      }
+      const credsPath = resolveConfigPath('credentials.json');
+      creds = JSON.parse(safeReadFileSync(credsPath, 'utf-8')) as CredentialsFile;
     } catch {
+      // Ignoré : creds conserve sa valeur initiale null
+    }
+
+    const token = resolveHfToken(creds);
+    if (token) {
+      this.client = new OpenAI({
+        baseURL: 'https://router.huggingface.co/v1',
+        apiKey: token,
+      });
+    } else {
       this.client = null;
     }
   }

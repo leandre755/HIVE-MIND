@@ -6,6 +6,11 @@ dist/
 coverage/
 .next/
 .turbo/
+*.so
+scripts/fix_github_ip.*
+scripts/run_gh.sh
+scripts/run_push.sh
+
 
 # ============================================================
 # Environment & secrets (never commit)
