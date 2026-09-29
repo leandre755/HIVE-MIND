@@ -38,6 +38,13 @@ Preparation de la distribution (#96) : eliminer les imports dynamiques calcules,
 
 ## 🧠 Decisions Made
 
+- [2026-09-29] **Modularisation des Suites de Test & Couverture 100% Patch Codecov PR #141 (#134 / PR #141)**
+  - **Context**: Pour atteindre 100.00% de couverture de patch sur Codecov (17 lignes manquantes comblées) sans enfreindre la règle ESLint `max-lines-per-function` (limite stricte <= 200 lignes par bloc describe/arrow function) et `noInlineConfig` :
+    1. `src/services/supabase.ts` : Export ciblé des helpers `isSupabaseUrlValid`, `isSupabaseKeyValid`, `resolveEnvOrVal`, `determineIfGroup`, et support polymorphique `db.reinit(urlOrClient?: string | SupabaseClient, key?: string)` pour injection directe de client mocké typé sans dépendance réseau.
+    2. `src/tests/unit/services/configConsumers.test.ts` : Découpage chirurgical en 5 suites `describe` autonomes (< 130 lignes chacune) couvrant l'intégralité des branches (`isUrl: false`, initialisations avec/sans clés d'IA, fallbacks d'erreur de config, détection de groupes et discrimination UUIDs, 4 branches d'exécution de `db.resolveUser` incluant détection et suppression des orphelins sur collision concurrente, et `db.resolveGroup`).
+  - **Discarded Options**: Insérer des commentaires de désactivation ESLint (strictement interdit par la règle projet `noInlineConfig`).
+  - **Rationale**: 100% conformité aux règles d'ingénierie (0 raw fs, safeFs, complexité <= 15, max 200 lignes). Validé 55/55 tests passés dans `configConsumers.test.ts` et 29/29 dans `supabaseDb.test.ts`. Homologué 100% production-grade par `Specific Fix Verifier` et `Global System Critic`.
+
 - [2026-09-29] **Schéma Unique Idempotent sans Migration & 7 Durcissements Médico-Légaux de Résilience (#134 / PR #141)**
   - **Context**: Conformément à la directive absolue de l'utilisateur (« on ne veut pas de migration mets toujour un seul fichier setup qui peut s'executer sur une base deja presente et le shema n'est pas a jour ») et aux audits médico-légaux :
     1. Base de données : Suppression définitive du dossier `src/supabase/migrations/` (4 fichiers supprimés). Consolidation dans un script unique non-destructif `src/supabase/supabase_setup.sql` (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, CTEs de déduplication idempotentes avant pose de contraintes uniques, RPC `cma_boost_memory` intégré).

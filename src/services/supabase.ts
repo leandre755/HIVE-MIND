@@ -47,7 +47,7 @@ function stripQuotes(value: string | undefined): string | undefined {
   return trimmed;
 }
 
-function isSupabaseUrlValid(url?: string): boolean {
+export function isSupabaseUrlValid(url?: string): boolean {
   if (!url || !url.startsWith('http')) return false;
   const upper = url.toUpperCase();
   return (
@@ -58,7 +58,7 @@ function isSupabaseUrlValid(url?: string): boolean {
   );
 }
 
-function isSupabaseKeyValid(key?: string): boolean {
+export function isSupabaseKeyValid(key?: string): boolean {
   if (!key || key.trim() === '') return false;
   const upper = key.toUpperCase();
   return (
@@ -73,7 +73,7 @@ function isSupabaseKeyValid(key?: string): boolean {
   );
 }
 
-function resolveEnvOrVal(val?: string): string | undefined {
+export function resolveEnvOrVal(val?: string): string | undefined {
   const unquoted = stripQuotes(val);
   if (!unquoted) return undefined;
   if (Object.hasOwn(process.env, unquoted)) {
@@ -122,7 +122,7 @@ let supabase: SupabaseClient | null = initSupabaseClient(
   credentials?.supabase?.service_role_key || credentials?.supabase?.key,
 );
 
-function determineIfGroup(legacyId: string, isWhatsApp: boolean): boolean {
+export function determineIfGroup(legacyId: string, isWhatsApp: boolean): boolean {
   if (isWhatsApp) {
     return legacyId.toLowerCase().endsWith('@g.us');
   }
@@ -146,8 +146,12 @@ export const db = {
     return supabase;
   },
 
-  reinit(url?: string, key?: string): SupabaseClient | null {
-    supabase = initSupabaseClient(url, key);
+  reinit(urlOrClient?: string | SupabaseClient, key?: string): SupabaseClient | null {
+    if (typeof urlOrClient === 'object' && urlOrClient !== null) {
+      supabase = urlOrClient;
+      return supabase;
+    }
+    supabase = initSupabaseClient(urlOrClient, key);
     return supabase;
   },
 
