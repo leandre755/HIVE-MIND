@@ -25,6 +25,8 @@ import {
   countConfiguredAiKeys,
   isRedisConfigured,
   resolveSupabaseCredentials,
+  isValidCredentialString,
+  normalizeFamillesIa,
 } from '../../../core/ServiceContainer.js';
 import { redis } from '../../../services/redisClient.js';
 import { HuggingFaceAdapter } from '../../../providers/adapters/huggingface.js';
@@ -259,7 +261,7 @@ describe('Config Consumers Migration - Core Loaders (#134)', () => {
   });
 });
 
-describe('Config Consumers Migration - Credentials & Provider Key Resolution (#134)', () => {
+describe('Config Consumers Migration - AI Provider Key Resolution (#134)', () => {
   let env: TestEnvironment;
 
   beforeEach(() => {
@@ -300,24 +302,91 @@ describe('Config Consumers Migration - Credentials & Provider Key Resolution (#1
       gemini: 'YOUR_GEMINI_KEY',
     });
     expect(count).toBe(2);
+    expect(countConfiguredAiKeys(undefined)).toBe(0);
+    expect(countConfiguredAiKeys(null as unknown as undefined)).toBe(0);
   });
 
-  it('should activate switchToMock on redis when Redis is not configured in ServiceContainer', async () => {
-    Reflect.deleteProperty(process.env, 'REDIS_URL');
-    const { adminService } = await import('../../../services/adminService.js');
-    const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
-    try {
-      const container = new ServiceContainer();
-      await (
-        container as unknown as {
-          registerBaseServices: (creds?: unknown) => Promise<void>;
-        }
-      ).registerBaseServices({});
-      expect(redis.isReady).toBe(true);
-      expect(redis.isOpen).toBe(true);
-    } finally {
-      adminInitSpy.mockRestore();
-    }
+  it('should normalize mixed-case provider keys in familles_ia so consumers can access them', () => {
+    expect(normalizeFamillesIa(undefined)).toBeUndefined();
+    expect(normalizeFamillesIa(null as unknown as undefined)).toBeUndefined();
+    expect(normalizeFamillesIa({ invalidVal: 123 as unknown as string })).toEqual({});
+
+    const customCreds = {
+      supabase: { url: 'https://custom.supabase.co', key: 'custom-key' },
+      familles_ia: { OpenAI: 'sk-test-openai-key-case', Gemini: 'gemini-key-val' },
+    };
+    const credsPath = join(env.tempDir, 'mixed_case_creds.json');
+    safeWriteFileSync(credsPath, JSON.stringify(customCreds));
+    process.env.HIVE_CONFIG_CREDENTIALS_JSON = credsPath;
+
+    const container = new ServiceContainer();
+    const config = (
+      container as unknown as {
+        loadConfig: () => { credentials: { familles_ia: Record<string, string> } };
+      }
+    ).loadConfig();
+
+    expect(config.credentials.familles_ia.openai).toBe('sk-test-openai-key-case');
+    expect(config.credentials.familles_ia.OpenAI).toBe('sk-test-openai-key-case');
+    expect(config.credentials.familles_ia.gemini).toBe('gemini-key-val');
+  });
+
+  it('should invoke registerBaseServices with loaded credentials during _doInit', async () => {
+    const container = new ServiceContainer();
+    const mockCreds = {
+      supabase: { url: 'https://test.supabase.co', key: 'key' },
+      familles_ia: { gemini: 'key' },
+    };
+    (container as unknown as { loadConfig: () => unknown }).loadConfig = () => ({
+      credentials: mockCreds,
+      modelsConfig: { reglages_generaux: { familles_prioritaires: [] } },
+    });
+    const registerBaseSpy = jest
+      .spyOn(
+        container as unknown as { registerBaseServices: (c?: unknown) => Promise<void> },
+        'registerBaseServices',
+      )
+      .mockResolvedValue(undefined);
+    const mockContainer = container as unknown as Record<string, unknown>;
+    mockContainer.registerCoreMemoriesAndConsciousness = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+    mockContainer.registerEmbeddingService = jest.fn<() => void>();
+    mockContainer.registerVoiceServices = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+    mockContainer.registerMemoryServices = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+    mockContainer.registerLiveAndDreamServices = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+    mockContainer.registerBrowserAndProviderRouter = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+
+    await (container as unknown as { _doInit: (opts: { mode: 'full' }) => Promise<void> })._doInit({
+      mode: 'full',
+    });
+    expect(registerBaseSpy).toHaveBeenCalledWith(mockCreds);
+
+    // Re-invoquer _doInit lorsque container est déjà initialisé pour valider le court-circuit
+    await (container as unknown as { _doInit: (opts: { mode: 'full' }) => Promise<void> })._doInit({
+      mode: 'full',
+    });
+    expect(registerBaseSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Config Consumers Migration - Supabase & Redis Resolution (#134)', () => {
+  let env: TestEnvironment;
+
+  beforeEach(() => {
+    env = setupTestEnv();
+  });
+
+  afterEach(() => {
+    teardownTestEnv(env);
   });
 
   it('should keep redis unmocked when Redis IS configured in ServiceContainer', async () => {
@@ -333,7 +402,37 @@ describe('Config Consumers Migration - Credentials & Provider Key Resolution (#1
         redis: { url: 'redis://localhost:6379' },
       });
       expect(redis).toBeDefined();
+      // Prouve factuellement que switchToMock n'a pas été appelé :
+      // les propriétés propres isOpen/isReady ne sont pas définies et valent false
+      expect(Object.prototype.hasOwnProperty.call(redis, 'isOpen')).toBe(false);
+      expect(Object.prototype.hasOwnProperty.call(redis, 'isReady')).toBe(false);
+      expect(redis.isOpen).toBe(false);
+      expect(redis.isReady).toBe(false);
     } finally {
+      adminInitSpy.mockRestore();
+    }
+  });
+
+  it('should activate switchToMock on redis when Redis is not configured in ServiceContainer', async () => {
+    Reflect.deleteProperty(process.env, 'REDIS_URL');
+    const { adminService } = await import('../../../services/adminService.js');
+    const adminInitSpy = jest.spyOn(adminService, 'init').mockResolvedValue(undefined);
+    try {
+      const container = new ServiceContainer();
+      await (
+        container as unknown as {
+          registerBaseServices: (creds?: unknown) => Promise<void>;
+        }
+      ).registerBaseServices({});
+      // Prouve que switchToMock a été activé :
+      expect(Object.prototype.hasOwnProperty.call(redis, 'isOpen')).toBe(true);
+      expect(redis.isReady).toBe(true);
+      expect(redis.isOpen).toBe(true);
+    } finally {
+      // Nettoyage et restauration de redis à son état réel non mocké
+      delete (redis as unknown as Record<string, unknown>).isOpen;
+      delete (redis as unknown as Record<string, unknown>).isReady;
+      delete (redis as unknown as Record<string, unknown>).multi;
       adminInitSpy.mockRestore();
     }
   });
@@ -366,6 +465,32 @@ describe('Config Consumers Migration - Credentials & Provider Key Resolution (#1
       }),
     ).toBeNull();
 
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: '', key: 'key1' },
+      }),
+    ).toBeNull();
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: '   ', key: 'key1' },
+      }),
+    ).toBeNull();
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://valid.co', key: 'DUMMY' },
+      }),
+    ).toBeNull();
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://valid.co', key: '${SUPABASE_KEY}' },
+      }),
+    ).toBeNull();
+
+    expect(isValidCredentialString('')).toBe(false);
+    expect(isValidCredentialString('""')).toBe(false);
+    expect(isValidCredentialString('   ')).toBe(false);
+    expect(isValidCredentialString(undefined)).toBe(false);
+
     process.env.TEST_SB_URL = 'https://resolved-env.supabase.co';
     process.env.TEST_SB_KEY = 'test_key';
     expect(
@@ -375,6 +500,31 @@ describe('Config Consumers Migration - Credentials & Provider Key Resolution (#1
     ).toEqual({ url: 'https://resolved-env.supabase.co', key: 'test_key' });
     Reflect.deleteProperty(process.env, 'TEST_SB_URL');
     Reflect.deleteProperty(process.env, 'TEST_SB_KEY');
+
+    process.env.EMPTY_SB_VAL = '';
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://valid.supabase.co', key: 'EMPTY_SB_VAL' },
+      }),
+    ).toBeNull();
+
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'fallback-service-role-key';
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'https://valid.supabase.co', key: 'EMPTY_SB_VAL' },
+      }),
+    ).toEqual({
+      url: 'https://valid.supabase.co',
+      key: 'fallback-service-role-key',
+    });
+    Reflect.deleteProperty(process.env, 'SUPABASE_SERVICE_ROLE_KEY');
+
+    expect(
+      resolveSupabaseCredentials({
+        supabase: { url: 'EMPTY_SB_VAL', key: 'EMPTY_SB_VAL' },
+      }),
+    ).toBeNull();
+    Reflect.deleteProperty(process.env, 'EMPTY_SB_VAL');
 
     process.env.SUPABASE_URL = 'https://env-sb.supabase.co';
     process.env.SUPABASE_KEY = 'test_key';
@@ -387,6 +537,29 @@ describe('Config Consumers Migration - Credentials & Provider Key Resolution (#1
 
     expect(isRedisConfigured(undefined)).toBe(false);
     expect(isRedisConfigured({ redis: { url: 'redis://localhost:6379' } })).toBe(true);
+    // Quoted URLs
+    expect(isRedisConfigured({ redis: { url: '"redis://localhost:6379"' } })).toBe(true);
+    expect(isRedisConfigured({ redis: { url: "'rediss://localhost:6379'" } })).toBe(true);
+    // URL with username like your_app
+    expect(
+      isRedisConfigured({
+        redis: { url: 'rediss://your_app:secret@redis.example.com:6379' },
+      }),
+    ).toBe(true);
+    // Placeholders
+    expect(isRedisConfigured({ redis: { url: 'redis://YOUR_HOST:6379' } })).toBe(false);
+    expect(isRedisConfigured({ redis: { url: 'redis://VOTRE_HOTE:6379' } })).toBe(false);
+    expect(isRedisConfigured({ redis: { url: '' } })).toBe(false);
+    expect(isRedisConfigured({ redis: { url: '   ' } })).toBe(false);
+    expect(isRedisConfigured({ redis: { url: 'DUMMY' } })).toBe(false);
+
+    process.env.EMPTY_REDIS_VAR = '';
+    expect(
+      isRedisConfigured({
+        redis: { url: 'EMPTY_REDIS_VAR' },
+      }),
+    ).toBe(false);
+    Reflect.deleteProperty(process.env, 'EMPTY_REDIS_VAR');
 
     process.env.REDIS_URL = 'redis://env-redis-host:6379';
     expect(
@@ -618,10 +791,21 @@ describe('Config Consumers Migration - Path Containment Helpers (#134)', () => {
   });
 
   it('should protect embedded defaults in isTemplateOrReadOnlyConfig even when HIVE_DEFAULTS_CONFIG_DIR is overridden', () => {
-    process.env.HIVE_DEFAULTS_CONFIG_DIR = join(env.tempDir, 'custom_defaults');
-    const embeddedDefaultsDir = resolveDefaultsConfigDir();
-    const embeddedModelConfig = join(embeddedDefaultsDir, 'models_config.json');
-    expect(isTemplateOrReadOnlyConfig(embeddedModelConfig)).toBe(true);
+    Reflect.deleteProperty(process.env, 'HIVE_DEFAULTS_CONFIG_DIR');
+    const realEmbeddedDefaultsDir = resolveDefaultsConfigDir();
+    const realEmbeddedModelConfig = join(realEmbeddedDefaultsDir, 'models_config.json');
+
+    const customDefaultsDir = join(env.tempDir, 'custom_defaults');
+    safeMkdirSync(customDefaultsDir, { recursive: true });
+    process.env.HIVE_DEFAULTS_CONFIG_DIR = customDefaultsDir;
+
+    // Le fichier réel des defaults embarqués doit rester protégé
+    expect(isTemplateOrReadOnlyConfig(realEmbeddedModelConfig)).toBe(true);
+
+    // Le fichier dans le répertoire personnalisé surchargé doit également être protégé
+    const customModelConfig = join(customDefaultsDir, 'models_config.json');
+    safeWriteFileSync(customModelConfig, '{}');
+    expect(isTemplateOrReadOnlyConfig(customModelConfig)).toBe(true);
   });
 
   it('should handle filesystem resolution errors gracefully in isPathInside', () => {

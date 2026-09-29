@@ -70,49 +70,97 @@ export interface ServiceRegistry {
 
 const DEFAULT_CONTAINER_OPTIONS: ContainerInitOptions = Object.freeze({ mode: 'full' });
 
-function isValidCredentialString(val: unknown): val is string {
-  if (typeof val !== 'string') return false;
-  const trimmed = val.trim();
-  if (!trimmed) return false;
-  const upper = trimmed.toUpperCase();
+function stripQuotes(str: string): string {
+  const trimmed = str.trim();
   if (
-    upper.includes('VOTRE_') ||
-    upper.includes('YOUR_') ||
-    upper.includes('SUPABASE_PROJECT_ID') ||
-    trimmed.startsWith('${') ||
-    trimmed === 'https://VOTRE_PROJET.supabase.co' ||
-    upper.includes('VOTRE_PROJET') ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+export function isValidCredentialString(val: unknown): val is string {
+  if (typeof val !== 'string') return false;
+  const unquoted = stripQuotes(val);
+  if (!unquoted) return false;
+  const upper = unquoted.toUpperCase();
+  if (
+    unquoted.startsWith('${') ||
     upper === 'DUMMY' ||
     upper === 'PLACEHOLDER' ||
     upper === 'UNDEFINED' ||
-    upper === 'NULL'
+    upper === 'NULL' ||
+    upper.includes('SUPABASE_PROJECT_ID')
   ) {
     return false;
   }
+
+  const isUrl =
+    unquoted.startsWith('http://') ||
+    unquoted.startsWith('https://') ||
+    unquoted.startsWith('redis://') ||
+    unquoted.startsWith('rediss://');
+
+  if (isUrl) {
+    if (
+      upper.includes('VOTRE_PROJET') ||
+      upper.includes('YOUR_PROJECT') ||
+      upper.includes('VOTRE_HOTE') ||
+      upper.includes('YOUR_HOST') ||
+      upper.includes('VOTRE_SERVEUR') ||
+      upper.includes('YOUR_SERVER') ||
+      upper.includes('VOTRE_REDIS') ||
+      upper.includes('YOUR_REDIS')
+    ) {
+      return false;
+    }
+  } else {
+    if (
+      upper.startsWith('VOTRE_') ||
+      upper.startsWith('YOUR_') ||
+      upper.includes('VOTRE_CLE') ||
+      upper.includes('YOUR_KEY') ||
+      upper.includes('VOTRE_TOKEN') ||
+      upper.includes('YOUR_TOKEN') ||
+      upper.includes('VOTRE_SECRET') ||
+      upper.includes('YOUR_SECRET')
+    ) {
+      return false;
+    }
+  }
+
   return true;
+}
+
+function resolveEnvOrDirect(val?: string): string | undefined {
+  if (!val || typeof val !== 'string') return undefined;
+  const unquoted = stripQuotes(val);
+  if (!unquoted) return undefined;
+  if (Object.hasOwn(process.env, unquoted)) {
+    const envVal = Reflect.get(process.env, unquoted);
+    return typeof envVal === 'string' && envVal ? stripQuotes(envVal) : undefined;
+  }
+  return unquoted;
 }
 
 export function resolveSupabaseCredentials(rawCredentials?: Partial<Credentials>): {
   url: string;
   key: string;
 } | null {
-  let url = rawCredentials?.supabase?.project_url || rawCredentials?.supabase?.url;
-  let key = rawCredentials?.supabase?.service_role_key || rawCredentials?.supabase?.key;
+  const rawUrl = rawCredentials?.supabase?.project_url || rawCredentials?.supabase?.url;
+  const rawKey = rawCredentials?.supabase?.service_role_key || rawCredentials?.supabase?.key;
 
-  if (url && Object.hasOwn(process.env, url)) {
-    const envUrl = Reflect.get(process.env, url);
-    if (typeof envUrl === 'string' && envUrl) url = envUrl;
-  }
-  if (key && Object.hasOwn(process.env, key)) {
-    const envKey = Reflect.get(process.env, key);
-    if (typeof envKey === 'string' && envKey) key = envKey;
-  }
+  let url = resolveEnvOrDirect(rawUrl);
+  let key = resolveEnvOrDirect(rawKey);
 
   if (!url || !isValidCredentialString(url) || !url.startsWith('http')) {
-    url = process.env.SUPABASE_URL;
+    url = process.env.SUPABASE_URL ? stripQuotes(process.env.SUPABASE_URL) : undefined;
   }
   if (!key || !isValidCredentialString(key)) {
-    key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    const fallbackKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    key = fallbackKey ? stripQuotes(fallbackKey) : undefined;
   }
 
   if (isValidCredentialString(url) && isValidCredentialString(key) && url.startsWith('http')) {
@@ -207,24 +255,44 @@ export function countConfiguredAiKeys(famillesIa?: Record<string, string>): numb
   return count;
 }
 
-export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolean {
-  let url = rawCredentials?.redis?.url;
-  if (url && typeof url === 'string') {
-    url = url.trim();
-    if (!url.startsWith('redis://') && !url.startsWith('rediss://')) {
-      const envUrl = Object.hasOwn(process.env, url) ? Reflect.get(process.env, url) : undefined;
-      url =
-        (typeof envUrl === 'string' && envUrl ? envUrl.trim() : undefined) || process.env.REDIS_URL;
+function resolveCandidateRedisUrl(rawUrl?: string): string | undefined {
+  if (rawUrl && typeof rawUrl === 'string') {
+    const unquoted = stripQuotes(rawUrl);
+    if (unquoted.startsWith('redis://') || unquoted.startsWith('rediss://')) {
+      return unquoted;
     }
-  } else {
-    url = process.env.REDIS_URL;
+    if (Object.hasOwn(process.env, unquoted)) {
+      const envVal = Reflect.get(process.env, unquoted);
+      if (typeof envVal === 'string' && envVal) return stripQuotes(envVal);
+    }
   }
+  return process.env.REDIS_URL ? stripQuotes(process.env.REDIS_URL) : undefined;
+}
 
+export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolean {
+  const url = resolveCandidateRedisUrl(rawCredentials?.redis?.url);
   if (!url || !isValidCredentialString(url)) {
     return false;
   }
 
   return url.startsWith('redis://') || url.startsWith('rediss://');
+}
+
+export function normalizeFamillesIa(
+  famillesIa?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (!famillesIa || typeof famillesIa !== 'object') return undefined;
+  const normalized: Record<string, string> = {};
+  for (const [k, v] of Object.entries(famillesIa)) {
+    if (typeof v === 'string') {
+      const kLower = k.toLowerCase();
+      Reflect.set(normalized, kLower, v);
+      if (k !== kLower) {
+        Reflect.set(normalized, k, v);
+      }
+    }
+  }
+  return normalized;
 }
 
 /**
@@ -277,6 +345,8 @@ export class ServiceContainer {
 
       const parsedCredentials = CredentialsSchema.parse(rawCredentials);
       const parsedModelsConfig = ModelsConfigSchema.parse(rawModelsConfig);
+
+      parsedCredentials.familles_ia = normalizeFamillesIa(parsedCredentials.familles_ia);
 
       // Validation stricte du chargement (0 valeur par défaut)
       // 1. Supabase requis : url + clé valides (credentials.json ou variables SUPABASE_URL / SUPABASE_KEY)
