@@ -45,7 +45,7 @@
     "@google/genai": "^2.23.0",
     "@google/generative-ai": "^0.24.1",
     "@iarna/toml": "^2.2.5",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@supabase/supabase-js": "^2.116.0",
     "@types/diff": "^8.0.0",
     "@vitalets/google-translate-api": "^9.2.0",
