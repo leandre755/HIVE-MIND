@@ -1,10 +1,6 @@
-// scripts/test_models.ts
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { providerRouter } from '../providers/index.js';
 import { safeReadFileSync } from '../utils/safeFs.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 
 type ModelEntry = {
   id: string;
@@ -24,7 +20,7 @@ type ModelTestResult = {
 
 // Charger la config pour avoir le détail des modèles (types)
 const modelsConfig = JSON.parse(
-  safeReadFileSync(path.join(__dirname, '..', 'config', 'models_config.json')),
+  safeReadFileSync(resolveConfigPath('models_config.json')),
 ) as ModelsConfig;
 
 function getStatusIcon(status: ModelTestResult['status']): string {

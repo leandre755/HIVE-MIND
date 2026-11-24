@@ -1,6 +1,5 @@
-import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync, safeExistsSync } from '../utils/safeFs.js';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { resolveApiKey } from '../config/keyResolver.js';
 import { EmbeddingsService, EmbeddingConfig } from '../services/ai/EmbeddingsService.js';
 import { SemanticMemory, SemanticMemoryDependencies } from '../services/memory/SemanticMemory.js';
@@ -10,8 +9,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CredentialsSchema, Credentials } from '../config/credentials.schema.js';
 import { ModelsConfigSchema, ModelsConfig } from '../config/config.schema.js';
 import { config as appConfig } from '../config/index.js';
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
 
 interface ServiceEntry {
   factory: () => unknown;
@@ -73,6 +70,236 @@ export interface ServiceRegistry {
 
 const DEFAULT_CONTAINER_OPTIONS: ContainerInitOptions = Object.freeze({ mode: 'full' });
 
+function stripQuotes(str: string): string {
+  const trimmed = str.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+export function isValidCredentialString(val: unknown): val is string {
+  if (typeof val !== 'string') return false;
+  const unquoted = stripQuotes(val);
+  if (!unquoted) return false;
+  const upper = unquoted.toUpperCase();
+  if (
+    unquoted.startsWith('${') ||
+    upper === 'DUMMY' ||
+    upper === 'PLACEHOLDER' ||
+    upper === 'UNDEFINED' ||
+    upper === 'NULL' ||
+    upper.includes('SUPABASE_PROJECT_ID')
+  ) {
+    return false;
+  }
+
+  const isUrl =
+    unquoted.startsWith('http://') ||
+    unquoted.startsWith('https://') ||
+    unquoted.startsWith('redis://') ||
+    unquoted.startsWith('rediss://');
+
+  if (isUrl) {
+    if (
+      upper.includes('VOTRE_PROJET') ||
+      upper.includes('YOUR_PROJECT') ||
+      upper.includes('VOTRE_HOTE') ||
+      upper.includes('YOUR_HOST') ||
+      upper.includes('VOTRE_SERVEUR') ||
+      upper.includes('YOUR_SERVER') ||
+      upper.includes('VOTRE_REDIS') ||
+      upper.includes('YOUR_REDIS')
+    ) {
+      return false;
+    }
+  } else {
+    if (
+      upper.startsWith('VOTRE_') ||
+      upper.startsWith('YOUR_') ||
+      upper.includes('VOTRE_CLE') ||
+      upper.includes('YOUR_KEY') ||
+      upper.includes('VOTRE_TOKEN') ||
+      upper.includes('YOUR_TOKEN') ||
+      upper.includes('VOTRE_SECRET') ||
+      upper.includes('YOUR_SECRET')
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function resolveEnvOrDirect(val?: string): string | undefined {
+  if (!val || typeof val !== 'string') return undefined;
+  const unquoted = stripQuotes(val);
+  if (!unquoted) return undefined;
+  if (Object.hasOwn(process.env, unquoted)) {
+    const envVal = Reflect.get(process.env, unquoted);
+    return typeof envVal === 'string' && envVal ? stripQuotes(envVal) : undefined;
+  }
+  return unquoted;
+}
+
+export function resolveSupabaseCredentials(rawCredentials?: Partial<Credentials>): {
+  url: string;
+  key: string;
+} | null {
+  const rawUrl = rawCredentials?.supabase?.project_url || rawCredentials?.supabase?.url;
+  const rawKey = rawCredentials?.supabase?.service_role_key || rawCredentials?.supabase?.key;
+
+  let url = resolveEnvOrDirect(rawUrl);
+  let key = resolveEnvOrDirect(rawKey);
+
+  if (!url || !isValidCredentialString(url) || !url.startsWith('http')) {
+    url = process.env.SUPABASE_URL ? stripQuotes(process.env.SUPABASE_URL) : undefined;
+  }
+  if (!key || !isValidCredentialString(key)) {
+    const fallbackKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    key = fallbackKey ? stripQuotes(fallbackKey) : undefined;
+  }
+
+  if (isValidCredentialString(url) && isValidCredentialString(key) && url.startsWith('http')) {
+    return { url: url.trim(), key: key.trim() };
+  }
+  return null;
+}
+
+function resolveKeyForProvider(provider: string, rawVal?: string): string | null {
+  const provLower = provider.toLowerCase();
+  let resolved: string | null = null;
+  if (typeof rawVal === 'string' && rawVal.trim()) {
+    resolved = resolveApiKey(rawVal, provLower);
+  }
+  if (!isValidCredentialString(resolved)) {
+    resolved = resolveApiKey('', provLower);
+  }
+  if (
+    !isValidCredentialString(resolved) &&
+    (provLower === 'huggingface' || provLower === 'hf_token')
+  ) {
+    const hfEnv = process.env.HF_TOKEN || process.env.HUGGINGFACE_KEY;
+    if (isValidCredentialString(hfEnv)) {
+      resolved = hfEnv;
+    }
+  }
+  return isValidCredentialString(resolved) ? resolved : null;
+}
+
+function getFamilleIaValue(
+  famillesIa: Record<string, string> | undefined,
+  provider: string,
+): string | undefined {
+  if (!famillesIa || typeof famillesIa !== 'object') return undefined;
+  const provLower = provider.toLowerCase();
+  for (const [k, v] of Object.entries(famillesIa)) {
+    if (k.toLowerCase() === provLower && typeof v === 'string') {
+      return v;
+    }
+  }
+  if (provLower === 'huggingface') {
+    for (const [k, v] of Object.entries(famillesIa)) {
+      const kLower = k.toLowerCase();
+      if ((kLower === 'hf_token' || kLower === 'huggingface_key') && typeof v === 'string') {
+        return v;
+      }
+    }
+  }
+  return undefined;
+}
+
+export function countConfiguredAiKeys(famillesIa?: Record<string, string>): number {
+  const knownProviders = [
+    'gemini',
+    'openai',
+    'anthropic',
+    'mistral',
+    'groq',
+    'huggingface',
+    'minimax',
+    'codex',
+    'cohere',
+    'deepseek',
+    'openrouter',
+  ];
+
+  const evaluatedProviders = new Set<string>();
+
+  if (famillesIa && typeof famillesIa === 'object') {
+    for (const key of Object.keys(famillesIa)) {
+      const kLower = key.toLowerCase();
+      if (kLower === 'hf_token' || kLower === 'huggingface_key') {
+        evaluatedProviders.add('huggingface');
+      } else {
+        evaluatedProviders.add(kLower);
+      }
+    }
+  }
+
+  for (const p of knownProviders) {
+    evaluatedProviders.add(p);
+  }
+
+  let count = 0;
+  for (const provider of evaluatedProviders) {
+    const rawVal = getFamilleIaValue(famillesIa, provider);
+    if (resolveKeyForProvider(provider, rawVal)) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+function resolveCandidateRedisUrl(rawUrl?: string): string | undefined {
+  if (rawUrl && typeof rawUrl === 'string') {
+    const unquoted = stripQuotes(rawUrl);
+    if (unquoted.startsWith('redis://') || unquoted.startsWith('rediss://')) {
+      return unquoted;
+    }
+    if (Object.hasOwn(process.env, unquoted)) {
+      const envVal = Reflect.get(process.env, unquoted);
+      if (typeof envVal === 'string' && envVal) return stripQuotes(envVal);
+    }
+  }
+  return process.env.REDIS_URL ? stripQuotes(process.env.REDIS_URL) : undefined;
+}
+
+export function isRedisConfigured(rawCredentials?: Partial<Credentials>): boolean {
+  const url = resolveCandidateRedisUrl(rawCredentials?.redis?.url);
+  if (!url || !isValidCredentialString(url)) {
+    return false;
+  }
+
+  return url.startsWith('redis://') || url.startsWith('rediss://');
+}
+
+export function fileExists(path?: string | null): boolean {
+  if (!path) return false;
+  return safeExistsSync(path);
+}
+
+export function normalizeFamillesIa(
+  famillesIa?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (!famillesIa || typeof famillesIa !== 'object') return undefined;
+  const normalized: Record<string, string> = {};
+  for (const [k, v] of Object.entries(famillesIa)) {
+    if (typeof v === 'string') {
+      const kLower = k.toLowerCase();
+      Reflect.set(normalized, kLower, v);
+      if (k !== kLower) {
+        Reflect.set(normalized, k, v);
+      }
+    }
+  }
+  return normalized;
+}
+
 /**
  * Conteneur d'Injection de Dépendances
  * Gère le cycle de vie et l'accès aux services de l'application
@@ -96,9 +323,14 @@ export class ServiceContainer {
     if (this.initialized) return;
     this.mode = options.mode;
 
-    const { credentials, modelsConfig } = this.loadConfig();
+    const { credentials, modelsConfig } = this.loadConfig(options.mode);
 
-    await this.registerBaseServices();
+    await this.registerBaseServices(credentials);
+    if (options.mode === 'minimal') {
+      this.initialized = true;
+      return;
+    }
+
     await this.registerCoreMemoriesAndConsciousness();
 
     this.registerEmbeddingService(credentials, modelsConfig);
@@ -106,23 +338,63 @@ export class ServiceContainer {
     await this.registerVoiceServices(credentials, modelsConfig);
     await this.registerMemoryServices();
 
-    const geminiKey = resolveApiKey(credentials.familles_ia?.gemini || '', 'gemini');
+    const geminiKey = resolveKeyForProvider('gemini', credentials.familles_ia?.gemini);
     await this.registerLiveAndDreamServices(geminiKey);
     await this.registerBrowserAndProviderRouter();
 
     this.initialized = true;
   }
 
-  private loadConfig(): { credentials: Credentials; modelsConfig: ModelsConfig } {
-    const credentialsPath = join(currentDir, '..', 'config', 'credentials.json');
-    const modelsPath = join(currentDir, '..', 'config', 'models_config.json');
+  private loadConfig(mode: 'full' | 'minimal' = 'full'): {
+    credentials: Credentials;
+    modelsConfig: ModelsConfig;
+  } {
+    const credentialsPath = resolveConfigPath('credentials.json');
+    const modelsPath = resolveConfigPath('models_config.json');
 
     try {
-      const rawCredentials = JSON.parse(readFileSync(credentialsPath, 'utf-8'));
-      const rawModelsConfig = JSON.parse(readFileSync(modelsPath, 'utf-8'));
+      const rawCredentials = fileExists(credentialsPath)
+        ? JSON.parse(safeReadFileSync(credentialsPath, 'utf-8'))
+        : {};
+      const rawModelsConfig = fileExists(modelsPath)
+        ? JSON.parse(safeReadFileSync(modelsPath, 'utf-8'))
+        : {};
+
+      const parsedCredentials = CredentialsSchema.parse(rawCredentials);
+      const parsedModelsConfig = ModelsConfigSchema.parse(rawModelsConfig);
+
+      parsedCredentials.familles_ia = normalizeFamillesIa(parsedCredentials.familles_ia);
+
+      // Validation stricte du chargement (0 valeur par défaut)
+      // 1. Supabase requis : url + clé valides (credentials.json ou variables SUPABASE_URL / SUPABASE_KEY)
+      const sbConfig = resolveSupabaseCredentials(parsedCredentials);
+      if (!sbConfig) {
+        throw new Error(
+          '❌ [ServiceContainer] Échec du chargement : Configuration Supabase manquante ou incomplète (supabase.url et supabase.key requis dans credentials.json ou via SUPABASE_URL / SUPABASE_KEY). Démarrage interrompu.',
+        );
+      }
+      parsedCredentials.supabase = sbConfig;
+
+      // 2. Clés IA requises en mode full (ou par défaut) : au moins 1 clé valide (credentials.json sous familles_ia ou variables d\'environnement)
+      if (mode !== 'minimal') {
+        const validKeyCount = countConfiguredAiKeys(parsedCredentials.familles_ia);
+        if (validKeyCount === 0) {
+          throw new Error(
+            "❌ [ServiceContainer] Échec du chargement : Aucune clé API d'IA configurée (au moins 1 clé requise dans credentials.json sous familles_ia ou via les variables d'environnement). Démarrage interrompu.",
+          );
+        }
+      }
+
+      // 3. Redis : optionnel / non-bloquant
+      if (!isRedisConfigured(parsedCredentials)) {
+        console.log(
+          'ℹ️ [ServiceContainer] Redis non configuré : poursuite du démarrage en mode mémoire local (in-memory mock).',
+        );
+      }
+
       return {
-        credentials: CredentialsSchema.parse(rawCredentials),
-        modelsConfig: ModelsConfigSchema.parse(rawModelsConfig),
+        credentials: parsedCredentials,
+        modelsConfig: parsedModelsConfig,
       };
     } catch (e) {
       console.error(
@@ -133,12 +405,19 @@ export class ServiceContainer {
     }
   }
 
-  private async registerBaseServices() {
+  private async registerBaseServices(credentials?: Partial<Credentials>) {
     this.register('logger', logger);
+    if (credentials?.supabase?.url) {
+      db.reinit(credentials.supabase.url, credentials.supabase.key);
+    }
     this.register('supabase', db);
+    this.register('db', db);
     this.register('config', appConfig);
 
-    const { redis } = await import('../services/redisClient.js');
+    const { redis, switchToMock } = await import('../services/redisClient.js');
+    if (!isRedisConfigured(credentials)) {
+      switchToMock(redis);
+    }
     this.register('redis', redis);
 
     const { adminService } = await import('../services/adminService.js');
@@ -170,13 +449,13 @@ export class ServiceContainer {
   }
 
   private registerEmbeddingService(credentials: Credentials, modelsConfig: ModelsConfig) {
-    const keyGemini = credentials.familles_ia?.gemini ?? '';
-    const keyOpenai = credentials.familles_ia?.openai ?? '';
+    const keyGemini = credentials.familles_ia?.gemini;
+    const keyOpenai = credentials.familles_ia?.openai;
     const cfg = modelsConfig.reglages_generaux.embeddings.primary;
 
     const embeddingConfig: EmbeddingConfig = {
-      geminiKey: resolveApiKey(keyGemini, 'gemini') ?? undefined,
-      openaiKey: resolveApiKey(keyOpenai, 'openai') ?? undefined,
+      geminiKey: resolveKeyForProvider('gemini', keyGemini) ?? undefined,
+      openaiKey: resolveKeyForProvider('openai', keyOpenai) ?? undefined,
       model: cfg.model,
       dimensions: cfg.dimensions,
     };
@@ -203,16 +482,16 @@ export class ServiceContainer {
 
   private async registerMinimaxVoice(credentials: Credentials, modelsConfig: ModelsConfig) {
     const { MinimaxVoiceService } = await import('../services/voice/minimax.js');
-    const rawKey = credentials.familles_ia?.minimax ?? '';
-    const minimaxKey = resolveApiKey(rawKey, 'minimax') ?? '';
+    const rawKey = credentials.familles_ia?.minimax;
+    const minimaxKey = resolveKeyForProvider('minimax', rawKey) ?? '';
     const voiceConfig = modelsConfig.voice_provider?.minimax_config ?? {};
     this.register('voiceService', new MinimaxVoiceService(minimaxKey, voiceConfig));
   }
 
   private async registerGroqSTT(credentials: Credentials, modelsConfig: ModelsConfig) {
     const { GroqTranscriptionService } = await import('../services/transcription/groqSTT.js');
-    const rawKey = credentials.familles_ia?.groq ?? '';
-    const groqKey = resolveApiKey(rawKey, 'groq') ?? '';
+    const rawKey = credentials.familles_ia?.groq;
+    const groqKey = resolveKeyForProvider('groq', rawKey) ?? '';
     const sttConfig = modelsConfig.voice_provider?.stt_models?.[0] ?? {};
     this.register('transcriptionService', new GroqTranscriptionService(groqKey, sttConfig));
   }

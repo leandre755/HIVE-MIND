@@ -64,9 +64,7 @@ SS-14 répond à ces besoins en instaurant une couche unifiée de synthèse voca
    - Réception en temps réel des fragments `modelTurn` et accumulation des buffers audio.
    - Interception des événements `LiveServerToolCall` et exécution des callbacks `onToolCall` sans couper la session vocale.
 
-## 3. Choix de Conception & Raisons d'Ingénierie
-
-- **Découplage Total des Modèles et Voix** : Aucun identifiant de voix en dur n'est présent dans le code source. Toutes les voix et correspondances proviennent du fichier `models_config.json` (`voice_provider.tts_models[]`). _Note de transition_ : Dans l'état actuel de la migration, l'initialisation du conteneur (`ServiceContainer.loadConfig()`) lit encore ce fichier depuis `src/config/models_config.json` pour instancier `VoiceProvider` ; son basculement intégral vers `ConfigPathResolver` interviendra lors du lot #135.
+- **Découplage Total des Modèles et Voix** : Aucun identifiant de voix en dur n'est présent dans le code source. Toutes les voix et correspondances proviennent du fichier `models_config.json` (`voice_provider.tts_models[]`), résolu de façon unifiée et dynamique par `ConfigPathResolver` au sein de `ServiceContainer.loadConfig()`.
 - **Chaîne de Repli en 3 Niveaux** :
   1. _Niveau 1 : Minimax Speech-01_ — Voix ultra-réaliste haute fidélité.
   2. _Niveau 2 : Gemini Flash TTS_ — Voix polyvalente à faible latence ($< 300\text{ ms}$) avec contrôle expressif.

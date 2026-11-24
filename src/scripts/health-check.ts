@@ -1,12 +1,8 @@
 // scripts/health-check.js
 import { ServiceContainer } from '../core/ServiceContainer.js';
 import { providerRouter } from '../providers/index.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
 import { safeReadFileSync } from '../utils/safeFs.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 
 type HealthReport = {
   config: Record<string, string>;
@@ -28,12 +24,8 @@ function maskCredentialValue(value: unknown, envValue: string | undefined): stri
 function checkConfigSection(report: HealthReport): void {
   console.log('--- 1. Configuration & Credentials ---');
   try {
-    const modelsConfig = JSON.parse(
-      safeReadFileSync(join(__dirname, '..', 'config', 'models_config.json')),
-    );
-    const credentials = JSON.parse(
-      safeReadFileSync(join(__dirname, '..', 'config', 'credentials.json')),
-    );
+    const modelsConfig = JSON.parse(safeReadFileSync(resolveConfigPath('models_config.json')));
+    const credentials = JSON.parse(safeReadFileSync(resolveConfigPath('credentials.json')));
 
     report.config.status = '✅ Loaded';
     report.config.providers_defined = Object.keys(modelsConfig.familles).join(', ');

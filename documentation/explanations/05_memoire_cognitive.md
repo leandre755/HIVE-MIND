@@ -119,7 +119,7 @@ Si le score tombe sous **0.3**, le souvenir est archivé (`archived_at` renseign
 
 #### Plasticité synaptique — CMA Boost
 
-Lorsqu'un souvenir est rappelé avec succès lors d'une recherche RAG, la fonction SQL stockée `cma_boost_memory` (`src/supabase/migrations/20260519130000_cma_boost_memory.sql`) est appelée asynchronement :
+Lorsqu'un souvenir est rappelé avec succès lors d'une recherche RAG, la fonction SQL stockée `cma_boost_memory` (`src/supabase/supabase_setup.sql`) est appelée asynchronement :
 
 - Incrémente `recall_count` de 1.
 - Augmente `decay_score` de 0.2 (plafonné à 1.0).
@@ -149,10 +149,10 @@ flowchart TD
 
 La recherche sémantique dans `src/services/memory.ts` combine deux requêtes parallèles via la fonction SQL RPC `match_memories` :
 
-| Portée         | Filtre                                              | Seuil de similarité cosinus |
-| :------------- | :-------------------------------------------------- | :-------------------------- |
-| **RAG Local**  | `context_id` = discussion courante                  | ≥ 0.70                      |
-| **RAG Global** | `context_id` = `'global'` (connaissances partagées) | ≥ 0.65                      |
+| Portée         | Filtre                                                                                               | Seuil de similarité cosinus |
+| :------------- | :--------------------------------------------------------------------------------------------------- | :-------------------------- |
+| **RAG Local**  | `context_id` = discussion courante                                                                   | ≥ 0.70                      |
+| **RAG Global** | `context_id` = `00000000-0000-0000-0000-000000000000` (`GLOBAL_CONTEXT_ID`, connaissances partagées) | ≥ 0.65                      |
 
 Les résultats sont fusionnés, dédupliqués par ID et enrichis d'un indicateur d'ancienneté relative (_aujourd'hui, hier, il y a X semaines_).
 
@@ -207,4 +207,4 @@ En plus des TTL automatiques de Redis, deux mécanismes actifs complètent le ne
 - `src/services/memory.ts` — SemanticMemory, factsMemory, workspaceMemory
 - `src/services/graphMemory.ts` — Knowledge Graph (entités + relations)
 - `src/services/redisClient.ts` — Client Redis avec fallback mock
-- `src/supabase/migrations/20260519130000_cma_boost_memory.sql` — Boost synaptique CMA
+- `src/supabase/supabase_setup.sql` — Schéma DDL Supabase et fonction `cma_boost_memory`

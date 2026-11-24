@@ -190,11 +190,16 @@ Retourne les métriques d'instanciation du conteneur en temps réel.
 
 ## 3. Schéma de Configuration & Variables d'Environnement
 
-Dans l'état actuel de transition, le conteneur IoC (`ServiceContainer.ts:loadConfig`) lit ses configurations de démarrage depuis le chemin hérité `src/config/` (`src/config/credentials.json` et `src/config/models_config.json`) et valide leur contenu avec Zod.
+Le conteneur IoC (`ServiceContainer.ts:loadConfig`) lit ses configurations de démarrage via le résolveur hiérarchique universel `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) et valide leur contenu avec Zod.
+Le chargement applique une validation stricte sans valeur par défaut silencieuse :
 
-Sa migration vers le résolveur universel `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) est en cours d'intégration dans le cadre du chantier de distribution autonome (#96 / #135). La cible standardisée s'articule ainsi :
+- **Supabase** requis (url + clé dans `credentials.json` ou via `SUPABASE_URL` / `SUPABASE_KEY`).
+- **Clés IA** requises (au moins 1 clé valide configurée dans `credentials.familles_ia` ou dans l'environnement).
+- **Redis** optionnel (si absent, le conteneur démarre normalement en mode mémoire local).
 
-- `credentials.json` (`CredentialsSchema`) : résolu depuis `HIVE_CONFIG_CREDENTIALS_JSON` $\to$ `./config/credentials.json` (avec fusion automatique des clés sur `~/.hivemind/config/credentials.json`) $\to$ `~/.hivemind/config/credentials.json`.
+La résolution s'articule ainsi :
+
+- `credentials.json` (`CredentialsSchema`) : résolu depuis `HIVE_CONFIG_CREDENTIALS_JSON` $\to$ `./config/credentials.json` (soumis à `HIVE_TRUST_PROJECT_CONFIG=1`) $\to$ `~/.hivemind/config/credentials.json` $\to$ `src/config/credentials.json`.
 - `models_config.json` (`ModelsConfigSchema`) : résolu depuis `HIVE_CONFIG_MODELS_CONFIG_JSON` $\to$ `./config/models_config.json` (soumis à `HIVE_TRUST_PROJECT_CONFIG=1`) $\to$ `~/.hivemind/config/models_config.json` $\to$ `src/config/defaults/models_config.json`.
 
 | Variable / Clé Config             | Type     | Obligatoire | Description                                            |

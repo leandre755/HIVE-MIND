@@ -110,7 +110,7 @@ import { supabase } from '../src/services/supabase.js';
 
 // Instanciation du service avec dépendances injectées
 const embeddings = new EmbeddingsService({
-  geminiKey: process.env.GEMINI_API_KEY,
+  geminiKey: process.env.GEMINI_KEY,
 });
 
 const semanticMemory = new SemanticMemory({
@@ -153,7 +153,9 @@ console.log(`Traité: ${result.processed}, Archivé: ${result.archived}, Conserv
 // 2. Consulter les statistiques de rétention globales
 const stats = await memoryDecay.getStats(chatId);
 if (stats) {
-  console.log(`Total: ${stats.total}, Actifs: ${stats.active}, Taux de rétention: ${stats.retention}`);
+  console.log(
+    `Total: ${stats.total}, Actifs: ${stats.active}, Taux de rétention: ${stats.retention}`,
+  );
 }
 ```
 
@@ -162,6 +164,7 @@ if (stats) {
 ## Cas Particuliers & Variantes
 
 ### Variante A : Exécution en Mode Test Isolé (Sans Serveur Redis)
+
 Pour exécuter les tests sans instance Redis externe, définissez la variable `APP_ENV=local`. Le client basculera automatiquement sur `InMemoryRedisMock`.
 
 ```typescript
@@ -174,6 +177,7 @@ console.assert(messages.length === 1);
 ```
 
 ### Variante B : Gestion de l'Anti-Suppression de Messages (`trackDeletedMessage`)
+
 Lorsqu'un message est supprimé par un utilisateur sur WhatsApp, capturez son contenu pour audit :
 
 ```typescript
@@ -199,6 +203,7 @@ NODE_ENV=test SUPABASE_URL=http://localhost:54321 SUPABASE_KEY=dummy REDIS_URL=r
 ```
 
 Sortie attendue dans le terminal :
+
 ```text
 PASS src/tests/unit/services/MemoryDecay.test.ts
   MemoryDecaySystem
@@ -218,9 +223,9 @@ Snapshots:   0 total
 
 ## Guide de Dépannage (Troubleshooting)
 
-| Symptôme / Message d'Erreur | Cause Probable | Solution Immédiate |
-| :--- | :--- | :--- |
-| `Redis : Abandon de connexion en mode local` | Serveur Redis non lancé sur `localhost:6379` en local. | Comportement normal si `APP_ENV=local` : le système bascule sur le mock in-memory. Pour utiliser un vrai serveur, lancez `redis-server` ou configurez `REDIS_URL`. |
-| `[Memory] Vectorization failed, memory not stored.` | Clé d'API Gemini manquante ou quota d'embeddings dépassé. | Vérifier la présence de `GEMINI_API_KEY` dans le fichier `.env` ou `credentials.json`. |
-| `[ActionMemory] Action not found in Supabase` | L'action a été créée il y a plus de 7 jours ou a été supprimée par le nettoyeur d'orphelins. | Réinitialiser une nouvelle action via `actionMemory.startAction(chatId, {...})`. |
-| `[CMA] Error boosting memories: function match_memories does not exist` | Schéma PostgreSQL ou migration Supabase non appliquée. | Appliquer la migration SQL `supabase/migrations/20260519130000_cma_boost_memory.sql`. |
+| Symptôme / Message d'Erreur                                             | Cause Probable                                                                               | Solution Immédiate                                                                                                                                                 |
+| :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Redis : Abandon de connexion en mode local`                            | Serveur Redis non lancé sur `localhost:6379` en local.                                       | Comportement normal si `APP_ENV=local` : le système bascule sur le mock in-memory. Pour utiliser un vrai serveur, lancez `redis-server` ou configurez `REDIS_URL`. |
+| `[Memory] Vectorization failed, memory not stored.`                     | Clé d'API Gemini manquante ou quota d'embeddings dépassé.                                    | Vérifier la présence de `GEMINI_KEY` dans le fichier `.env` ou `credentials.json`.                                                                                 |
+| `[ActionMemory] Action not found in Supabase`                           | L'action a été créée il y a plus de 7 jours ou a été supprimée par le nettoyeur d'orphelins. | Réinitialiser une nouvelle action via `actionMemory.startAction(chatId, {...})`.                                                                                   |
+| `[CMA] Error boosting memories: function match_memories does not exist` | Schéma PostgreSQL ou fonction RPC manquante.                                                 | Appliquer le schéma SQL `src/supabase/supabase_setup.sql`.                                                                                                         |

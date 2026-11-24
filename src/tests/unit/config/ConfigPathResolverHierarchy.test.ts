@@ -68,11 +68,10 @@ describe('ConfigPathResolver Hierarchy (#133)', () => {
     [prjSched, prjCred, prjMod, prjServ, prjPrice].forEach((f) =>
       safeFs.safeWriteFileSync(f, '{"s":1}'),
     );
-    expect(resolveConfigPath('credentials.json')).toBe(resolve(prjCred));
-
     process.env.HIVE_LEGACY_CONFIG_DIR = e.envDir;
     process.env.HIVE_DEFAULTS_CONFIG_DIR = e.defDir;
     const sens = [
+      ['credentials.json', prjCred],
       ['models_config.json', prjMod],
       ['pricing.json', prjPrice],
       ['scheduler.json', prjSched],

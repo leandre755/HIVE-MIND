@@ -86,10 +86,10 @@ Si le chat est vide ou ennuyeux, moque-toi du silence.
       const { createGeminiLiveProvider, HD_VOICES } =
         await import('../../../providers/geminiLive.js');
       const { safeReadFileSync } = await import('../../../utils/safeFs.js');
-      const { join } = await import('path');
+      const { resolveConfigPath } = await import('../../../config/ConfigPathResolver.js');
 
       // Charger les credentials
-      const credPath = join(process.cwd(), 'config', 'credentials.json');
+      const credPath = resolveConfigPath('credentials.json');
       const credentials = JSON.parse(safeReadFileSync(credPath, 'utf-8'));
 
       // Initialiser le provider

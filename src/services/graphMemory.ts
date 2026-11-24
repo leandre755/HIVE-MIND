@@ -4,12 +4,9 @@
 import { supabase } from './supabase.js';
 import { EmbeddingsService } from './ai/EmbeddingsService.js';
 import { resolveMemoryContextId } from './memory/contextResolver.js';
-import { safeReadFileSync as readFileSync } from '../utils/safeFs.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { safeReadFileSync } from '../utils/safeFs.js';
+import { resolveConfigPath } from '../config/ConfigPathResolver.js';
 import { resolveApiKey } from '../config/keyResolver.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -56,22 +53,34 @@ interface NeighborResult {
 
 // Initialisation embeddings
 let embeddings: EmbeddingsService | null = null;
-try {
-  const credentials = JSON.parse(
-    readFileSync(join(__dirname, '..', 'config', 'credentials.json'), 'utf-8'),
-  );
 
-  const geminiKey = resolveApiKey(credentials.familles_ia?.gemini, 'gemini');
-  const openaiKey = resolveApiKey(credentials.familles_ia?.openai, 'openai');
+export function initGraphMemoryEmbeddings(): EmbeddingsService | null {
+  let creds: { familles_ia?: Record<string, string> } = {};
+  try {
+    creds = JSON.parse(safeReadFileSync(resolveConfigPath('credentials.json'), 'utf-8'));
+  } catch (error: unknown) {
+    console.warn(
+      '[GraphMemory] Impossible de lire credentials.json, repli sur variables d’environnement:',
+      extractErrorMessage(error),
+    );
+  }
 
-  embeddings = new EmbeddingsService({
-    geminiKey: geminiKey || undefined,
-    openaiKey: openaiKey || undefined,
-    dimensions: 1024,
-  });
-} catch (error: unknown) {
-  console.error('[GraphMemory] Erreur init embeddings:', extractErrorMessage(error));
+  const geminiKey = resolveApiKey(creds.familles_ia?.gemini ?? '', 'gemini');
+  const openaiKey = resolveApiKey(creds.familles_ia?.openai ?? '', 'openai');
+
+  if (geminiKey || openaiKey) {
+    embeddings = new EmbeddingsService({
+      geminiKey: geminiKey || undefined,
+      openaiKey: openaiKey || undefined,
+      dimensions: 1024,
+    });
+  } else {
+    embeddings = null;
+  }
+  return embeddings;
 }
+
+embeddings = initGraphMemoryEmbeddings();
 
 export const graphMemory = {
   async upsertEntity(chatId: string, entity: EntityData): Promise<UpsertEntityResult | null> {

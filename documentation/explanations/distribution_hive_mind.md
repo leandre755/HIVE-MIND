@@ -39,7 +39,7 @@ hive-mind tui
 - Ajouter une commande `init` qui copie les configs utilisateur dans le dossier global unifié `~/.hivemind/config/`.
 - Charger les configs depuis l'ordre suivant :
   1. variables d'environnement explicites (`HIVE_CONFIG_<FILE>`, `HIVE_CONFIG_DIR`) ;
-  2. dossier projet courant (`./config/` ; `models_config.json`, `pricing.json`, `scheduler.json` et `services_config.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`) ;
+  2. dossier projet courant (`./config/` ; `credentials.json`, `models_config.json`, `pricing.json`, `scheduler.json` et `services_config.json` nécessitent `HIVE_TRUST_PROJECT_CONFIG=true` ou `1`) ;
   3. `~/.hivemind/config/` (configuration utilisateur globale) ;
   4. defaults embarqués en lecture seule (`src/config/defaults/`).
 
@@ -48,7 +48,7 @@ hive-mind tui
 | Fichier de configuration | Emplacement utilisateur cible             | Template par défaut (`defaults/`)          | Comportement / Valeurs par défaut si absent                                                                                                                                                                        | Sensibilité projet (`./config/`)                      |
 | :----------------------- | :---------------------------------------- | :----------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
 | `config.json`            | `~/.hivemind/config/config.json`          | `src/config/defaults/config.json`          | Protection anti-spam (10 msgs max, cooldown 2s, timeout 120s) et mode voix restreint                                                                                                                               | Non sensible (chargé directement)                     |
-| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe, ses clés sont fusionnées sur les clés globales                                                                                                                        | Non bloqué par opt-in (clés locales autorisées)       |
+| `credentials.json`       | `~/.hivemind/config/credentials.json`     | _Aucun (secrets exclus)_                   | `{}`. Si `./config/credentials.json` existe (avec opt-in), ses clés sont fusionnées sur les clés globales                                                                                                          | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
 | `models_config.json`     | `~/.hivemind/config/models_config.json`   | `src/config/defaults/models_config.json`   | Catalogue exhaustif des modèles IA et routes (Gemini, Claude, GPT, Mistral, Groq...)                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
 | `pricing.json`           | `~/.hivemind/config/pricing.json`         | `src/config/defaults/pricing.json`         | Fallback mémoire : $0.15/1M tokens (input), $0.60/1M tokens (output)                                                                                                                                               | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
 | `scheduler.json`         | `~/.hivemind/config/scheduler.json`       | `src/config/defaults/scheduler.json`       | 15 tâches planifiées activées par défaut (exemples : dailyGreeting à 8h, reminderCheck à 1min, memoryCleanup à 3h, auto-goal execution...). Consulter `src/config/defaults/scheduler.json` pour la grille complète | **Sensible** : requiert `HIVE_TRUST_PROJECT_CONFIG=1` |
@@ -202,18 +202,14 @@ La meilleure trajectoire est progressive :
 
 ## Changements prioritaires à faire dans le code
 
-### 1. Séparer configuration par défaut et configuration utilisateur (Migration Partielle — PR #138 & #139)
+### 1. Séparer configuration par défaut et configuration utilisateur (Migration Complète — PR #138, #139 & #141)
 
-La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) pour le Smart Router, le Runtime FinOps, et le Scheduler. Il sépare formellement :
+La résolution des configurations est désormais assurée de manière centralisée et portable par le `ConfigPathResolver` (`src/config/ConfigPathResolver.ts`) pour l'ensemble des 13 consommateurs, y compris le conteneur IoC (`ServiceContainer.loadConfig()`), le Smart Router, le Runtime FinOps, et le Scheduler. Il sépare formellement :
 
 - Les templates embarqués par défaut en lecture seule dans `src/config/defaults/` (`config.json`, `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
 - La configuration utilisateur globale sanctuarisée dans `~/.hivemind/config/`.
-- La configuration projet locale (`./config/`), soumise à l'opt-in de sécurité `HIVE_TRUST_PROJECT_CONFIG=1` pour les fichiers sensibles (`models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
-- La fusion intelligente sans 401 pour `credentials.json` (les clés projet surchargent les clés globales utilisateur).
-
-> [!WARNING]
-> **Migration du conteneur en attente (#135)** :
-> L'initialisation du conteneur IoC (`ServiceContainer.loadConfig()` dans `src/core/ServiceContainer.ts`) charge encore directement `src/config/credentials.json` et `src/config/models_config.json` pour instancier les services `embeddings` et `voiceProvider`. Si une installation ne fournit que les fichiers sous `~/.hivemind/config/`, le conteneur complet échouera à démarrer. La transition complète de `ServiceContainer.loadConfig()` vers `ConfigPathResolver` fait l'objet de l'étape de packaging #135.
+- La configuration projet locale (`./config/`), soumise à l'opt-in de sécurité `HIVE_TRUST_PROJECT_CONFIG=1` pour tous les fichiers sensibles (`credentials.json`, `models_config.json`, `pricing.json`, `scheduler.json`, `services_config.json`).
+- La validation stricte au démarrage (0 valeur par défaut) : échec clair si Supabase ou les clés d'IA sont manquantes, et bascule non bloquante en mode mémoire local si Redis est absent.
 
 ### 2. Supprimer les chemins absolus utilisateur et émanciper HIVE-MIND des fichiers hôte
 

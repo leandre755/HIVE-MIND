@@ -66,10 +66,12 @@ describe('src/config/index.ts Integration', () => {
     safeMkdirSync(userCfgDir, { recursive: true });
     safeMkdirSync(prjCfgDir, { recursive: true });
     const userCreds = { default_provider: 'gemini', familles_ia: { gemini: 'u-gemini' } },
-      prjCreds = { project_id: 'p1', familles_ia: { openai: 'p-openai' } };
+      prjCreds = { project_id: 'p1', familles_ia: { openai: 'p-openai' } },
+      prevTrust = process.env.HIVE_TRUST_PROJECT_CONFIG;
     safeWriteFileSync(join(userCfgDir, 'credentials.json'), JSON.stringify(userCreds));
     safeWriteFileSync(join(prjCfgDir, 'credentials.json'), JSON.stringify(prjCreds));
     process.env.HIVE_HOME_DIR = join(tempBase, 'user', '.hivemind');
+    process.env.HIVE_TRUST_PROJECT_CONFIG = 'true';
     process.chdir(join(tempBase, 'project'));
     try {
       const chk = (c: object) => expect(loadJsonConfig('credentials.json')).toMatchObject(c);
@@ -98,6 +100,8 @@ describe('src/config/index.ts Integration', () => {
       process.chdir(originalCwd);
       if (prevHome !== undefined) Reflect.set(process.env, 'HIVE_HOME_DIR', prevHome);
       else Reflect.deleteProperty(process.env, 'HIVE_HOME_DIR');
+      if (prevTrust !== undefined) Reflect.set(process.env, 'HIVE_TRUST_PROJECT_CONFIG', prevTrust);
+      else Reflect.deleteProperty(process.env, 'HIVE_TRUST_PROJECT_CONFIG');
       try {
         safeRemoveDirectorySync(tempBase);
       } catch {

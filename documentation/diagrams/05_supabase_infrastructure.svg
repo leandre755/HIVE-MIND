@@ -15,12 +15,12 @@
 <text x="55.0" y="118.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• [DEV]: Monospace specifications with exact codebase file paths</text>
 <text x="55.0" y="135.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#0f172a" text-anchor="start" opacity="1">• [METIER]: Functional non-developer domain overview</text>
 <rect x="420" y="40" width="580" height="155" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
-<text x="435.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">1. Supabase Core Schema &amp; Memory Migration</text>
+<text x="435.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">1. Supabase Core Schema &amp; In-Place Setup</text>
 <text x="435.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
 <text x="435.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/supabase/supabase_setup.sql</text>
-<text x="435.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">src/supabase/migrations/20260519130000_cma_boost_memory.sql</text>
+<text x="435.0" y="128.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">(Idempotent setup &amp; in-place upgrade DDL)</text>
 <text x="435.0" y="154.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
-<text x="435.0" y="170.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">DDL SQL de configuration initiale de Supabase et migration pour l'optimisation de la mémoire et des embeddings sémantiques.</text>
+<text x="435.0" y="170.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">DDL SQL idempotent de configuration et mise à niveau continue de Supabase avec pgvector.</text>
 <rect x="420" y="225" width="580" height="285" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
 <text x="435.0" y="253.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">2. Infrastructure Diagnostics &amp; Maintenance</text>
 <text x="435.0" y="280.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
@@ -181,7 +181,7 @@
 <path d="M 1000 350 L 1040 350" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr2)"/>
 <path d="M 1620 120 L 1660 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr3)"/>
 <path d="M 2240 120 L 2280 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr4)"/>
-<rect x="2900" y="40" width="580" height="430" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<rect x="2900" y="40" width="580" height="460" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
 <text x="2915.0" y="68.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">12. LLM as Judge Subsystem</text>
 <text x="2915.0" y="95.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
 <text x="2915.0" y="111.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/libs/smart-router/adapters/codestral.js</text>
@@ -204,32 +204,32 @@
 <text x="2915.0" y="399.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/infra/llmClient.ts</text>
 <text x="2915.0" y="416.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/types.ts</text>
 <text x="2915.0" y="433.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_juge/personal_agents/auditor/ui/index.ts</text>
-<text x="2915.0" y="438.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
-<text x="2915.0" y="454.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Juge : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
-<rect x="2900" y="500" width="580" height="430" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
-<text x="2915.0" y="528.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">13. LLM as Validator Subsystem</text>
-<text x="2915.0" y="555.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
-<text x="2915.0" y="571.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/codestral.js</text>
-<text x="2915.0" y="588.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/gemini.js</text>
-<text x="2915.0" y="605.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/github.js</text>
-<text x="2915.0" y="622.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/groq.js</text>
-<text x="2915.0" y="639.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/mistral.js</text>
-<text x="2915.0" y="656.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/cli.mjs</text>
-<text x="2915.0" y="673.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/envResolver.js</text>
-<text x="2915.0" y="690.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/index.js</text>
-<text x="2915.0" y="707.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/loadEnv.js</text>
-<text x="2915.0" y="724.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/models_config.json</text>
-<text x="2915.0" y="740.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/router.js</text>
-<text x="2915.0" y="757.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/envResolver.test.js</text>
-<text x="2915.0" y="774.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/router.test.js</text>
-<text x="2915.0" y="791.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/usageTracker.js</text>
-<text x="2915.0" y="808.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/domain/auditorLogic.ts</text>
-<text x="2915.0" y="825.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/idee.md</text>
-<text x="2915.0" y="842.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/fileScanner.ts</text>
-<text x="2915.0" y="859.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/llmClient.ts</text>
-<text x="2915.0" y="876.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/types.ts</text>
-<text x="2915.0" y="893.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/ui/index.ts</text>
-<text x="2915.0" y="898.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
-<text x="2915.0" y="914.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Validateur : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
+<text x="2915.0" y="455.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2915.0" y="472.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Juge : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
+<rect x="2900" y="520" width="580" height="460" rx="0" fill="#ffebee" stroke="#e11d48" stroke-width="2" opacity="1"/>
+<text x="2915.0" y="548.0" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#0f172a" text-anchor="start" opacity="1">13. LLM as Validator Subsystem</text>
+<text x="2915.0" y="575.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">[DEV]</text>
+<text x="2915.0" y="591.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/codestral.js</text>
+<text x="2915.0" y="608.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/gemini.js</text>
+<text x="2915.0" y="625.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/github.js</text>
+<text x="2915.0" y="642.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/groq.js</text>
+<text x="2915.0" y="659.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/adapters/mistral.js</text>
+<text x="2915.0" y="676.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/cli.mjs</text>
+<text x="2915.0" y="693.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/envResolver.js</text>
+<text x="2915.0" y="710.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/index.js</text>
+<text x="2915.0" y="727.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/loadEnv.js</text>
+<text x="2915.0" y="744.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/models_config.json</text>
+<text x="2915.0" y="760.9" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/router.js</text>
+<text x="2915.0" y="777.8" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/envResolver.test.js</text>
+<text x="2915.0" y="794.7" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/tests/router.test.js</text>
+<text x="2915.0" y="811.6" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/libs/smart-router/usageTracker.js</text>
+<text x="2915.0" y="828.5" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/domain/auditorLogic.ts</text>
+<text x="2915.0" y="845.4" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/idee.md</text>
+<text x="2915.0" y="862.3" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/fileScanner.ts</text>
+<text x="2915.0" y="879.2" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/infra/llmClient.ts</text>
+<text x="2915.0" y="896.1" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/types.ts</text>
+<text x="2915.0" y="913.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#1e3a8a" text-anchor="start" opacity="1">llm_as_validator/personal_agents/auditor/ui/index.ts</text>
+<text x="2915.0" y="935.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">[METIER]</text>
+<text x="2915.0" y="952.0" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#334155" text-anchor="start" opacity="1">Composants du système LLM comme Validateur : adaptateurs multi-modèles, résolveur d'environnement, routage et agent auditeur d'intégrité.</text>
 <path d="M 2860 120 L 2900 120" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" opacity="1" marker-end="url(#mk-d05_arr5)"/>
 </svg>
