@@ -217,8 +217,6 @@ class McpClientService {
           .join('\n');
         return resolveMcpContent(rec, result.content, texts);
       }
-      const sc = isPlainRecord(rec.structuredContent) ? rec.structuredContent : null;
-      if (sc) return { success: true, data: sc, structuredContent: sc, raw: sc };
       return { success: true, data: result };
     } catch (error: unknown) {
       const errorMessage = extractErrorMessage(error);

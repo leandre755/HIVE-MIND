@@ -159,29 +159,28 @@ describe('Visual Reporter Plugin', () => {
     const syncRes = await exec({ title: 'S', content: 'B', filename: 's' });
     await new Promise((r) => setTimeout(r, 10));
     process.off('unhandledRejection', onRej);
-    expect([syncRes.success, unhandled.length, unlinkSync.mock.calls.length > 0]).toEqual([
-      false,
-      0,
-      true,
-    ]);
+    const unlinked = unlinkSync.mock.calls.length > 0;
+    expect([syncRes.success, unhandled.length, unlinked]).toEqual([false, 0, true]);
     createWriteStream.mockReturnValueOnce(stubStream());
     on.mockImplementationOnce((ev, cb) => ev === 'error' && cb(new Error('pdf fail')));
     const docErr = await exec({ title: 'E2', content: 'B', filename: 'e2' });
     expect([docErr.success, docErr.message]).toEqual([false, expect.stringContaining('pdf fail')]);
-    const cwdTemp = path.resolve(process.cwd(), 'temp');
+    const [cwdTemp, sub] = [path.resolve('temp'), path.resolve('temp', 'sub')];
     [unlinkSync, readdirSync].forEach((x) => x.mockClear());
-    const entries = ['gone.pdf', 'sym.pdf', '.gitkeep', 'old.pdf'];
-    readdirSync.mockImplementation((d: string) => (d === cwdTemp ? entries : ['leak.pdf']));
+    const entries = ['gone.pdf', 'err.pdf', 'sym.pdf', '.gitkeep', 'sub', 'old.pdf'];
+    const rdSub = (d: string) => (d === sub ? ['sub.pdf'] : ['leak.pdf']);
+    readdirSync.mockImplementation((d: string) => (d === cwdTemp ? entries : rdSub(d)));
     const goneErr = Object.assign(new Error('gone'), { code: 'ENOENT' });
     const mkD = (s: boolean) => ({ ...st, isDirectory: () => true, isSymbolicLink: () => s });
     const lstat = (p: string) => {
       if (p.endsWith('gone.pdf')) return fail(goneErr);
-      if (p === cwdTemp) return mkD(false);
-      return p.endsWith('old.pdf') ? st : mkD(true);
+      if (p.endsWith('err.pdf')) return fail(new Error('perm'));
+      if (p === cwdTemp || p === sub) return mkD(false);
+      return p.endsWith('old.pdf') || p.endsWith('sub.pdf') ? st : mkD(true);
     };
     lstatSync.mockImplementation(lstat);
     await new CleanupServiceCls().run();
-    const expClean = [[[cwdTemp]], [[path.join(cwdTemp, 'old.pdf')]]];
-    expect([readdirSync.mock.calls, unlinkSync.mock.calls]).toEqual(expClean);
+    const expF = [[path.join(sub, 'sub.pdf')], [path.join(cwdTemp, 'old.pdf')]];
+    expect([readdirSync.mock.calls, unlinkSync.mock.calls]).toEqual([[[cwdTemp], [sub]], expF]);
   });
 });

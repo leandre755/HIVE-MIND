@@ -1,5 +1,23 @@
 # Test Execution Log
 
+## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 7 : couverture patch 100% Codecov + nettoyage `mcpClient`)
+
+### Contexte & Diagnostic sur commit `669167b`
+- CI distante sur `669167b` : `Workspace Validation` (Node `22`), `ESLint`, `CodeQL`, `SonarCloud` (`Quality Gate passed`, `5` `MINOR`), `Governance` (`2495`), `Dependency review`, `Workflow hygiene` : **SUCCESS** ; `Codex Review` (`issuecomment-7161674508`) : `completed`, `has_any_findings: false`, `has_unresolved_findings: false`.
+- Échec unique : `codecov/patch` à `97.99427%` (`7` lignes manquantes : `geminiLive.ts:142,143,301`, `cleanup.ts:52,72`, `mcpClient.ts:220,221`).
+- Correctif Round 6–7 : ajout des tests manquants (`onopen`, `ms <= 0` avec spy `Date.now` restauré en `.finally`, `err.pdf` non-`ENOENT` + récursion `sub/sub.pdf`), puis suppression au Round 7 de la branche morte `mcpClient.ts:220-221` (inatteignable sous `CompatibilityCallToolResultSchema`) et de tout contournement de schéma dans `mcpClient.test.ts`.
+
+### Résultats d'exécution Round 7 post-édition (sorties brutes)
+- **Portée, Budget LoC & Statique complet (`steps/2156/output.txt`)** :
+  - `TOTAL_PR_CODE_LOC=2490 <= 2500` (`package-lock.json`: `1207`, `package.json`: `57`, `schedulerHandler.ts`: `24`, `visual_reporter/index.ts`: `201`, `adapters/geminiLive.ts`: `59`, `geminiLive.ts`: `349`, `cleanup.ts`: `32`, `mcpClient.ts`: `139`, `schedulerCron.test.ts`: `43`, `visualReporterPlugin.test.ts`: `142`, `geminiLive.test.ts`: `147`, `mcpClient.test.ts`: `90`).
+  - `npm run build` (`tsc --noEmit`) exit `0` ; `oxlint --deny-warnings src/` `Found 0 warnings and 0 errors.` (`375 files`) ; `depcruise` `0 errors, 1 warnings` (`433 modules, 1304 dependencies`) ; `npx eslint --max-warnings 0` (10 fichiers TS PR #192) `ESLINT_ALL_10_PR_TS_FILES_EXIT=0` ; `npm run format:check` `All matched files use Prettier code style!`.
+- **Suite unitaire complète & intersection `lcov.info` (`TZ=America/New_York npm run test:unit -- --coverage --runInBand`, `steps/2162/output.txt`)** :
+  - `Test Suites: 111 passed, 111 total` / `Tests: 1105 passed, 1105 total` / `Snapshots: 0 total` / `Time: 182.561 s`.
+  - Intersection `git diff -U0 origin/master -- src/` vs `coverage/lcov.info` : `schedulerHandler.ts` `6/6`, `visual_reporter/index.ts` `81/81`, `adapters/geminiLive.ts` `20/20`, `geminiLive.ts` `126/126`, `cleanup.ts` `14/14`, `mcpClient.ts` `67/67` -> `TOTAL_UNCOVERED_PATCH_LINES=0`. (`test:integration` et `test:e2e` non exécutés ; `npm audit` prod à `0` vulnérabilité inchangé depuis `task-1750.log`.)
+- **Double audit indépendant `antibug` Round 7** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+
 ## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 5 : fix Node 22 `CloseEvent` + validation Codex `ace6999`)
 
 ### Contexte & Diagnostic CI/Bot sur commit `ace6999`
