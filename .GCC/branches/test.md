@@ -1,5 +1,24 @@
 # Test Execution Log
 
+## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 4 : fix CI `--coverage`, Codex P1 symlink root & SonarCloud)
+
+### Contexte & Périmètre modifié après ouverture PR #192 (`1e31f36`)
+- CI `Workspace Validation` (`--coverage`) sur `1e31f36` : `110/111` suites passées, échec de course timer dans `geminiLive.test.ts:90` (`setTimeout(..., 5)` vs `timeoutMs: 25`).
+- Codex P1 (`PRRT_kwDOT0y8pM674asc`, comment `4694569923`) : `CleanupService` suivait un symlink racine `<cwd>/temp` via `safeExistsSync`.
+- Correctifs appliqués sur `cleanup.ts`, `visualReporterPlugin.test.ts`, `geminiLive.test.ts`, `schedulerHandler.ts`, `visual_reporter/index.ts`, `geminiLive.ts`, `mcpClient.ts`, `mcpClient.test.ts` (`TOTAL_PR_CODE_LOC=2495 <= 2500` contre `origin/master`).
+
+### Résultats d'exécution Round 4 post-édition (sorties brutes)
+- **Budget LoC, ESLint & Jest ciblé `--coverage` (`task-1922.log`)** :
+  `TOTAL_PR_CODE_LOC=2495` (`package-lock.json`: `1207`, `package.json`: `57`, `schedulerHandler.ts`: `24`, `visual_reporter/index.ts`: `201`, `adapters/geminiLive.ts`: `59`, `geminiLive.ts`: `349`, `cleanup.ts`: `32`, `mcpClient.ts`: `141`, `schedulerCron.test.ts`: `43`, `visualReporterPlugin.test.ts`: `143`, `geminiLive.test.ts`: `147`, `mcpClient.test.ts`: `92`).
+  Targeted ESLint : 0 erreur/warning. Targeted Jest (`--coverage --runInBand`) : `Test Suites: 4 passed, 4 total` / `Tests: 8 passed, 8 total` / `Time: 24.538 s` (`visual_reporter/index.ts`: `100%` lines, `geminiLive.ts`: `97.12%` lines, `mcpClient.ts`: `94.17%` lines, `cleanup.ts`: `77.14%` lines).
+- **Validation statique complète (`task-1927.log`)** :
+  `tsc --noEmit` exit `0` ; `oxlint --deny-warnings src/` `Found 0 warnings and 0 errors.` (`375 files`) ; `depcruise` `0 errors, 1 warnings` (`433 modules, 1304 dependencies`) ; `npx eslint src/` `ESLINT_CLEAN_EXIT_0` ; `prettier --check` `All matched files use Prettier code style!`.
+- **Suite unitaire complète avec couverture (`TZ=America/New_York npm run test:unit -- --coverage --runInBand`, `task-1932.log`)** :
+  `Test Suites: 111 passed, 111 total` / `Tests: 1105 passed, 1105 total` / `Snapshots: 0 total` / `Time: 289.298 s`. (`npm audit` inchangé depuis `task-1750.log` : `0` vulnérabilité prod, aucune dépendance modifiée au Round 4 ; `test:integration` et `test:e2e` non exécutés.)
+- **Double audit indépendant `antibug` Round 4** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+
 ## 📅 Date: 2026-11-25 (PR #1 `chore/deps-npm-production-and-gemini-live` — Round 3 validé 100% double ANTIBUG)
 
 ### Périmètre PR #1 (Scope A — 12 fichiers non-doc, `2488` LoC <= `2500`)

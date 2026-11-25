@@ -26,18 +26,18 @@ const turn = (p: unknown[]) => ({ serverContent: { modelTurn: { parts: p }, turn
 const tc = (functionCalls: unknown[]) => ({ toolCall: { functionCalls } });
 const cc = (ids: string[]) => ({ toolCallCancellation: { ids } });
 const fc = (id: string, name: string) => ({ id, name });
-const delay = <T>(v: T, ms: number) => new Promise<T>((r) => setTimeout(() => r(v), ms));
-const mkS = () => {
-  const v = () => m<[unknown], void>();
-  const [sendRealtimeInput, sendToolResponse, close] = [v(), v(), m<[], void>()];
+const mkS = (onSend?: () => void) => {
+  const v = () => m<[unknown], void>().mockImplementation(() => onSend?.());
+  const [sendRealtimeInput, sendToolResponse, close] = [v(), m<[unknown], void>(), m<[], void>()];
   const s = { sendRealtimeInput, sendClientContent: v(), sendToolResponse, close };
-  return { ...s, s: s as unknown as G.Session };
+  return { ...s, s: s as unknown as G.Session, cb: null as LCP['callbacks'] | null };
 };
-const mkConn = (pr: Prov, msgs: unknown[], late?: (cb: LCP['callbacks']) => void) => {
-  const h = mkS();
+const mkConn = (pr: Prov, msgs: unknown[], afterSend?: (cb: LCP['callbacks']) => void) => {
+  let n = 0;
+  const h = mkS(() => n++ === 0 && afterSend && queueMicrotask(() => afterSend(h.cb!)));
   jest.spyOn(pr.ai.live, 'connect').mockImplementationOnce(async (p: LCP) => {
+    h.cb = p.callbacks;
     msgs.forEach((x) => p.callbacks.onmessage?.(lm(x)));
-    if (late) setTimeout(() => late(p.callbacks), 5);
     return h.s;
   });
   return h;
@@ -82,42 +82,48 @@ describe('GeminiLiveProvider and GeminiLiveAdapter', () => {
     expect(tts.filePath).toMatch(/gemini_tts_.*\.wav$/);
     const errRes = [{ name: 'boom', id: 'c3', response: { error: 'tool exploded' } }];
     expect(h2.sendToolResponse).toHaveBeenCalledWith({ functionResponses: errRes });
-    const p2 = new GeminiLiveProvider('k', { model: M, timeoutMs: 25 });
-    await expect(p2.processAudio(Buffer.alloc(0))).rejects.toThrow('Buffer audio vide');
-    const tErr = (t: string, msg: string) => expect(p2.textToSpeech(t)).rejects.toThrow(msg);
-    await tErr('   ', 'Texte vide');
-    const cH = mkConn(p2, [], (cb) => cb.onclose?.(new CloseEvent('close')));
-    await tErr('closed', 'Session fermée');
+    await expect(p.processAudio(Buffer.alloc(0))).rejects.toThrow('Buffer audio vide');
+    const tErr = (q: Prov, t: string, s: string) => expect(q.textToSpeech(t)).rejects.toThrow(s);
+    await tErr(p, '   ', 'Texte vide');
+    const cH = mkConn(p, [], (cb) => cb.onclose?.(new CloseEvent('close')));
+    await tErr(p, 'closed', 'Session fermée');
     const sEv = { message: 'socket boom' } as unknown as ErrorEvent;
-    const eH = mkConn(p2, [], (cb) => cb.onerror?.(sEv));
-    await expect(p2.processAudio(Buffer.from([1]))).rejects.toThrow('socket boom');
+    const eH = mkConn(p, [], (cb) => cb.onerror?.(sEv));
+    await expect(p.processAudio(Buffer.from([1]))).rejects.toThrow('socket boom');
+    const p2 = new GeminiLiveProvider('k', { model: M, timeoutMs: 80 });
     const tH = mkConn(p2, []);
-    await tErr('timeout', "Délai d'attente");
+    await tErr(p2, 'timeout', "Délai d'attente");
     expect([h, h2, cH, eH, tH].map((x) => x.close.mock.calls.length)).toEqual([1, 1, 1, 1, 1]);
     const late = mkS();
-    jest.spyOn(p2.ai.live, 'connect').mockImplementationOnce(() => delay(late.s, 60));
-    await Promise.all([tErr('hs', "Délai d'attente"), delay(undefined, 95)]);
+    const rs: Array<(s: G.Session) => void> = [];
+    jest.spyOn(p2.ai.live, 'connect').mockReturnValueOnce(new Promise((r) => rs.push(r)));
+    await tErr(p2, 'hs', "Délai d'attente");
+    rs[0]?.(late.s);
+    await Promise.resolve();
     expect(late.close).toHaveBeenCalledTimes(1);
-    const cP = new GeminiLiveProvider('k', { model: M, onToolCall: () => delay({ ok: 1 }, 20) });
-    const cH2 = mkConn(cP, [tc([fc('c9', 's')])], (cb) => {
-      cb.onmessage?.(lm(cc(['c9'])));
-      setTimeout(() => cb.onmessage?.(lm(turn([{ text: 'after' }]))), 25);
-    });
+    const ref: { h?: ReturnType<typeof mkConn> } = {};
+    const cancelTurn = async () => {
+      [cc(['c9']), turn([{ text: 'after' }])].forEach((x) => ref.h?.cb?.onmessage?.(lm(x)));
+      return { ok: 1 };
+    };
+    const cP = new GeminiLiveProvider('k', { model: M, onToolCall: cancelTurn });
+    ref.h = mkConn(cP, [tc([fc('c9', 's')])]);
     await cP.textToSpeech('hi');
-    expect(cH2.sendToolResponse).not.toHaveBeenCalled();
+    expect(ref.h.sendToolResponse).not.toHaveBeenCalled();
     const seen: string[] = [];
-    const onTC = (f0: G.FunctionCall) => delay({ ok: seen.push(f0.name ?? '') }, 25);
-    const expP = new GeminiLiveProvider('k', { model: M, timeoutMs: 20, onToolCall: onTC });
+    const onTC = (f0: G.FunctionCall) => new Promise<R>(() => seen.push(f0.name ?? ''));
+    const expP = new GeminiLiveProvider('k', { model: M, timeoutMs: 200, onToolCall: onTC });
     mkConn(expP, [tc([fc('f1', 'slow1'), fc('f2', 'never')])]);
-    await expect(expP.textToSpeech('hi')).rejects.toThrow("Délai d'attente");
-    await delay(undefined, 15);
+    await tErr(expP, 'hi', "Délai d'attente");
     expect(seen).toEqual(['slow1']);
     const adp = new GeminiLiveAdapter('k', mOpt);
     const base = { audioParts: [], audioBuffer: null, transcription: '', emotion: null };
     const fRes = (f: string) => ({ ...base, filePath: f });
     jest.spyOn(adp.provider!, 'textToSpeech').mockResolvedValue(fRes('/t.wav'));
-    wo.mockRejectedValueOnce(new Error('ffmpeg fail')).mockResolvedValueOnce('/t.ogg');
-    sr.mockRejectedValueOnce(new Error('read fail'));
+    wo.mockRejectedValueOnce(new Error('ffmpeg fail'))
+      .mockResolvedValueOnce('/t.ogg')
+      .mockResolvedValueOnce('/m2.ogg');
+    sr.mockRejectedValueOnce(new Error('read fail')).mockResolvedValueOnce(Buffer.from('ogg'));
     const failSyn = async (e: string, f: string) => {
       cl.mockClear();
       await expect(adp.synthesize('x')).rejects.toThrow(e);
@@ -129,8 +135,6 @@ describe('GeminiLiveProvider and GeminiLiveAdapter', () => {
     await expect(noMod.synthesize('x')).rejects.toThrow('GeminiLive provider not initialized');
     const ovSpy = jest.spyOn(GeminiLiveProvider.prototype, 'textToSpeech');
     ovSpy.mockResolvedValueOnce(fRes('/m2.wav'));
-    wo.mockResolvedValueOnce('/m2.ogg');
-    sr.mockResolvedValueOnce(Buffer.from('ogg'));
     const ov = await noMod.synthesize('x', { model: 'm2' });
     ovSpy.mockRestore();
     expect([noMod.apiKey, ov.filePath]).toEqual(['trimmed', '/m2.ogg']);

@@ -1,5 +1,4 @@
 import {
-  safeExistsSync,
   safeLstatSync,
   safeReaddirSync,
   safeUnlinkSync,
@@ -26,7 +25,7 @@ export class CleanupService {
     try {
       const now = Date.now();
       for (const dir of dirs) {
-        if (safeExistsSync(dir)) this._cleanRecursive(dir, now, dir);
+        this._cleanRecursive(dir, now, dir);
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -57,6 +56,8 @@ export class CleanupService {
   }
 
   _cleanRecursive(directory: string, now: number, rootDir: string = this.tempDir) {
+    const rootStat = directory === rootDir ? this._safeLstat(rootDir, rootDir) : null;
+    if (directory === rootDir && (!rootStat?.isDirectory() || rootStat.isSymbolicLink())) return;
     try {
       const files = safeReaddirSync(directory);
 

@@ -13,11 +13,8 @@ const [clClose, stClose, ssClose] = [cf(), cf(), cf()];
 type ClMap = { callTool: typeof mt; listTools: typeof ml };
 type MC = ClMap & { connect: typeof mc; close: typeof clClose; onclose?: () => void };
 const cc: MC[] = [];
-const mockCtor = m<[], MC>().mockImplementation(() => {
-  const c: MC = { connect: mc, listTools: ml, callTool: mt, close: clClose };
-  cc.push(c);
-  return c;
-});
+const mkC = (): MC => ({ connect: mc, listTools: ml, callTool: mt, close: clClose });
+const mockCtor = m<[], MC>().mockImplementation(() => cc[cc.push(mkC()) - 1]!);
 type CB = { close: typeof stClose };
 const st = m<[unknown], CB>().mockImplementation(() => ({ close: stClose }));
 const ss = m<[URL], CB>().mockImplementation(() => ({ close: ssClose }));

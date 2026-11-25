@@ -51,9 +51,8 @@ function buildSseTransport(name: string, def: Record<string, unknown>): SSEClien
   const rawUrl = typeof def.url === 'string' ? def.url.trim() : '';
   if (!rawUrl) throw new Error(`[MCP] Server ${name} (sse) missing required url`);
   const parsed = new URL(rawUrl);
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error(`[MCP] Server ${name} (sse) must use http or https URL`);
-  }
+  const okProto = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  if (!okProto) throw new Error(`[MCP] Server ${name} (sse) requires http/https`);
   return new SSEClientTransport(parsed);
 }
 const isStr = (v: unknown): v is string => typeof v === 'string';
@@ -61,9 +60,8 @@ function buildStdioTransport(name: string, def: Record<string, unknown>): StdioC
   const command = typeof def.command === 'string' ? def.command.trim() : '';
   if (!command) throw new Error(`[MCP] Server ${name} (stdio) missing required command`);
   const args = Array.isArray(def.args) ? def.args.filter(isStr) : [];
-  const pairs = isPlainRecord(def.env)
-    ? Object.entries(def.env).filter((e): e is [string, string] => isStr(e[1]))
-    : null;
+  const isPair = (e: [string, unknown]): e is [string, string] => isStr(e[1]);
+  const pairs = isPlainRecord(def.env) ? Object.entries(def.env).filter(isPair) : null;
   const opt = pairs ? { command, args, env: Object.fromEntries(pairs) } : { command, args };
   return new StdioClientTransport(opt);
 }

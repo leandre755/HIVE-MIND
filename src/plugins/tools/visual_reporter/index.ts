@@ -1,6 +1,6 @@
 import PdfKitDocument from 'pdfkit';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { botIdentity } from '../../../utils/botIdentity.js';
 import {
   safeExistsSync,
@@ -13,6 +13,7 @@ import {
 const isRec = (v: unknown): v is Record<string, unknown> =>
   Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 const isStr = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+const num = (v: unknown, fb: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fb);
 function parsePdfArgs(raw: unknown): GeneratePdfArgs {
   if (!isRec(raw)) throw new Error('INVALID_ARGS: expected object arguments');
   const title = isStr(raw.title)?.trim() ?? '';
@@ -225,8 +226,6 @@ export const plugin = {
       // Footer
       const footerText = 'HiveMind V3 Architecture - Antigravity Agent';
       doc.font('Helvetica').fontSize(8).fillColor('grey');
-      const num = (v: unknown, fb: number) =>
-        typeof v === 'number' && Number.isFinite(v) ? v : fb;
       const [pageWidth, pageHeight] = [num(doc.page?.width, 612), num(doc.page?.height, 792)];
       const measured = typeof doc.widthOfString === 'function' ? doc.widthOfString(footerText) : 0;
       const footerX = measured > 0 ? Math.max(50, (pageWidth - measured) / 2) : 50;

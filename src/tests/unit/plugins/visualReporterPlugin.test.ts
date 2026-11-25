@@ -169,13 +169,19 @@ describe('Visual Reporter Plugin', () => {
     const docErr = await exec({ title: 'E2', content: 'B', filename: 'e2' });
     expect([docErr.success, docErr.message]).toEqual([false, expect.stringContaining('pdf fail')]);
     const cwdTemp = path.resolve(process.cwd(), 'temp');
-    unlinkSync.mockClear();
+    [unlinkSync, readdirSync].forEach((x) => x.mockClear());
     const entries = ['gone.pdf', 'sym.pdf', '.gitkeep', 'old.pdf'];
-    readdirSync.mockImplementation((d: string) => (d === cwdTemp ? entries : []));
+    readdirSync.mockImplementation((d: string) => (d === cwdTemp ? entries : ['leak.pdf']));
     const goneErr = Object.assign(new Error('gone'), { code: 'ENOENT' });
-    const sym = (p: string) => ({ ...st, isSymbolicLink: () => p.endsWith('sym.pdf') });
-    lstatSync.mockImplementation((p) => (p.endsWith('gone.pdf') ? fail(goneErr) : sym(p)));
+    const mkD = (s: boolean) => ({ ...st, isDirectory: () => true, isSymbolicLink: () => s });
+    const lstat = (p: string) => {
+      if (p.endsWith('gone.pdf')) return fail(goneErr);
+      if (p === cwdTemp) return mkD(false);
+      return p.endsWith('old.pdf') ? st : mkD(true);
+    };
+    lstatSync.mockImplementation(lstat);
     await new CleanupServiceCls().run();
-    expect(unlinkSync.mock.calls).toEqual([[path.join(cwdTemp, 'old.pdf')]]);
+    const expClean = [[[cwdTemp]], [[path.join(cwdTemp, 'old.pdf')]]];
+    expect([readdirSync.mock.calls, unlinkSync.mock.calls]).toEqual(expClean);
   });
 });

@@ -307,7 +307,7 @@ export class GeminiLiveProvider {
           onerror: (e: ErrorEvent) => {
             const msg = e?.message || 'Live API socket error';
             console.error('[GeminiLive] Erreur:', msg);
-            if (!state.error) state.error = new Error(`[GeminiLive] ${msg}`);
+            state.error ??= new Error(`[GeminiLive] ${msg}`);
             wake();
           },
           onclose: () => {

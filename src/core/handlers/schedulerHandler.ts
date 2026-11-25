@@ -313,7 +313,7 @@ export class SchedulerHandler {
     try {
       const baseDate = new Date(remindAt);
       if (Number.isNaN(baseDate.getTime())) {
-        throw new Error(`Invalid remindAt timestamp: ${remindAt}`);
+        throw new TypeError(`Invalid remindAt timestamp: ${remindAt}`);
       }
       const interval = CronExpressionParser.parse(cronExpr, {
         currentDate: baseDate,
