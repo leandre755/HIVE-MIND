@@ -3,7 +3,7 @@
 // Adapter pour Gemini 2.5 Flash Native Audio (Live API)
 // PRIORITY 0: Provider principal pour TTS haute qualité
 
-import { GeminiLiveProvider, HD_VOICES, type GeminiLiveProviderOptions } from '../geminiLive.js';
+import { GeminiLiveProvider, HD_VOICES, type GeminiLiveAdapterOptions } from '../geminiLive.js';
 import { oggToPcm, wavToOgg, cleanupTempFiles } from '../../utils/audioConverter.js';
 import { safeReadFileBuffer } from '../../utils/safeFs.js';
 import type { TTSOptions, TTSResult } from './ttsTypes.js';
@@ -16,23 +16,24 @@ export interface GeminiLiveTranscription {
   provider: string;
 }
 
+const isUsableApiKey = (apiKey: string | undefined): apiKey is string =>
+  typeof apiKey === 'string' && Boolean(apiKey.trim()) && apiKey.trim().toLowerCase() !== 'no_key';
+
 export class GeminiLiveAdapter {
   apiKey: string | undefined;
-  options: GeminiLiveProviderOptions;
+  options: GeminiLiveAdapterOptions;
   provider: GeminiLiveProvider | null;
   defaultVoice: string;
 
-  constructor(apiKey: string | undefined, options: GeminiLiveProviderOptions = {}) {
-    this.apiKey = apiKey;
+  constructor(apiKey: string | undefined, options: GeminiLiveAdapterOptions = {}) {
+    this.apiKey = isUsableApiKey(apiKey) ? apiKey.trim() : undefined;
     this.options = options;
     this.provider = null;
     this.defaultVoice = options.voice ?? HD_VOICES.ZEPHYR;
-
-    if (apiKey) {
-      this.provider = new GeminiLiveProvider(apiKey, {
-        ...options,
-        voice: this.defaultVoice,
-      });
+    const model = typeof options.model === 'string' ? options.model.trim() : '';
+    if (this.apiKey && model) {
+      const opts = { ...options, model, voice: this.defaultVoice };
+      this.provider = new GeminiLiveProvider(this.apiKey, opts);
     }
   }
 
@@ -40,7 +41,7 @@ export class GeminiLiveAdapter {
    * Vérifie si l'adapter est disponible
    */
   isAvailable(): boolean {
-    return !!this.provider && !!this.apiKey;
+    return isUsableApiKey(this.apiKey);
   }
 
   /**
@@ -61,7 +62,11 @@ export class GeminiLiveAdapter {
    * @throws {Error} Provider non initialisé, ou aucun audio généré.
    */
   async synthesize(text: string, options: TTSOptions = {}): Promise<TTSResult> {
-    const provider = this.provider;
+    const key = isUsableApiKey(this.apiKey) ? this.apiKey : undefined;
+    const m = typeof options.model === 'string' ? options.model.trim() : '';
+    const opts = { ...this.options, model: m, voice: this.defaultVoice };
+    const provider =
+      m && key && m !== this.provider?.model ? new GeminiLiveProvider(key, opts) : this.provider;
     if (!provider) {
       throw new Error('GeminiLive provider not initialized');
     }
@@ -76,18 +81,26 @@ export class GeminiLiveAdapter {
         throw new Error('No audio generated');
       }
 
-      // Convertir WAV → OGG pour WhatsApp
-      const oggPath = await wavToOgg(result.filePath);
+      // Convertir WAV → OGG pour WhatsApp et garantir le nettoyage du WAV temporaire
+      let oggPath: string;
+      try {
+        oggPath = await wavToOgg(result.filePath);
+      } finally {
+        cleanupTempFiles(result.filePath);
+      }
 
-      // Cleanup WAV temp
-      cleanupTempFiles(result.filePath);
-
-      return {
-        audioBuffer: await safeReadFileBuffer(oggPath),
-        format: 'ogg',
-        filePath: oggPath,
-        provider: 'gemini-live',
-      };
+      try {
+        const audioBuffer = await safeReadFileBuffer(oggPath);
+        return {
+          audioBuffer,
+          format: 'ogg',
+          filePath: oggPath,
+          provider: 'gemini-live',
+        };
+      } catch (readError: unknown) {
+        cleanupTempFiles(oggPath);
+        throw readError;
+      }
     } catch (error: unknown) {
       console.error(
         '[GeminiLiveAdapter] TTS Error:',

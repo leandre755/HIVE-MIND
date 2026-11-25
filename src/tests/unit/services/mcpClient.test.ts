@@ -1,0 +1,95 @@
+import { jest, describe, it, expect, afterEach } from '@jest/globals';
+import { CompatibilityCallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+type F<A extends unknown[], R> = jest.MockedFunction<(...a: A) => R>;
+const m = <A extends unknown[], R>() => jest.fn<(...a: A) => R>() as unknown as F<A, R>;
+const [mc, mtRaw] = [m<[unknown], Promise<void>>(), m<[], Record<string, unknown>>()];
+const ml = m<[unknown?], Promise<{ tools: unknown[]; nextCursor?: string }>>();
+const mt = m<[unknown, unknown], Promise<Record<string, unknown>>>().mockImplementation(
+  async (_req, schema) =>
+    (schema as { parse: (v: unknown) => Record<string, unknown> }).parse(mtRaw()),
+);
+const cf = () => m<[], Promise<void>>().mockResolvedValue(undefined);
+const [clClose, stClose, ssClose] = [cf(), cf(), cf()];
+type ClMap = { callTool: typeof mt; listTools: typeof ml };
+type MC = ClMap & { connect: typeof mc; close: typeof clClose; onclose?: () => void };
+const cc: MC[] = [];
+const mockCtor = m<[], MC>().mockImplementation(() => {
+  const c: MC = { connect: mc, listTools: ml, callTool: mt, close: clClose };
+  cc.push(c);
+  return c;
+});
+type CB = { close: typeof stClose };
+const st = m<[unknown], CB>().mockImplementation(() => ({ close: stClose }));
+const ss = m<[URL], CB>().mockImplementation(() => ({ close: ssClose }));
+const ex = m<[string], boolean>().mockReturnValue(false);
+const rd = m<[string, string], string>().mockReturnValue('{}');
+const u = (p: string, o: Record<string, unknown>) => jest.unstable_mockModule(p, () => o);
+const sdk = '@modelcontextprotocol/sdk/client';
+u(`${sdk}/index.js`, { Client: mockCtor });
+u(`${sdk}/stdio.js`, { StdioClientTransport: st });
+u(`${sdk}/sse.js`, { SSEClientTransport: ss });
+u('../../../utils/safeFs.js', { safeExistsSync: ex, safeReadFileSync: rd });
+const { mcpClient } = await import('../../../services/mcpClient.js');
+describe('McpClientService', () => {
+  const cl = () => (mcpClient as unknown as { clients: Map<string, ClMap> }).clients;
+  afterEach(() => {
+    cl().clear();
+    cc.length = 0;
+    Reflect.deleteProperty(process.env, 'MCP_SECRET_TEST');
+  });
+  it('handles compatibility results, connect close cleanup, pagination, and latch', async () => {
+    expect(CompatibilityCallToolResultSchema).toBeDefined();
+    const call = (s: string, t: string) => mcpClient.callTool(s, t, {});
+    await expect(call('missing', 'ping')).rejects.toThrow('Server missing');
+    cl().set('srv', { callTool: mt, listTools: ml });
+    const ok = async (v: Record<string, unknown>, data: unknown, raw?: unknown, sc?: unknown) => {
+      mtRaw.mockReturnValueOnce(v);
+      const sF = sc ? { structuredContent: sc } : {};
+      const rF = raw === undefined ? {} : { raw };
+      expect(await call('srv', 't')).toEqual({ success: true, data, ...sF, ...rF });
+    };
+    const er = async (v: Record<string, unknown>, error: string) => {
+      mtRaw.mockReturnValueOnce(v);
+      expect(await call('srv', 'rf')).toEqual({ success: false, error, isError: true });
+    };
+    const sc = { count: 42 };
+    const tb = (text: string) => ({ type: 'text', text });
+    const [okB, hiB, mrg] = [tb('ok'), tb('hi'), { text: 'hi', structuredContent: sc }];
+    await ok({ content: [okB] }, 'ok', [okB]);
+    await ok({ structuredContent: sc }, sc, sc, sc);
+    await ok({ content: [hiB], structuredContent: sc }, mrg, [hiB], sc);
+    await ok({ toolResult: 'legacy' }, 'legacy');
+    await er({ isError: true, content: [tb('Denied')] }, 'Denied');
+    await er({ isError: true, structuredContent: { code: 500 } }, '{"code":500}');
+    await er({ isError: true, content: [] }, 'Unknown MCP error');
+    mt.mockRejectedValueOnce(new Error('transport closed'));
+    expect(await call('srv', 'rf')).toEqual({ success: false, error: 'transport closed' });
+    cl().clear();
+    ex.mockReturnValueOnce(false).mockReturnValue(true);
+    rd.mockReturnValueOnce('null').mockReturnValueOnce('{bad');
+    const z = [await mcpClient.getTools(), await mcpClient.getTools(), await mcpClient.getTools()];
+    expect(z).toEqual([[], [], []]);
+    process.env.MCP_SECRET_TEST = 'do-not-leak';
+    const sse = (url: string) => ({ type: 'sse', url });
+    const local = { type: 'stdio', command: 'node', args: ['s.js'], env: { SAFE: '1' } };
+    const [down, docs, bF] = [sse('http://127.0.0.1:9998'), sse('https://h/sse'), sse('file:///x')];
+    const noCmd = { type: 'stdio', command: '  ' };
+    rd.mockReturnValue(JSON.stringify({ down, docs, local, noCmd, bF, bt: { type: 'http' } }));
+    mc.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    mc.mockImplementationOnce(async () => cc.at(-1)?.onclose?.());
+    const td = (n: string) => ({ name: n, inputSchema: { type: 'object' } });
+    const p1Res = { tools: [td('s1')], nextCursor: 'p2' };
+    const hasCur = (p: unknown) => (p as { cursor?: string } | undefined)?.cursor === 'p2';
+    ml.mockImplementation(async (p) => (hasCur(p) ? { tools: [td('s2')] } : p1Res));
+    const [p1, p2] = await Promise.all([mcpClient.getTools(), mcpClient.getTools()]);
+    expect(st).toHaveBeenCalledWith({ command: 'node', args: ['s.js'], env: { SAFE: '1' } });
+    const cls = [ssClose.mock.calls.length, clClose.mock.calls.length, stClose.mock.calls.length];
+    expect([ss.mock.calls.length, ...cls]).toEqual([2, 2, 2, 0]);
+    const st2 = [mc.mock.calls.length, [...cl().keys()], p1.length, p2.length];
+    expect(st2).toEqual([3, ['local'], 2, 2]);
+    expect(p1.map((t) => t.function.name)).toEqual(['mcp__local__s1', 'mcp__local__s2']);
+    cc.forEach((c) => c.onclose?.());
+    const reconnected = await mcpClient.getTools();
+    expect([reconnected.length, mc.mock.calls.length]).toEqual([6, 6]);
+  });
+});

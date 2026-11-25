@@ -35,7 +35,7 @@
     "supabase"
   ],
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "author": "leandre755",
   "license": "Apache-2.0",
@@ -135,11 +135,10 @@
   },
   "allowScripts": {
     "@ffmpeg-installer/linux-x64@4.1.0": true,
-    "@google/genai@2.10.0": true,
-    "@whiskeysockets/baileys@6.7.23": true,
-    "agent-browser@0.31.1": true,
+    "@parcel/watcher@2.6.0": true,
+    "@whiskeysockets/baileys@6.7.24": true,
+    "agent-browser@0.43.0": true,
     "bufferutil@4.1.0": true,
-    "core-js@2.6.12": true,
     "es5-ext@0.10.64": true,
     "esbuild@0.28.1": true,
     "hnswlib-node@3.0.0": true,

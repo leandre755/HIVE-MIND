@@ -1,5 +1,41 @@
 # Test Execution Log
 
+## 📅 Date: 2026-11-25 (PR #1 `chore/deps-npm-production-and-gemini-live` — Round 3 validé 100% double ANTIBUG)
+
+### Périmètre PR #1 (Scope A — 12 fichiers non-doc, `2488` LoC <= `2500`)
+- Dépendances & engine : `package.json`, `package-lock.json` (line `101`: `engines.node >=22.12.0`).
+- Production : `src/core/handlers/schedulerHandler.ts`, `src/services/mcpClient.ts`, `src/plugins/tools/visual_reporter/index.ts`, `src/services/cleanup.ts`, `src/providers/geminiLive.ts`, `src/providers/adapters/geminiLive.ts`.
+- Tests : `src/tests/unit/plugins/visualReporterPlugin.test.ts` (durci) + 3 nouvelles suites (`src/tests/unit/providers/geminiLive.test.ts`, `src/tests/unit/services/mcpClient.test.ts`, `src/tests/unit/core/schedulerCron.test.ts`).
+
+### Résultats d'exécution post-édition finale (sorties brutes)
+- **Budget CI & ESLint ciblé (`task-1740.log`)** :
+  `TRACKED_NON_DOC=2207 NEW_NON_DOC=281 TOTAL_PR_CODE_LOC=2488` (`package-lock.json`: `1207`, `package.json`: `57`, `schedulerHandler.ts`: `24`, `visual_reporter/index.ts`: `202`, `adapters/geminiLive.ts`: `59`, `geminiLive.ts`: `349`, `cleanup.ts`: `29`, `mcpClient.ts`: `143`, `visualReporterPlugin.test.ts`: `137` + `geminiLive.test.ts`: `143`, `mcpClient.test.ts`: `95`, `schedulerCron.test.ts`: `43`).
+  Targeted ESLint : 0 erreur/warning. Targeted Jest (`--runInBand`) : `Test Suites: 4 passed, 4 total` / `Tests: 8 passed, 8 total` / `Time: 11.394 s`.
+- **Validation statique complète (`task-1745.log`)** :
+  - `npm run build` (`tsc --noEmit`) : **PASSED (0 erreur)**
+  - `npm run lint:fast` (`oxlint --deny-warnings src/`) : `Found 0 warnings and 0 errors.` (`375 files`)
+  - `npm run lint:arch` (`depcruise`) : `1 dependency violations (0 errors, 1 warnings)` (`433 modules, 1304 dependencies` ; warning préexistant `src/providers/index.ts -> RuntimeInfrastructure.ts`)
+  - `npx eslint src/` : `ESLINT_CLEAN_EXIT_0`
+  - `npm run format:check` (`prettier --check "src/**/*.{ts,tsx,json,md}"`) : `All matched files use Prettier code style!`
+- **Audit sécurité (`task-1750.log`)** :
+  - `npm audit --omit=dev` : `found 0 vulnerabilities` (`AUDIT_PROD_CLEAN_EXIT_0`)
+  - `npm audit --audit-level=high` : `29 moderate severity vulnerabilities` (dev uniquement : `glob`, `minimatch`, `smol-toml`), `0` high/critical (`AUDIT_HIGH_CLEAN_EXIT_0`)
+- **Suite unitaire complète (`TZ=America/New_York npm run test:unit -- --runInBand`, `task-1761.log`)** :
+  `Test Suites: 111 passed, 111 total` / `Tests: 1105 passed, 1105 total` / `Snapshots: 0 total` / `Time: 157.746 s`. (`test:integration` et `test:e2e` non exécutés.)
+- **Double audit indépendant `antibug` Round 3** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+
+### Défauts découverts puis corrigés entre Round 2 et Round 3
+1. Fuite `SSEClientTransport`/`EventSource` + `StdioClientTransport.close()` non attendu sur échec de `client.connect()` ou fermeture pendant handshake (`mcpClient.ts`) → corrigé par `closeAll(client, transport)` (`Promise.allSettled`) + latch `closed` pendant `connect()`.
+2. `callTool` sans validation `CompatibilityCallToolResultSchema` ni pagination `tools/list`, + `toolsCache` mort (`mcpClient.ts`, `mcpClient.test.ts`) → schéma officiel, `listAllTools` borné (`100` pages + `seen`), tests dédiés (`toolResult`, `structuredContent` erreur, `.mcprc` invalide, pagination 2 pages).
+3. `visualReporterPlugin.test.ts` utilisant `jest.fn()` non typés et omettant `fs/promises` + `node:fs/promises` → migré vers `fn<...>()` (`jest.MockedFunction`) et mock complet des 4 spécifieurs `fs`.
+4. Dérive `package-lock.json:101` (`>=22.0.0` vs `>=22.12.0` dans `package.json:38`) et dépassement transitoire `2558` LoC → resynchronisé à `">=22.12.0"` et compacté à `2488` LoC.
+
+### Risques résiduels / hors périmètre documentés
+- Scope B différé en PR #2 (`journal_generator.ts:97-115` dégrade proprement vers le mode texte en attendant PR #2).
+- Test préexistant `src/tests/unit/plugins/PersistentShell.test.ts` sensible à la charge CPU parallèle (~4,4–5,06 s vs timeout 5 s ; passe systématiquement en `--runInBand`).
+
 ## 📅 Date: 2026-09-22 (fin de session — compaction taille PR #120 + validation)
 
 - `npx prettier --write` + `eslint` (5 fichiers) + `npm run build` (tsc 0 erreur) + `npm run lint:fast` (0/0, 351 fichiers) : **PASSED**.

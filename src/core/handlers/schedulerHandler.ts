@@ -11,7 +11,7 @@ import { eventInboxService, type SystemEvent } from '../../services/events/Event
 import { actionMemory } from '../../services/memory/ActionMemory.js';
 import { hiveWakeSystem } from '../../services/ptc/WakeSystem.js';
 import { redis } from '../../services/redisClient.js';
-import cronParser from 'cron-parser';
+import { CronExpressionParser } from 'cron-parser';
 import type { BotEvent, MessageData } from '../types/BotTypes.js';
 
 export interface SchedulerTransport {
@@ -311,14 +311,13 @@ export class SchedulerHandler {
 
   private async _rescheduleCronReminder(reminderId: string, remindAt: string, cronExpr: string) {
     try {
-      const parser = cronParser as unknown as {
-        parseExpression(
-          expr: string,
-          opts?: unknown,
-        ): { next(): { toDate(): Date; toISOString(): string } };
-      };
-      const interval = parser.parseExpression(cronExpr, {
-        currentDate: new Date(remindAt),
+      const baseDate = new Date(remindAt);
+      if (Number.isNaN(baseDate.getTime())) {
+        throw new Error(`Invalid remindAt timestamp: ${remindAt}`);
+      }
+      const interval = CronExpressionParser.parse(cronExpr, {
+        currentDate: baseDate,
+        tz: 'UTC',
       });
       const nextDate = interval.next().toDate();
       await db.rescheduleReminder(reminderId, nextDate);
@@ -528,11 +527,8 @@ ${textToAnalyze}
 
     if (ev.cron) {
       try {
-        const parser = cronParser as unknown as {
-          parseExpression(expr: string): { next(): { toISOString(): string } };
-        };
-        const interval = parser.parseExpression(ev.cron);
-        targetDate = interval.next().toISOString();
+        const interval = CronExpressionParser.parse(ev.cron, { tz: 'UTC' });
+        targetDate = interval.next().toDate().toISOString();
         finalMessage = `[CRON: ${ev.cron}] ${ev.message}`;
       } catch {
         console.error('[Scheduler] Cron invalide ignoré:', ev.cron);

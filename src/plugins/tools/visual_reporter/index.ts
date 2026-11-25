@@ -1,12 +1,93 @@
 import PdfKitDocument from 'pdfkit';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { botIdentity } from '../../../utils/botIdentity.js';
 import {
   safeExistsSync,
   safeMkdirSync,
   safeCreateWriteStream,
+  safeUnlinkSync,
   resolveWithinRoot,
 } from '../../../utils/safeFs.js';
+
+const isRec = (v: unknown): v is Record<string, unknown> =>
+  Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+const isStr = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+function parsePdfArgs(raw: unknown): GeneratePdfArgs {
+  if (!isRec(raw)) throw new Error('INVALID_ARGS: expected object arguments');
+  const title = isStr(raw.title)?.trim() ?? '';
+  const content = isStr(raw.content) ?? '';
+  if (!title || !content.trim()) throw new Error('INVALID_ARGS: title and content are required');
+  const fn = isStr(raw.filename)?.trim() ? (raw.filename as string) : 'report';
+  if (raw.sections === undefined) return { title, content, filename: fn };
+  if (!Array.isArray(raw.sections)) throw new Error('INVALID_ARGS: sections must be an array');
+  const sections = raw.sections.map((s, i) => {
+    if (!isRec(s)) throw new Error(`INVALID_ARGS: sections[${i}] must be an object`);
+    return { heading: isStr(s.heading), text: isStr(s.text) };
+  });
+  return { title, content, filename: fn, sections };
+}
+type EvCb = (arg?: Error) => void;
+type EvFn = (ev: string, cb: EvCb) => unknown;
+type PdfDoc = InstanceType<typeof PdfKitDocument>;
+type PdfStream = ReturnType<typeof safeCreateWriteStream>;
+type OnceFn = (e: string, f: () => void) => unknown;
+type EmitterLike = { off?: EvFn; removeListener?: EvFn; once?: OnceFn };
+function createPdfFinishPromise(doc: PdfDoc, stream: PdfStream): Promise<void> {
+  const off = (t: unknown, event: string, cb: EvCb) => {
+    const e = t as EmitterLike;
+    (e?.off ?? e?.removeListener)?.call(e, event, cb);
+  };
+  const p = new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = () => settle();
+    const close = () => settle(new Error('PDF write stream closed before finish'));
+    const onErr = (err?: Error) => settle(err ?? new Error('PDF stream error'), true);
+    const settle = (err?: Error, destroyStream = false) => {
+      if (settled) return;
+      settled = true;
+      off(stream, 'finish', finish);
+      off(stream, 'close', close);
+      off(stream, 'error', onErr);
+      off(doc, 'error', onErr);
+      if (destroyStream && typeof stream.destroy === 'function') stream.destroy();
+      if (err) reject(err);
+      else resolve();
+    };
+    stream.on('finish', finish);
+    stream.on('close', close);
+    stream.on('error', onErr);
+    if (typeof doc.on === 'function') doc.on('error', onErr);
+  });
+  p.catch(() => {});
+  return p;
+}
+function cleanupFailedPdf(stream: PdfStream | undefined, filePath: string | undefined): void {
+  const unlink = () => {
+    try {
+      if (filePath && safeExistsSync(filePath)) safeUnlinkSync(filePath);
+    } catch {
+      /* ignore cleanup error */
+    }
+  };
+  if (stream && typeof stream.destroy === 'function') stream.destroy();
+  unlink();
+  const once = (stream as unknown as EmitterLike)?.once;
+  if (filePath && typeof once === 'function') once.call(stream, 'close', unlink);
+}
+function writePdfSections(doc: PdfDoc, sections?: PdfSection[]) {
+  if (!sections || !Array.isArray(sections)) return;
+  doc.moveDown();
+  for (const s of sections) {
+    if (s.heading) {
+      doc.moveDown();
+      doc.font('Helvetica-Bold').fontSize(14).text(s.heading);
+      doc.moveDown(0.5);
+    }
+    if (s.text)
+      doc.font('Helvetica').fontSize(12).text(s.text, { align: 'justify', paragraphGap: 5 });
+  }
+}
 
 interface PdfSection {
   heading?: string;
@@ -33,34 +114,38 @@ export const plugin = {
   name: 'visual_reporter',
   version: '1.0.0',
   description: 'Generates visual reports (PDF, Charts) to prove work done.',
+  enabled: true,
 
   toolDefinitions: [
     {
-      name: 'generate_pdf_report',
-      description:
-        'Generates a professional PDF report with title, formatted content, and metadata. Useful for summarizing research or long analyses.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'The main title of the report' },
-          content: { type: 'string', description: 'The body text. Supports newlines (\\n).' },
-          filename: {
-            type: 'string',
-            description: 'Filename without extension (e.g. research_report)',
-          },
-          sections: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                heading: { type: 'string' },
-                text: { type: 'string' },
-              },
+      type: 'function' as const,
+      function: {
+        name: 'generate_pdf_report',
+        description:
+          'Generates a professional PDF report with title, formatted content, and metadata. Useful for summarizing research or long analyses.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'The main title of the report' },
+            content: { type: 'string', description: 'The body text. Supports newlines (\\n).' },
+            filename: {
+              type: 'string',
+              description: 'Filename without extension (e.g. research_report)',
             },
-            description: 'Optional: Structured sections for better formatting',
+            sections: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  heading: { type: 'string' },
+                  text: { type: 'string' },
+                },
+              },
+              description: 'Optional: Structured sections for better formatting',
+            },
           },
+          required: ['title', 'content'],
         },
-        required: ['title', 'content', 'filename'],
       },
     },
   ],
@@ -76,7 +161,12 @@ export const plugin = {
     }
 
     if (toolName === 'generate_pdf_report') {
-      return await this.generatePdfReport(args as GeneratePdfArgs, transport, chatId);
+      try {
+        return await this.generatePdfReport(parsePdfArgs(args), transport, chatId);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        return { success: false, message: err.message, error: err.message };
+      }
     }
     return { success: false, message: `Unknown tool: ${toolName}` };
   },
@@ -89,72 +179,74 @@ export const plugin = {
     transport: VisualReporterTransport,
     chatId: string,
   ) {
+    let stream: ReturnType<typeof safeCreateWriteStream> | undefined;
+    let filePath: string | undefined;
     try {
-      const safeFilename = (filename || 'report').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const cleanName = (filename || 'report')
+        .replace(/[^a-z0-9]/gi, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .toLowerCase()
+        .slice(0, 64);
+      const safeFilename = cleanName || 'report';
       const tempDir = path.resolve(process.cwd(), 'temp');
       if (!safeExistsSync(tempDir)) safeMkdirSync(tempDir, { recursive: true });
 
-      const filePath = resolveWithinRoot(tempDir, `${safeFilename}_${Date.now()}.pdf`);
+      const id = `${Date.now()}_${randomUUID().slice(0, 8)}`;
+      filePath = resolveWithinRoot(tempDir, `${safeFilename}_${id}.pdf`);
 
       // Document creation
       const doc = new PdfKitDocument({ margin: 50 });
-      const stream = safeCreateWriteStream(filePath);
+      stream = safeCreateWriteStream(filePath);
+      const finishPromise = createPdfFinishPromise(doc, stream);
       doc.pipe(stream);
 
       // Header
       const botName = botIdentity.fullName;
-      doc.fontSize(20).text(title, { align: 'center', underline: true });
+      doc.font('Helvetica-Bold').fontSize(20).text(title, { align: 'center', underline: true });
       doc.moveDown();
       doc
+        .font('Helvetica-Oblique')
         .fontSize(10)
         .text(`Generated by ${botName} (WhatsApp Bot) - ${new Date().toLocaleString()}`, {
           align: 'right',
-          italic: true,
         });
       doc.moveDown(2);
 
       // Main Content
-      doc.fontSize(12).text(content, {
+      doc.font('Helvetica').fontSize(12).text(content, {
         align: 'justify',
         paragraphGap: 5,
       });
 
       // Optional Sections
-      if (sections && Array.isArray(sections)) {
-        doc.moveDown();
-        for (const section of sections) {
-          if (section.heading) {
-            doc.moveDown();
-            doc.fontSize(14).text(section.heading, { bold: true });
-            doc.moveDown(0.5);
-          }
-          if (section.text) {
-            doc.fontSize(12).text(section.text, { align: 'justify', paragraphGap: 5 });
-          }
-        }
-      }
+      writePdfSections(doc, sections);
 
       // Footer
-      doc
-        .fontSize(8)
-        .text('HiveMind V3 Architecture - Antigravity Agent', 50, doc.page.height - 50, {
-          align: 'center',
-          color: 'grey',
-        });
+      const footerText = 'HiveMind V3 Architecture - Antigravity Agent';
+      doc.font('Helvetica').fontSize(8).fillColor('grey');
+      const num = (v: unknown, fb: number) =>
+        typeof v === 'number' && Number.isFinite(v) ? v : fb;
+      const [pageWidth, pageHeight] = [num(doc.page?.width, 612), num(doc.page?.height, 792)];
+      const measured = typeof doc.widthOfString === 'function' ? doc.widthOfString(footerText) : 0;
+      const footerX = measured > 0 ? Math.max(50, (pageWidth - measured) / 2) : 50;
+      doc.text(footerText, footerX, pageHeight - 35, { lineBreak: false });
+      doc.fillColor('black');
 
       doc.end();
 
       // Wait for stream to finish
-      await new Promise((resolve) => stream.on('finish', resolve));
+      await finishPromise;
 
       // Send the document
       const sendFile = transport.sendFile.bind(transport);
-      await sendFile(
-        chatId,
-        filePath,
-        `${title}.pdf`,
-        `📄 Here is the requested report: *${title}*`,
-      );
+      const cleanTitle = title
+        .replace(/[\\/:*?"<>|\r\n]+/g, '_')
+        .trim()
+        .slice(0, 100);
+      const stem = cleanTitle || safeFilename;
+      const caption = `📄 Here is the requested report: *${title}*`;
+      await sendFile(chatId, filePath, `${stem}.pdf`, caption);
 
       // Cleanup (Optional: keep for debug or delete?)
       // For now we keep, a cron job (tempCleanup) will handle it
@@ -166,9 +258,11 @@ export const plugin = {
       };
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
+      cleanupFailedPdf(stream, filePath);
       console.error('[VisualReporter] PDF generation error:', err);
       return {
         success: false,
+        message: `PDF generation error: ${err.message}`,
         error: err.message,
       };
     }
