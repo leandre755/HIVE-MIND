@@ -1,5 +1,22 @@
 # Test Execution Log
 
+## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 5 : fix Node 22 `CloseEvent` + validation Codex `ace6999`)
+
+### Contexte & Diagnostic CI/Bot sur commit `ace6999`
+- Codex Review sur `ace6999` (`issuecomment-7165057308`) : `"Codex Review: Didn't find any major issues. Chef's kiss."` ; thread `PRRT_kwDOT0y8pM674asc` résolu (`isResolved: true`).
+- `SonarCloud Code Analysis` (`Quality Gate passed`, alertes ramenées à `5` `MINOR` `typescript:S9382`), `CodeQL`, `ESLint`, `Dependency review`, `Pull request governance` (`2495 <= 2500`), `Workflow hygiene` : **SUCCESS**.
+- `CI / Workspace Validation` (`45631460567`, runner Node `22`) : `110/111` suites passées, `1` échec `ReferenceError: CloseEvent is not defined` à `src/tests/unit/providers/geminiLive.test.ts:88` (hôte local en Node `v26.2.0` vs runner CI en Node `22`).
+- Correctif appliqué : remplacement de `new CloseEvent('close')` par `{} as unknown as CloseEvent` (`0` delta LoC, `ZERO_DOM_EVENT_CONSTRUCTORS` vérifié sur les `10` fichiers TS).
+
+### Résultats d'exécution Round 5 post-édition (sorties brutes)
+- **Statique, LoC & Jest ciblé `--coverage` (`task-2004.log`)** :
+  `TOTAL_PR_CODE_LOC=2495 <= 2500` ; `tsc --noEmit` exit `0` ; `oxlint --deny-warnings src/` `Found 0 warnings and 0 errors.` (`375 files`) ; `depcruise` `0 errors, 1 warnings` (`433 modules`) ; `eslint` `geminiLive.test.ts` `ESLINT_TARGET_CLEAN` ; `prettier --check` `All matched files use Prettier code style!` ; `geminiLive.test.ts` `--coverage --runInBand` `1/1` (`582 ms`, `97.12%` lines sur `geminiLive.ts`).
+- **Suite unitaire complète avec couverture (`TZ=America/New_York npm run test:unit -- --coverage --runInBand`, `task-2009.log`)** :
+  `Test Suites: 111 passed, 111 total` / `Tests: 1105 passed, 1105 total` / `Snapshots: 0 total` / `Time: 250.525 s`.
+- **Double audit indépendant `antibug` Round 5** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`0` défaut)
+
 ## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 4 : fix CI `--coverage`, Codex P1 symlink root & SonarCloud)
 
 ### Contexte & Périmètre modifié après ouverture PR #192 (`1e31f36`)

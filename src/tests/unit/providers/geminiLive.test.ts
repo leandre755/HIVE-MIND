@@ -85,7 +85,7 @@ describe('GeminiLiveProvider and GeminiLiveAdapter', () => {
     await expect(p.processAudio(Buffer.alloc(0))).rejects.toThrow('Buffer audio vide');
     const tErr = (q: Prov, t: string, s: string) => expect(q.textToSpeech(t)).rejects.toThrow(s);
     await tErr(p, '   ', 'Texte vide');
-    const cH = mkConn(p, [], (cb) => cb.onclose?.(new CloseEvent('close')));
+    const cH = mkConn(p, [], (cb) => cb.onclose?.({} as unknown as CloseEvent));
     await tErr(p, 'closed', 'Session fermée');
     const sEv = { message: 'socket boom' } as unknown as ErrorEvent;
     const eH = mkConn(p, [], (cb) => cb.onerror?.(sEv));
