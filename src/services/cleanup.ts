@@ -1,7 +1,6 @@
 import {
-  safeExistsSync,
+  safeLstatSync,
   safeReaddirSync,
-  safeStatSync,
   safeUnlinkSync,
   resolveWithinRoot,
   type Stats,
@@ -22,11 +21,10 @@ export class CleanupService {
 
   async run() {
     console.log('[Cleanup] 🧹 Démarrage du nettoyage temp...');
-    if (!safeExistsSync(this.tempDir)) return;
-
+    const dirs = Array.from(new Set([this.tempDir, path.resolve(process.cwd(), 'temp')]));
     try {
       const now = Date.now();
-      this._cleanRecursive(this.tempDir, now);
+      for (const dir of dirs) this._cleanRecursive(dir, now, dir);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('[Cleanup] Erreur:', errorMessage);
@@ -44,18 +42,32 @@ export class CleanupService {
     }
   }
 
-  _cleanRecursive(directory: string, now: number) {
+  private _safeLstat(filePath: string, file: string): Stats | null {
+    try {
+      return safeLstatSync(filePath);
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        console.warn(`[Cleanup] Erreur stat ${file}: ${e instanceof Error ? e.message : e}`);
+      }
+      return null;
+    }
+  }
+
+  _cleanRecursive(directory: string, now: number, rootDir: string = this.tempDir) {
+    const rootStat = directory === rootDir ? this._safeLstat(rootDir, rootDir) : null;
+    if (directory === rootDir && (!rootStat?.isDirectory() || rootStat.isSymbolicLink())) return;
     try {
       const files = safeReaddirSync(directory);
 
       for (const file of files) {
         if (file === '.gitkeep') continue;
 
-        const filePath = resolveWithinRoot(this.tempDir, file, directory);
-        const stat = safeStatSync(filePath);
+        const filePath = resolveWithinRoot(rootDir, file, directory);
+        const stat = this._safeLstat(filePath, file);
+        if (!stat || stat.isSymbolicLink()) continue;
 
         if (stat.isDirectory()) {
-          this._cleanRecursive(filePath, now);
+          this._cleanRecursive(filePath, now, rootDir);
         } else {
           this._cleanFile(filePath, file, stat, now);
         }

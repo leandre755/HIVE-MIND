@@ -35,27 +35,29 @@ export const HD_VOICES = {
   // ... autres voix disponibles via l'API
 };
 
-/** Intervalle de scrutation de la file de messages du WebSocket. */
-const RESPONSE_POLL_INTERVAL_MS = 100;
+/** Délai maximal d'attente Live API (ms), borne 32-bit Node et plafond messages. */
+const [DEF_TIMEOUT_MS, MAX_TIMEOUT_MS, MAX_TURN_MESSAGES] = [30_000, 2_147_483_647, 10_000];
 
 /** Fréquence d'échantillonnage du flux PCM renvoyé par la Live API. */
 const LIVE_AUDIO_SAMPLE_RATE = 24000;
 
-/**
- * Callback d'exécution d'outil. La valeur retournée alimente directement
- * `FunctionResponse.response`, dont le contrat upstream est
- * `Record<string, unknown>`.
- */
-export type LiveToolCallHandler = (call: FunctionCall) => Promise<Record<string, unknown>>;
+/** Exécuteur d'outil (`signal` annulé sur `toolCallCancellation` ou fin de session). */
+type ToolRes = Record<string, unknown>;
+export type LiveToolCallHandler = (call: FunctionCall, signal: AbortSignal) => Promise<ToolRes>;
 
-/** Options de construction du provider. */
-export interface GeminiLiveProviderOptions {
+/** Options de configuration de l'adapter Live (`model` résolu possible au moment de l'appel). */
+export interface GeminiLiveAdapterOptions {
   /** Identifiant résolu depuis `models_config.json` — aucun défaut local. */
   model?: string;
   voice?: string;
   tools?: FunctionDeclaration[];
   onToolCall?: LiveToolCallHandler | null;
+  apiVersion?: string;
+  timeoutMs?: number;
 }
+
+/** Options de construction du provider (`model` requis à l'instanciation). */
+export type GeminiLiveProviderOptions = GeminiLiveAdapterOptions & { model: string };
 
 /** Options d'un appel unitaire (`processAudio`, `textToSpeech`). */
 export interface GeminiLiveCallOptions {
@@ -88,6 +90,16 @@ export interface GeminiLiveCredentials {
   familles_ia?: { gemini?: string };
 }
 
+function normalizeGeminiApiKey(rawKey: unknown): string {
+  const k = typeof rawKey === 'string' ? rawKey.trim() : '';
+  if (!k || k.toLowerCase() === 'no_key') throw new Error('[GeminiLive] Clé API Gemini manquante');
+  return k;
+}
+class LiveTimeoutError extends Error {
+  constructor() {
+    super("[GeminiLive] Délai d'attente Live API dépassé");
+  }
+}
 /**
  * Accumule les fragments d'un tour du modèle.
  *
@@ -112,6 +124,46 @@ function collectTurnParts(parts: Part[], audioParts: string[]): string {
   return text;
 }
 
+type LiveTurnState = { error: Error | null; closed: boolean; wakeup: (() => void) | null };
+type TurnBase = { queue: LiveServerMessage[]; session: Session; state: LiveTurnState };
+type TurnC = TurnBase & { cancelledIds: Set<string>; deadlineMs: number };
+type LiveTurnContext = TurnC & { aborts: Map<string, AbortController> };
+async function raceWithDeadline<T>(p: Promise<T>, deadlineMs: number, onLate?: (v: T) => void) {
+  const ms = deadlineMs - Date.now();
+  if (ms <= 0) {
+    p.then(onLate, () => {}).catch(() => {});
+    throw new LiveTimeoutError();
+  }
+  let done = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const tout = new Promise<never>((_, rej) => {
+    timer = setTimeout(() => {
+      done = true;
+      rej(new LiveTimeoutError());
+    }, ms);
+  });
+  const tracked = p.then((v) => {
+    if (done && onLate) onLate(v);
+    return v;
+  });
+  tracked.catch(() => {});
+  try {
+    return await Promise.race([tracked, tout]);
+  } finally {
+    done = true;
+    clearTimeout(timer);
+  }
+}
+function awaitToolOrTurnEnd(fnP: Promise<ToolRes>, sig: AbortSignal) {
+  fnP.catch(() => {});
+  if (sig.aborted) return Promise.resolve(null);
+  let stop: (() => void) | undefined;
+  const endP = new Promise<null>((r) => {
+    stop = () => r(null);
+    sig.addEventListener('abort', stop, { once: true });
+  });
+  return Promise.race([fnP, endP]).finally(() => stop && sig.removeEventListener('abort', stop));
+}
 /**
  * Provider Gemini Live Audio
  * Utilise le WebSocket Live API pour l'audio natif
@@ -122,13 +174,18 @@ export class GeminiLiveProvider {
   defaultVoice: string;
   tools: FunctionDeclaration[];
   onToolCall: LiveToolCallHandler | null;
+  timeoutMs: number;
 
-  constructor(apiKey: string, options: GeminiLiveProviderOptions = {}) {
-    this.ai = new GoogleGenAI({ apiKey });
-    this.model = requireModel(options.model, 'GeminiLiveProvider');
+  constructor(apiKey: string, options: GeminiLiveProviderOptions) {
+    const httpOptions = { apiVersion: options.apiVersion?.trim() || 'v1beta' };
+    this.ai = new GoogleGenAI({ apiKey: normalizeGeminiApiKey(apiKey), httpOptions });
+    this.model = requireModel(options.model, 'GeminiLiveProvider').trim();
     this.defaultVoice = options.voice ?? HD_VOICES.ZEPHYR;
     this.tools = options.tools ?? [];
     this.onToolCall = options.onToolCall ?? null;
+    const t = options.timeoutMs;
+    const validT = typeof t === 'number' && Number.isFinite(t) && t > 0;
+    this.timeoutMs = validT ? Math.min(t, MAX_TIMEOUT_MS) : DEF_TIMEOUT_MS;
   }
 
   /**
@@ -147,6 +204,17 @@ export class GeminiLiveProvider {
     this.onToolCall = callback;
   }
 
+  private _liveConfig(voice: string, inputMode = false): LiveConnectConfig {
+    const cfg: LiveConnectConfig = {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+    };
+    if (!inputMode) return cfg;
+    const comp = { triggerTokens: '25600', slidingWindow: { targetTokens: '12800' } };
+    cfg.contextWindowCompression = comp;
+    if (this.tools.length > 0) cfg.tools = [{ functionDeclarations: this.tools }];
+    return cfg;
+  }
   /**
    * Traite un message audio et retourne une réponse audio
    * @param audioBuffer Audio PCM 16-bit, 16 kHz, mono.
@@ -159,59 +227,16 @@ export class GeminiLiveProvider {
     audioBuffer: Buffer,
     options: GeminiLiveCallOptions = {},
   ): Promise<GeminiLiveResponse> {
-    const voice = options.voice ?? this.defaultVoice;
-    const responseQueue: LiveServerMessage[] = [];
-    let session: Session | undefined;
-
+    if (audioBuffer.length === 0) throw new Error('[GeminiLive] Buffer audio vide');
+    const cfg = this._liveConfig(options.voice ?? this.defaultVoice, true);
     try {
-      const config: LiveConnectConfig = {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: voice,
-            },
-          },
-        },
-        contextWindowCompression: {
-          triggerTokens: '25600',
-          slidingWindow: { targetTokens: '12800' },
-        },
-      };
-
-      // Ajouter les outils si configurés
-      if (this.tools.length > 0) {
-        config.tools = [{ functionDeclarations: this.tools }];
-      }
-
-      // Connexion WebSocket
-      session = await this.ai.live.connect({
-        model: this.model,
-        config,
-        callbacks: {
-          onopen: () => console.log('[GeminiLive] Session ouverte'),
-          onmessage: (message: LiveServerMessage) => responseQueue.push(message),
-          onerror: (e: ErrorEvent) => console.error('[GeminiLive] Erreur:', e.message),
-          onclose: () => console.log('[GeminiLive] Session fermée'),
-        },
+      return await this._openAndRunTurn(cfg, (s) => {
+        const media = { mimeType: 'audio/pcm;rate=16000', data: audioBuffer.toString('base64') };
+        s.sendRealtimeInput({ media });
+        s.sendRealtimeInput({ audioStreamEnd: true });
       });
-
-      // Envoyer l'audio
-      session.sendRealtimeInput({
-        media: {
-          mimeType: 'audio/pcm;rate=16000',
-          data: audioBuffer.toString('base64'),
-        },
-      });
-
-      // Attendre la réponse complète
-      const response = await this._waitForResponse(responseQueue, session);
-
-      session.close();
-      return response;
     } catch (error: unknown) {
       console.error('[GeminiLive] Erreur processAudio:', error);
-      if (session) session.close();
       throw error;
     }
   }
@@ -229,80 +254,111 @@ export class GeminiLiveProvider {
     text: string,
     options: GeminiLiveCallOptions = {},
   ): Promise<GeminiLiveResponse> {
-    const voice = options.voice ?? this.defaultVoice;
-    const responseQueue: LiveServerMessage[] = [];
-    let session: Session | undefined;
-
+    if (typeof text !== 'string' || !text.trim()) throw new Error('[GeminiLive] Texte vide');
+    const cfg = this._liveConfig(options.voice ?? this.defaultVoice);
     try {
-      const config: LiveConnectConfig = {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: voice,
-            },
-          },
-        },
-      };
-
-      session = await this.ai.live.connect({
-        model: this.model,
-        config,
-        callbacks: {
-          onmessage: (message: LiveServerMessage) => responseQueue.push(message),
-          onerror: (e: ErrorEvent) => console.error('[GeminiLive] TTS Error:', e.message),
-        },
-      });
-
-      // Envoyer le texte
-      session.sendClientContent({
-        turns: [text],
-      });
-
-      // Attendre l'audio
-      const response = await this._waitForResponse(responseQueue, session);
-
-      session.close();
-
-      // Sauvegarder en fichier WAV
-      if (response.audioBuffer) {
-        const filePath = join(tmpdir(), `gemini_tts_${randomUUID()}.wav`);
-        const wavBuffer = this._createWavBuffer(response.audioParts, LIVE_AUDIO_SAMPLE_RATE);
-        await safeWriteFile(filePath, wavBuffer);
-        response.filePath = filePath;
+      const res = await this._openAndRunTurn(cfg, (s) => s.sendClientContent({ turns: [text] }));
+      if (res.audioBuffer) {
+        res.filePath = join(tmpdir(), `gemini_tts_${randomUUID()}.wav`);
+        await safeWriteFile(res.filePath, this._createWavBuffer(res.audioParts));
       }
-
-      return response;
+      return res;
     } catch (error: unknown) {
       console.error('[GeminiLive] Erreur TTS:', error);
-      if (session) session.close();
       throw error;
     }
   }
 
-  /**
-   * Exécute les outils demandés par le modèle et renvoie leurs résultats.
-   *
-   * @param toolCall Bloc `toolCall` du message serveur.
-   * @param session Session ouverte, utilisée pour la réponse.
-   */
-  private async _respondToToolCall(toolCall: LiveServerToolCall, session: Session): Promise<void> {
-    const handler = this.onToolCall;
-    if (!handler) return;
-
-    console.log('[GeminiLive] Tool call:', toolCall.functionCalls);
-
-    const results: FunctionResponse[] = [];
-    for (const call of toolCall.functionCalls ?? []) {
-      const result = await handler(call);
-      results.push({
-        name: call.name,
-        id: call.id,
-        response: result,
+  private async _openAndRunTurn(config: LiveConnectConfig, sendTurn: (s: Session) => void) {
+    const [queue, cancelledIds] = [[] as LiveServerMessage[], new Set<string>()];
+    const [aborts, deadlineMs] = [new Map<string, AbortController>(), Date.now() + this.timeoutMs];
+    const state: LiveTurnState = { error: null, closed: false, wakeup: null };
+    let [session, closedByClient]: [Session | undefined, boolean] = [undefined, false];
+    const wake = (abort = false) => {
+      if (abort) aborts.forEach((a) => a.abort());
+      const cb = state.wakeup;
+      state.wakeup = null;
+      cb?.();
+    };
+    try {
+      const connectP = this.ai.live.connect({
+        model: this.model,
+        config,
+        callbacks: {
+          onopen: () => console.log('[GeminiLive] Session ouverte'),
+          onmessage: (m: LiveServerMessage) => {
+            for (const id of m.toolCallCancellation?.ids ?? []) {
+              cancelledIds.add(id);
+              aborts.get(id)?.abort();
+            }
+            queue.push(m);
+            wake();
+          },
+          onerror: (e: ErrorEvent) => {
+            const msg = e?.message || 'Live API socket error';
+            console.error('[GeminiLive] Erreur:', msg);
+            state.error ??= new Error(`[GeminiLive] ${msg}`);
+            wake(true);
+          },
+          onclose: () => {
+            console.log('[GeminiLive] Session fermée');
+            if (!closedByClient) {
+              state.closed = true;
+              wake(true);
+            }
+          },
+        },
       });
+      session = await raceWithDeadline(connectP, deadlineMs, (s) => s.close());
+      sendTurn(session);
+      const ctx0 = { queue, cancelledIds, aborts, deadlineMs, state };
+      return await this._waitForResponse({ ...ctx0, session });
+    } finally {
+      wake(true);
+      if (session) {
+        closedByClient = true;
+        session.close();
+      }
     }
-
-    session.sendToolResponse({ functionResponses: results });
+  }
+  private async _runToolCall(fn: LiveToolCallHandler, call: FunctionCall, c: LiveTurnContext) {
+    const { name, id } = call;
+    if (!name || !id) return null;
+    const dead = () => c.cancelledIds.has(id) || Boolean(c.state.error) || c.state.closed;
+    if (dead()) return null;
+    if (c.deadlineMs - Date.now() <= 0) throw new LiveTimeoutError();
+    const ac = new AbortController();
+    c.aborts.set(id, ac);
+    let response: ToolRes | null;
+    try {
+      const p = awaitToolOrTurnEnd((async () => fn(call, ac.signal))(), ac.signal);
+      const q = p.finally(() => c.aborts.delete(id));
+      response = await raceWithDeadline(q, c.deadlineMs);
+    } catch (err: unknown) {
+      if (err instanceof LiveTimeoutError) throw err;
+      response = { error: err instanceof Error ? err.message : String(err) };
+    }
+    return response && !dead() ? { name, id, response } : null;
+  }
+  private async _respondToToolCall(toolCall: LiveServerToolCall, c: LiveTurnContext) {
+    const handler = this.onToolCall;
+    const calls = (toolCall.functionCalls ?? []).filter((f) => !f.id || !c.cancelledIds.has(f.id));
+    if (!handler || calls.length === 0) return;
+    console.log('[GeminiLive] Tool call:', calls);
+    const results: FunctionResponse[] = [];
+    for (const call of calls) {
+      const res = await this._runToolCall(handler, call, c);
+      if (res) results.push(res);
+    }
+    const out = results.filter((r) => !r.id || !c.cancelledIds.has(r.id));
+    const active = !c.state.error && !c.state.closed;
+    if (out.length > 0 && active) c.session.sendToolResponse({ functionResponses: out });
+  }
+  private async _consumeTurnMessage(m: LiveServerMessage, audio: string[], c: LiveTurnContext) {
+    const parts = m.serverContent?.modelTurn?.parts;
+    const chunk = parts ? collectTurnParts(parts, audio) : '';
+    if (m.toolCall && this.onToolCall) await this._respondToToolCall(m.toolCall, c);
+    return { chunk, done: Boolean(m.serverContent?.turnComplete) };
   }
 
   /**
@@ -314,45 +370,31 @@ export class GeminiLiveProvider {
    *
    * @private
    */
-  private async _waitForResponse(
-    queue: LiveServerMessage[],
-    session: Session,
-  ): Promise<GeminiLiveResponse> {
+  private async _waitForResponse(context: LiveTurnContext): Promise<GeminiLiveResponse> {
     const audioParts: string[] = [];
     let transcription = '';
     const emotion: string | null = null;
     let done = false;
+    let iterations = 0;
 
-    while (!done) {
-      const message = queue.shift();
-
+    while (!done && iterations < MAX_TURN_MESSAGES) {
+      iterations++;
+      if (context.state.error) throw context.state.error;
+      const message = context.queue.shift();
       if (!message) {
-        await new Promise((resolve) => setTimeout(resolve, RESPONSE_POLL_INTERVAL_MS));
+        const st = context.state;
+        if (st.closed) throw new Error('[GeminiLive] Session fermée avant la fin du tour');
+        const setW = (fn: (() => void) | null) => Object.assign(st, { wakeup: fn });
+        const p = new Promise<void>((r) => setW(r));
+        await raceWithDeadline(p, context.deadlineMs).finally(() => setW(null));
         continue;
       }
-
-      // Traiter le contenu du serveur
-      if (message.serverContent) {
-        const content = message.serverContent;
-
-        // Fin du tour
-        if (content.turnComplete) {
-          done = true;
-          continue;
-        }
-
-        // Parties du modèle
-        if (content.modelTurn?.parts) {
-          transcription += collectTurnParts(content.modelTurn.parts, audioParts);
-        }
-      }
-
-      // Appel d'outil
-      if (message.toolCall && this.onToolCall) {
-        await this._respondToToolCall(message.toolCall, session);
-      }
+      const step = await this._consumeTurnMessage(message, audioParts, context);
+      transcription += step.chunk;
+      done = step.done;
     }
 
+    if (!done) throw new Error('[GeminiLive] Limite maximale de messages Live API dépassée');
     return {
       audioParts,
       audioBuffer:
@@ -410,13 +452,11 @@ export class GeminiLiveProvider {
  */
 export function createGeminiLiveProvider(
   credentials: GeminiLiveCredentials,
-  options: GeminiLiveProviderOptions = {},
+  options: GeminiLiveAdapterOptions = {},
 ): GeminiLiveProvider {
-  const apiKey = credentials.familles_ia?.gemini;
-  if (!apiKey) {
-    throw new Error('[GeminiLive] Clé API Gemini manquante');
-  }
-  return new GeminiLiveProvider(apiKey, options);
+  const apiKey = normalizeGeminiApiKey(credentials?.familles_ia?.gemini);
+  const model = requireModel(options.model, 'GeminiLiveProvider').trim();
+  return new GeminiLiveProvider(apiKey, { ...options, model });
 }
 
 export default GeminiLiveProvider;
