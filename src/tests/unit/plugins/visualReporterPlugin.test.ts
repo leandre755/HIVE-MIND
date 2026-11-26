@@ -1,20 +1,20 @@
 // tests/unit/plugins/visualReporterPlugin.test.ts
 import { describe, it, beforeEach, beforeAll, jest, expect } from '@jest/globals';
 import { PassThrough } from 'stream';
+import { EventEmitter } from 'events';
 import path from 'path';
-
 const { default: RealPdfDocument } = await import('pdfkit');
 type EvCb = (err?: Error) => void;
 type Df = () => unknown;
 type Fs<R> = (p: string) => R;
 const fn = <T extends (...a: never[]) => unknown>(impl?: T) =>
   (impl ? jest.fn<T>(impl) : jest.fn<T>()) as unknown as jest.MockedFunction<T>;
-const mockStreamDestroy = fn<() => void>();
-const stubStream = (ev?: 'finish' | 'error', err?: Error, asyncEmit = false) => ({
+const stubStream = (ev?: 'finish' | 'error' | 'close', err?: Error, asyncEmit = false) => ({
   on: fn<(e: string, cb: EvCb) => void>((e, cb) => {
-    if (ev === e) (asyncEmit ? queueMicrotask : (f: () => void) => f())(() => cb(err));
+    const hit = ev === e || (ev === 'finish' && e === 'close');
+    if (hit) (asyncEmit ? queueMicrotask : (f: () => void) => f())(() => cb(err));
   }),
-  destroy: mockStreamDestroy,
+  destroy: fn<() => void>(),
 });
 const [pipe, font, fontSize, fillColor] = [fn<Df>(), fn<Df>(), fn<Df>(), fn<Df>()];
 const [moveDown, text, end] = [fn<Df>(), fn<Df>(), fn<Df>()];
@@ -123,15 +123,14 @@ describe('Visual Reporter Plugin', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('Unknown tool');
   });
-
-  it('validates plugin, avoids blank footer & unhandled rejections, cleans temp', async () => {
+  const exec = (a: unknown) => VisualReporterPlugin.execute(a, baseContext, 'generate_pdf_report');
+  it('validates plugin contract, rejects invalid args, and renders a single-page PDF', async () => {
     const [vp, pl, mod] = [VisualReporterPlugin, pluginLoaderInstance, 'tools/visual_reporter'];
-    const exec = (a: unknown) => vp.execute(a, baseContext, 'generate_pdf_report');
     type P0 = Parameters<typeof pl._validatePlugin>[0];
     type T0 = Parameters<typeof pl._validateToolDefinition>[0];
-    expect(vp.enabled).toBe(true);
+    const td0 = vp.toolDefinitions[0] as unknown as T0;
+    expect([vp.enabled, pl._validateToolDefinition(td0, mod)]).toEqual([true, true]);
     expect(() => pl._validatePlugin(vp as unknown as P0, mod)).not.toThrow();
-    expect(pl._validateToolDefinition(vp.toolDefinitions[0] as unknown as T0, mod)).toBe(true);
     const bad = await exec({ title: 'R', content: 'B', sections: [null] });
     expect([bad.success, bad.message]).toEqual([false, expect.stringContaining('INVALID_ARGS')]);
     const chunks: Buffer[] = [];
@@ -146,39 +145,55 @@ describe('Visual Reporter Plugin', () => {
     const pdfChk = [res.success, pdf.startsWith('%PDF-'), pdf.includes('/Count 1'), pages];
     expect([pdfChk, path.basename(out).length <= 100]).toEqual([[true, true, true, 1], true]);
     const sent = mockTransport.sendFile.mock.calls[0];
-    const expS = ['123@g.us', out, 'Real_Report_ 1.pdf'];
-    expect([sent?.slice(0, 3), typeof sent?.[3]]).toEqual([expS, 'string']);
-    const unhandled: unknown[] = [];
+    expect(sent).toEqual(['123@g.us', out, 'Real_Report_ 1.pdf', expect.any(String)]);
+  });
+  it('catches sync, doc, premature-close, and post-finish EIO stream errors safely', async () => {
+    const [unhandled, args] = [[] as unknown[], { title: 'E', content: 'B', filename: 'e' }];
     const onRej = (e: unknown) => unhandled.push(e);
+    const putS = (s: ReturnType<typeof stubStream>) => createWriteStream.mockReturnValueOnce(s);
+    const runS = (s: unknown) => putS(s as unknown as ReturnType<typeof stubStream>) && exec(args);
+    const mkE = () => Object.assign(new EventEmitter(), { destroy: fn<() => void>() });
+    const em = (s: EventEmitter, m: string) => [s.emit('error', new Error(m)), s.emit('close')];
+    const [s1, s2] = [mkE(), mkE()];
+    const exp = (m: string) => [false, `PDF generation error: ${m}`, 0];
+    const chk = (r: { success: boolean; message?: string }, s: EventEmitter, m: string) =>
+      expect([r.success, r.message, s.listenerCount('error')]).toEqual(exp(m));
     process.on('unhandledRejection', onRej);
-    createWriteStream.mockReturnValueOnce(stubStream('error', new Error('open fail'), true));
-    const fail = (e: Error): never => {
-      throw e;
-    };
-    text.mockImplementationOnce(() => fail(new Error('sync render fail')));
-    const syncRes = await exec({ title: 'S', content: 'B', filename: 's' });
+    text.mockImplementationOnce(() => {
+      throw new Error('sync render fail');
+    });
+    const syncRes = await runS(stubStream('error', new Error('open fail'), true));
     await new Promise((r) => setTimeout(r, 10));
     process.off('unhandledRejection', onRej);
-    const unlinked = unlinkSync.mock.calls.length > 0;
-    expect([syncRes.success, unhandled.length, unlinked]).toEqual([false, 0, true]);
-    createWriteStream.mockReturnValueOnce(stubStream());
-    on.mockImplementationOnce((ev, cb) => ev === 'error' && cb(new Error('pdf fail')));
-    const docErr = await exec({ title: 'E2', content: 'B', filename: 'e2' });
-    expect([docErr.success, docErr.message]).toEqual([false, expect.stringContaining('pdf fail')]);
+    expect([syncRes.success, unhandled, unlinkSync.mock.calls.length]).toEqual([false, [], 1]);
+    end.mockImplementationOnce(() => [s1.emit('finish'), em(s1, 'EIO close')]);
+    chk(await runS(s1), s1, 'EIO close');
+    expect(mockTransport.sendFile).not.toHaveBeenCalled();
+    on.mockImplementationOnce((e, cb) => {
+      if (e === 'error') {
+        cb(new Error('pdf fail'));
+        em(s2, 'ENOENT open');
+      }
+    });
+    chk(await runS(s2), s2, 'pdf fail');
+    const early = await runS(stubStream('close'));
+    expect([early.success, early.message]).toEqual([false, expect.stringContaining('before')]);
+  });
+  it('recursively cleans expired temp PDFs while skipping symlinks and missing files', async () => {
     const [cwdTemp, sub] = [path.resolve('temp'), path.resolve('temp', 'sub')];
-    [unlinkSync, readdirSync].forEach((x) => x.mockClear());
+    const mkD = (s: boolean) => ({ ...st, isDirectory: () => true, isSymbolicLink: () => s });
+    lstatSync.mockReturnValueOnce(mkD(true));
+    await new CleanupServiceCls().run();
+    expect(readdirSync).not.toHaveBeenCalled();
     const entries = ['gone.pdf', 'err.pdf', 'sym.pdf', '.gitkeep', 'sub', 'old.pdf'];
     const rdSub = (d: string) => (d === sub ? ['sub.pdf'] : ['leak.pdf']);
     readdirSync.mockImplementation((d: string) => (d === cwdTemp ? entries : rdSub(d)));
-    const goneErr = Object.assign(new Error('gone'), { code: 'ENOENT' });
-    const mkD = (s: boolean) => ({ ...st, isDirectory: () => true, isSymbolicLink: () => s });
-    const lstat = (p: string) => {
-      if (p.endsWith('gone.pdf')) return fail(goneErr);
-      if (p.endsWith('err.pdf')) return fail(new Error('perm'));
+    lstatSync.mockImplementation((p: string) => {
+      if (p.endsWith('gone.pdf')) throw Object.assign(new Error('gone'), { code: 'ENOENT' });
+      if (p.endsWith('err.pdf')) throw new Error('perm');
       if (p === cwdTemp || p === sub) return mkD(false);
       return p.endsWith('old.pdf') || p.endsWith('sub.pdf') ? st : mkD(true);
-    };
-    lstatSync.mockImplementation(lstat);
+    });
     await new CleanupServiceCls().run();
     const expF = [[path.join(sub, 'sub.pdf')], [path.join(cwdTemp, 'old.pdf')]];
     expect([readdirSync.mock.calls, unlinkSync.mock.calls]).toEqual([[[cwdTemp], [sub]], expF]);

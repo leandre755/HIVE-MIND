@@ -1,16 +1,13 @@
-import { jest, describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import type * as G from '@google/genai';
 type R = Record<string, unknown>;
-type P<T> = Promise<T>;
 type F<A extends unknown[], R0> = jest.MockedFunction<(...a: A) => R0>;
 const m = <A extends unknown[], R0>() => jest.fn<(...a: A) => R0>() as unknown as F<A, R0>;
-const sw = m<[string, Buffer], P<void>>().mockResolvedValue(undefined);
-const [sr, op] = [m<[string], P<Buffer>>(), m<[string], P<Buffer>>()];
-const [wo, cl] = [m<[string], P<string>>(), m<string[], void>()];
+const sw = m<[string, Buffer], Promise<void>>().mockResolvedValue(undefined);
+const [sr, op] = [m<[string], Promise<Buffer>>(), m<[string], Promise<Buffer>>()];
+const [wo, cl] = [m<[string], Promise<string>>(), m<string[], void>()];
 const u = (p: string, o: R) => jest.unstable_mockModule(p, () => o);
-const se = m<[string], boolean>().mockReturnValue(false);
-const fObj = { safeWriteFile: sw, safeReadFileBuffer: sr, safeExistsSync: se };
-u('../../../utils/safeFs.js', { ...fObj, safeUnlinkSync: m<[string], void>() });
+u('../../../utils/safeFs.js', { safeWriteFile: sw, safeReadFileBuffer: sr });
 u('../../../utils/audioConverter.js', { wavToOgg: wo, oggToPcm: op, cleanupTempFiles: cl });
 const { GeminiLiveProvider, HD_VOICES, ...gl } = await import('../../../providers/geminiLive.js');
 const { GeminiLiveAdapter } = await import('../../../providers/adapters/geminiLive.js');
@@ -24,6 +21,8 @@ const turn = (p: unknown[]) => ({ serverContent: { modelTurn: { parts: p }, turn
 const tc = (functionCalls: unknown[]) => ({ toolCall: { functionCalls } });
 const cc = (ids: string[]) => ({ toolCallCancellation: { ids } });
 const fc = (id: string, name: string) => ({ id, name });
+const chkR = (x: ReturnType<typeof mkS>, name: string, id: string, response: R) =>
+  expect(x.sendToolResponse).toHaveBeenCalledWith({ functionResponses: [{ name, id, response }] });
 const mkS = (onSend?: () => void) => {
   const v = () => m<[unknown], void>().mockImplementation(() => onSend?.());
   const [sendRealtimeInput, sendToolResponse, close] = [v(), m<[unknown], void>(), m<[], void>()];
@@ -42,8 +41,13 @@ const mkConn = (pr: Prov, msgs: unknown[], afterSend?: (cb: LCP['callbacks']) =>
   return h;
 };
 describe('GeminiLiveProvider and GeminiLiveAdapter', () => {
-  it('validates keys, apiVersion, timeoutMs, audio/TTS/tools, errors, and adapter', async () => {
-    const mk = (o = {}, k = 'k') => new GeminiLiveProvider(k, { model: M, ...o });
+  const mk = (o = {}, k = 'k') => new GeminiLiveProvider(k, { model: M, ...o });
+  const tErr = (q: Prov, t: string, s: string) => expect(q.textToSpeech(t)).rejects.toThrow(s);
+  const clEv = {} as unknown as CloseEvent;
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  it('validates keys, model requirements, apiVersion, timeout bounds, and availability', () => {
     const [p, a] = [mk(), mk({ apiVersion: 'v1alpha' })];
     const [b, c] = [mk({ apiVersion: ' ', timeoutMs: Infinity }), mk({ timeoutMs: 9e9 })];
     expect([ver(p), ver(a), ver(b)]).toEqual(['v1beta', 'v1alpha', 'v1beta']);
@@ -57,86 +61,93 @@ describe('GeminiLiveProvider and GeminiLiveAdapter', () => {
     const ad = (k: string, o = {}) => new GeminiLiveAdapter(k, o).isAvailable();
     const ads = [ad('no_key', mOpt), ad('k'), ad('k', mOpt)];
     expect([ver(mk({}, ' k ')), ver(fac), ads]).toEqual(['v1beta', 'v1beta', [false, true, true]]);
-    const toolFn = m<[G.FunctionCall], P<R>>().mockImplementation(async (f) =>
-      f.name === 'boom' ? Promise.reject(new Error('tool exploded')) : { ok: true },
-    );
-    const pr = new GeminiLiveProvider('k', { model: M, onToolCall: toolFn, voice: HD_VOICES.PUCK });
+  });
+  it('streams PCM audio, writes WAV output, and dispatches tool responses', async () => {
+    const toolFn = m<[G.FunctionCall], Promise<R>>().mockResolvedValueOnce({ ok: true });
+    toolFn.mockRejectedValueOnce(new Error('tool exploded'));
+    const pr = mk({ onToolCall: toolFn, voice: HD_VOICES.PUCK });
     const c1 = tc([fc('c1', 'skip'), fc('c2', 'ping')]);
     const h = mkConn(pr, [tc([]), cc(['c1']), c1, turn([{ text: 'hello' }])]);
     const res = await pr.processAudio(Buffer.from([1, 2]));
     const sent = h.sendRealtimeInput.mock.calls;
     expect(sent[0]?.[0]).toEqual({ media: { mimeType: 'audio/pcm;rate=16000', data: 'AQI=' } });
     expect([sent[1]?.[0], res.transcription]).toEqual([{ audioStreamEnd: true }, 'hello']);
-    const okFn = [{ name: 'ping', id: 'c2', response: { ok: true } }];
-    expect(h.sendToolResponse).toHaveBeenCalledWith({ functionResponses: okFn });
+    chkR(h, 'ping', 'c2', { ok: true });
     const pcm = Buffer.from([0x11, 0x22, 0x33, 0x44]);
     const b64 = turn([{ inlineData: { data: pcm.toString('base64') } }]);
     const h2 = mkConn(pr, [tc([fc('c3', 'boom')]), b64]);
-    const tts = await pr.textToSpeech('bonjour');
+    expect((await pr.textToSpeech('bonjour')).filePath).toMatch(/gemini_tts_.*\.wav$/);
     const wav = sw.mock.calls[0]?.[1];
-    const w32 = (i: number) => wav?.readUInt32LE(i);
-    const asc = (x: number, y: number) => wav?.toString('ascii', x, y);
-    const hdr = [asc(0, 4), w32(4), asc(8, 12), w32(24), w32(28)];
-    expect([hdr, wav?.subarray(44)]).toEqual([['RIFF', 40, 'WAVE', 24000, 48000], pcm]);
-    expect(tts.filePath).toMatch(/gemini_tts_.*\.wav$/);
-    const errRes = [{ name: 'boom', id: 'c3', response: { error: 'tool exploded' } }];
-    expect(h2.sendToolResponse).toHaveBeenCalledWith({ functionResponses: errRes });
+    const w32 = [4, 24, 28].map((i) => wav?.readUInt32LE(i));
+    const hdr = [wav?.toString('ascii', 0, 4), wav?.toString('ascii', 8, 12), ...w32];
+    expect([hdr, wav?.subarray(44)]).toEqual([['RIFF', 'WAVE', 40, 24000, 48000], pcm]);
+    chkR(h2, 'boom', 'c3', { error: 'tool exploded' });
+    expect([h.close.mock.calls.length, h2.close.mock.calls.length]).toEqual([1, 1]);
+  });
+  it('closes sessions cleanly on invalid inputs, socket failures, and deadlines', async () => {
+    const p = mk();
     await expect(p.processAudio(Buffer.alloc(0))).rejects.toThrow('Buffer audio vide');
-    const tErr = (q: Prov, t: string, s: string) => expect(q.textToSpeech(t)).rejects.toThrow(s);
     await tErr(p, '   ', 'Texte vide');
-    const cH = mkConn(p, [], (cb) => cb.onclose?.({} as unknown as CloseEvent));
+    const cH = mkConn(p, [], (cb) => cb.onclose?.(clEv));
     await tErr(p, 'closed', 'Session fermée');
     const sEv = { message: 'socket boom' } as unknown as ErrorEvent;
     const eH = mkConn(p, [], (cb) => cb.onerror?.(sEv));
     await expect(p.processAudio(Buffer.from([1]))).rejects.toThrow('socket boom');
-    const p2 = new GeminiLiveProvider('k', { model: M, timeoutMs: 80 });
+    const [p2, late, rs] = [mk({ timeoutMs: 80 }), mkS(), [] as Array<(s: G.Session) => void>];
     const tH = mkConn(p2, []);
     await tErr(p2, 'timeout', "Délai d'attente");
-    expect([h, h2, cH, eH, tH].map((x) => x.close.mock.calls.length)).toEqual([1, 1, 1, 1, 1]);
-    const [late, rs] = [mkS(), [] as Array<(s: G.Session) => void>];
+    expect([cH, eH, tH].map((x) => x.close.mock.calls.length)).toEqual([1, 1, 1]);
     jest.spyOn(p2.ai.live, 'connect').mockReturnValueOnce(new Promise((r) => rs.push(r)));
     await tErr(p2, 'hs', "Délai d'attente");
-    rs[0]?.(late.s);
-    await Promise.resolve();
+    await Promise.resolve(rs[0]?.(late.s));
     expect(late.close).toHaveBeenCalledTimes(1);
     const now = jest.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(2000);
     jest.spyOn(p2.ai.live, 'connect').mockResolvedValueOnce(late.s);
     await tErr(p2, 'exp', "Délai d'attente").finally(() => now.mockRestore());
     expect(late.close).toHaveBeenCalledTimes(2);
-    const ref: { h?: ReturnType<typeof mkConn> } = {};
-    const cancelTurn = async () => {
-      [cc(['c9']), turn([{ text: 'after' }])].forEach((x) => ref.h?.cb?.onmessage?.(lm(x)));
-      return { ok: 1 };
-    };
-    const cP = new GeminiLiveProvider('k', { model: M, onToolCall: cancelTurn });
-    ref.h = mkConn(cP, [tc([fc('c9', 's')])]);
-    await cP.textToSpeech('hi');
-    expect(ref.h.sendToolResponse).not.toHaveBeenCalled();
+  });
+  it('aborts running tool handlers on cancellation and filters cancelled batch replies', async () => {
+    const hRef: { c?: ReturnType<typeof mkConn>; b?: ReturnType<typeof mkConn> } = {};
     const seen: string[] = [];
-    const onTC = (f0: G.FunctionCall) => new Promise<R>(() => seen.push(f0.name ?? ''));
-    const expP = new GeminiLiveProvider('k', { model: M, timeoutMs: 200, onToolCall: onTC });
+    const onTC = (f0: G.FunctionCall, s0: AbortSignal): Promise<R> => {
+      seen.push(`${f0.name}:${s0.aborted}`);
+      if (f0.name === 'fast' || f0.name === 'late') return Promise.resolve({ n: f0.id });
+      s0.addEventListener('abort', () => seen.push(`${f0.name}:ab:${s0.aborted}`), { once: true });
+      if (f0.name === 'sync') hRef.c?.cb?.onmessage?.(lm(cc(['c9'])));
+      if (f0.name === 'hang') queueMicrotask(() => hRef.b?.cb?.onmessage?.(lm(cc(['b1', 'b2']))));
+      return new Promise(() => {});
+    };
+    const mkT = (timeoutMs = 30_000) => mk({ timeoutMs, onToolCall: onTC });
+    const [cP, expP, clsP, bP] = [mkT(80), mkT(200), mkT(), mkT(80)];
+    hRef.c = mkConn(cP, [tc([fc('c9', 'sync')]), turn([{ text: 'after' }])]);
+    expect((await cP.textToSpeech('hi')).transcription).toBe('after');
+    expect(hRef.c.sendToolResponse).not.toHaveBeenCalled();
     mkConn(expP, [tc([fc('f1', 'slow1'), fc('f2', 'never')])]);
     await tErr(expP, 'hi', "Délai d'attente");
-    expect(seen).toEqual(['slow1']);
+    mkConn(clsP, [tc([fc('f3', 'sock')])], (cb) => cb.onclose?.(clEv));
+    await tErr(clsP, 'hi', 'Session fermée');
+    const batch = tc([fc('b1', 'fast'), fc('b2', 'hang'), fc('b3', 'late')]);
+    hRef.b = mkConn(bP, [batch, turn([{ text: 'ok' }])]);
+    expect((await bP.textToSpeech('go')).transcription).toBe('ok');
+    chkR(hRef.b, 'late', 'b3', { n: 'b3' });
+    const s1 = ['sync:false', 'sync:ab:true', 'slow1:false', 'slow1:ab:true', 'sock:false'];
+    const s2 = ['sock:ab:true', 'fast:false', 'hang:false', 'hang:ab:true', 'late:false'];
+    expect(seen).toEqual([...s1, ...s2]);
+  });
+  it('cleans up temp files, supports model overrides, and transcribes audio', async () => {
     const adp = new GeminiLiveAdapter('k', mOpt);
     const b0 = { audioParts: [], audioBuffer: null, transcription: '', emotion: null };
-    const fRes = (f: string) => ({ ...b0, filePath: f });
-    jest.spyOn(adp.provider!, 'textToSpeech').mockResolvedValue(fRes('/t.wav'));
-    wo.mockRejectedValueOnce(new Error('ffmpeg fail'))
-      .mockResolvedValueOnce('/t.ogg')
-      .mockResolvedValueOnce('/m2.ogg');
+    jest.spyOn(adp.provider!, 'textToSpeech').mockResolvedValue({ ...b0, filePath: '/t.wav' });
+    wo.mockRejectedValueOnce(new Error('ffmpeg fail'));
+    wo.mockResolvedValueOnce('/t.ogg').mockResolvedValueOnce('/m2.ogg');
     sr.mockRejectedValueOnce(new Error('read fail')).mockResolvedValueOnce(Buffer.from('ogg'));
-    const failSyn = async (e: string, f: string) => {
-      cl.mockClear();
-      await expect(adp.synthesize('x')).rejects.toThrow(e);
-      expect(cl).toHaveBeenCalledWith(f);
-    };
-    await failSyn('ffmpeg fail', '/t.wav');
-    await failSyn('read fail', '/t.ogg');
+    await expect(adp.synthesize('x')).rejects.toThrow('ffmpeg fail');
+    await expect(adp.synthesize('x')).rejects.toThrow('read fail');
+    expect(cl.mock.calls).toEqual([['/t.wav'], ['/t.wav'], ['/t.ogg']]);
     const noMod = new GeminiLiveAdapter(' trimmed \n', {});
     await expect(noMod.synthesize('x')).rejects.toThrow('GeminiLive provider not initialized');
     const ovSpy = jest.spyOn(GeminiLiveProvider.prototype, 'textToSpeech');
-    ovSpy.mockResolvedValueOnce(fRes('/m2.wav'));
+    ovSpy.mockResolvedValueOnce({ ...b0, filePath: '/m2.wav' });
     const ov = await noMod.synthesize('x', { model: 'm2' }).finally(() => ovSpy.mockRestore());
     expect([noMod.apiKey, ov.filePath]).toEqual(['trimmed', '/m2.ogg']);
     op.mockResolvedValueOnce(Buffer.from([1, 2]));

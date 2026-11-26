@@ -24,9 +24,7 @@ export class CleanupService {
     const dirs = Array.from(new Set([this.tempDir, path.resolve(process.cwd(), 'temp')]));
     try {
       const now = Date.now();
-      for (const dir of dirs) {
-        this._cleanRecursive(dir, now, dir);
-      }
+      for (const dir of dirs) this._cleanRecursive(dir, now, dir);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('[Cleanup] Erreur:', errorMessage);

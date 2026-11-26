@@ -18,7 +18,6 @@ export interface GeminiLiveTranscription {
 
 const isUsableApiKey = (apiKey: string | undefined): apiKey is string =>
   typeof apiKey === 'string' && Boolean(apiKey.trim()) && apiKey.trim().toLowerCase() !== 'no_key';
-
 export class GeminiLiveAdapter {
   apiKey: string | undefined;
   options: GeminiLiveAdapterOptions;
@@ -82,21 +81,12 @@ export class GeminiLiveAdapter {
       }
 
       // Convertir WAV → OGG pour WhatsApp et garantir le nettoyage du WAV temporaire
-      let oggPath: string;
-      try {
-        oggPath = await wavToOgg(result.filePath);
-      } finally {
-        cleanupTempFiles(result.filePath);
-      }
-
+      const oggPath = await wavToOgg(result.filePath).finally(() =>
+        cleanupTempFiles(result.filePath),
+      );
       try {
         const audioBuffer = await safeReadFileBuffer(oggPath);
-        return {
-          audioBuffer,
-          format: 'ogg',
-          filePath: oggPath,
-          provider: 'gemini-live',
-        };
+        return { audioBuffer, format: 'ogg', filePath: oggPath, provider: 'gemini-live' };
       } catch (readError: unknown) {
         cleanupTempFiles(oggPath);
         throw readError;

@@ -36,20 +36,14 @@ export const HD_VOICES = {
 };
 
 /** Délai maximal d'attente Live API (ms), borne 32-bit Node et plafond messages. */
-const DEFAULT_LIVE_RESPONSE_TIMEOUT_MS = 30_000;
-const MAX_TIMEOUT_MS = 2_147_483_647;
-const MAX_TURN_MESSAGES = 10_000;
-const DEFAULT_LIVE_API_VERSION = 'v1beta';
+const [DEF_TIMEOUT_MS, MAX_TIMEOUT_MS, MAX_TURN_MESSAGES] = [30_000, 2_147_483_647, 10_000];
 
 /** Fréquence d'échantillonnage du flux PCM renvoyé par la Live API. */
 const LIVE_AUDIO_SAMPLE_RATE = 24000;
 
-/**
- * Callback d'exécution d'outil. La valeur retournée alimente directement
- * `FunctionResponse.response`, dont le contrat upstream est
- * `Record<string, unknown>`.
- */
-export type LiveToolCallHandler = (call: FunctionCall) => Promise<Record<string, unknown>>;
+/** Exécuteur d'outil (`signal` annulé sur `toolCallCancellation` ou fin de session). */
+type ToolRes = Record<string, unknown>;
+export type LiveToolCallHandler = (call: FunctionCall, signal: AbortSignal) => Promise<ToolRes>;
 
 /** Options de configuration de l'adapter Live (`model` résolu possible au moment de l'appel). */
 export interface GeminiLiveAdapterOptions {
@@ -97,18 +91,15 @@ export interface GeminiLiveCredentials {
 }
 
 function normalizeGeminiApiKey(rawKey: unknown): string {
-  const apiKey = typeof rawKey === 'string' ? rawKey.trim() : '';
-  if (!apiKey || apiKey.toLowerCase() === 'no_key')
-    throw new Error('[GeminiLive] Clé API Gemini manquante');
-  return apiKey;
+  const k = typeof rawKey === 'string' ? rawKey.trim() : '';
+  if (!k || k.toLowerCase() === 'no_key') throw new Error('[GeminiLive] Clé API Gemini manquante');
+  return k;
 }
-
 class LiveTimeoutError extends Error {
   constructor() {
     super("[GeminiLive] Délai d'attente Live API dépassé");
   }
 }
-
 /**
  * Accumule les fragments d'un tour du modèle.
  *
@@ -135,7 +126,8 @@ function collectTurnParts(parts: Part[], audioParts: string[]): string {
 
 type LiveTurnState = { error: Error | null; closed: boolean; wakeup: (() => void) | null };
 type TurnBase = { queue: LiveServerMessage[]; session: Session; state: LiveTurnState };
-type LiveTurnContext = TurnBase & { cancelledIds: Set<string>; deadlineMs: number };
+type TurnC = TurnBase & { cancelledIds: Set<string>; deadlineMs: number };
+type LiveTurnContext = TurnC & { aborts: Map<string, AbortController> };
 async function raceWithDeadline<T>(p: Promise<T>, deadlineMs: number, onLate?: (v: T) => void) {
   const ms = deadlineMs - Date.now();
   if (ms <= 0) {
@@ -162,15 +154,16 @@ async function raceWithDeadline<T>(p: Promise<T>, deadlineMs: number, onLate?: (
     clearTimeout(timer);
   }
 }
-function waitForSignal(st: LiveTurnState, deadlineMs: number): Promise<void> {
-  const p = new Promise<void>((r) => {
-    st.wakeup = r;
+function awaitToolOrTurnEnd(fnP: Promise<ToolRes>, sig: AbortSignal) {
+  fnP.catch(() => {});
+  if (sig.aborted) return Promise.resolve(null);
+  let stop: (() => void) | undefined;
+  const endP = new Promise<null>((r) => {
+    stop = () => r(null);
+    sig.addEventListener('abort', stop, { once: true });
   });
-  return raceWithDeadline(p, deadlineMs).finally(() => {
-    st.wakeup = null;
-  });
+  return Promise.race([fnP, endP]).finally(() => stop && sig.removeEventListener('abort', stop));
 }
-
 /**
  * Provider Gemini Live Audio
  * Utilise le WebSocket Live API pour l'audio natif
@@ -184,16 +177,15 @@ export class GeminiLiveProvider {
   timeoutMs: number;
 
   constructor(apiKey: string, options: GeminiLiveProviderOptions) {
-    const apiVersion = options.apiVersion?.trim() || DEFAULT_LIVE_API_VERSION;
-    const key = normalizeGeminiApiKey(apiKey);
-    this.ai = new GoogleGenAI({ apiKey: key, httpOptions: { apiVersion } });
+    const httpOptions = { apiVersion: options.apiVersion?.trim() || 'v1beta' };
+    this.ai = new GoogleGenAI({ apiKey: normalizeGeminiApiKey(apiKey), httpOptions });
     this.model = requireModel(options.model, 'GeminiLiveProvider').trim();
     this.defaultVoice = options.voice ?? HD_VOICES.ZEPHYR;
     this.tools = options.tools ?? [];
     this.onToolCall = options.onToolCall ?? null;
     const t = options.timeoutMs;
     const validT = typeof t === 'number' && Number.isFinite(t) && t > 0;
-    this.timeoutMs = validT ? Math.min(t, MAX_TIMEOUT_MS) : DEFAULT_LIVE_RESPONSE_TIMEOUT_MS;
+    this.timeoutMs = validT ? Math.min(t, MAX_TIMEOUT_MS) : DEF_TIMEOUT_MS;
   }
 
   /**
@@ -218,14 +210,11 @@ export class GeminiLiveProvider {
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
     };
     if (!inputMode) return cfg;
-    cfg.contextWindowCompression = {
-      triggerTokens: '25600',
-      slidingWindow: { targetTokens: '12800' },
-    };
+    const comp = { triggerTokens: '25600', slidingWindow: { targetTokens: '12800' } };
+    cfg.contextWindowCompression = comp;
     if (this.tools.length > 0) cfg.tools = [{ functionDeclarations: this.tools }];
     return cfg;
   }
-
   /**
    * Traite un message audio et retourne une réponse audio
    * @param audioBuffer Audio PCM 16-bit, 16 kHz, mono.
@@ -281,18 +270,16 @@ export class GeminiLiveProvider {
   }
 
   private async _openAndRunTurn(config: LiveConnectConfig, sendTurn: (s: Session) => void) {
-    const queue: LiveServerMessage[] = [];
-    const cancelledIds = new Set<string>();
-    const deadlineMs = Date.now() + this.timeoutMs;
+    const [queue, cancelledIds] = [[] as LiveServerMessage[], new Set<string>()];
+    const [aborts, deadlineMs] = [new Map<string, AbortController>(), Date.now() + this.timeoutMs];
     const state: LiveTurnState = { error: null, closed: false, wakeup: null };
-    let session: Session | undefined;
-    let closedByClient = false;
-    const wake = () => {
+    let [session, closedByClient]: [Session | undefined, boolean] = [undefined, false];
+    const wake = (abort = false) => {
+      if (abort) aborts.forEach((a) => a.abort());
       const cb = state.wakeup;
       state.wakeup = null;
       cb?.();
     };
-    const closeQuiet = (s: Session) => s.close();
     try {
       const connectP = this.ai.live.connect({
         model: this.model,
@@ -300,7 +287,10 @@ export class GeminiLiveProvider {
         callbacks: {
           onopen: () => console.log('[GeminiLive] Session ouverte'),
           onmessage: (m: LiveServerMessage) => {
-            for (const id of m.toolCallCancellation?.ids ?? []) cancelledIds.add(id);
+            for (const id of m.toolCallCancellation?.ids ?? []) {
+              cancelledIds.add(id);
+              aborts.get(id)?.abort();
+            }
             queue.push(m);
             wake();
           },
@@ -308,43 +298,47 @@ export class GeminiLiveProvider {
             const msg = e?.message || 'Live API socket error';
             console.error('[GeminiLive] Erreur:', msg);
             state.error ??= new Error(`[GeminiLive] ${msg}`);
-            wake();
+            wake(true);
           },
           onclose: () => {
             console.log('[GeminiLive] Session fermée');
             if (!closedByClient) {
               state.closed = true;
-              wake();
+              wake(true);
             }
           },
         },
       });
-      session = await raceWithDeadline(connectP, deadlineMs, closeQuiet);
+      session = await raceWithDeadline(connectP, deadlineMs, (s) => s.close());
       sendTurn(session);
-      return await this._waitForResponse({ queue, session, cancelledIds, deadlineMs, state });
+      const ctx0 = { queue, cancelledIds, aborts, deadlineMs, state };
+      return await this._waitForResponse({ ...ctx0, session });
     } finally {
-      state.wakeup = null;
+      wake(true);
       if (session) {
         closedByClient = true;
         session.close();
       }
     }
   }
-  private _isCallInactive(callId: string, c: LiveTurnContext): boolean {
-    return c.cancelledIds.has(callId) || Boolean(c.state.error) || c.state.closed;
-  }
   private async _runToolCall(fn: LiveToolCallHandler, call: FunctionCall, c: LiveTurnContext) {
-    if (!call.name || !call.id || this._isCallInactive(call.id, c)) return null;
+    const { name, id } = call;
+    if (!name || !id) return null;
+    const dead = () => c.cancelledIds.has(id) || Boolean(c.state.error) || c.state.closed;
+    if (dead()) return null;
     if (c.deadlineMs - Date.now() <= 0) throw new LiveTimeoutError();
-    let response: Record<string, unknown>;
+    const ac = new AbortController();
+    c.aborts.set(id, ac);
+    let response: ToolRes | null;
     try {
-      const run = Promise.resolve().then(() => fn(call));
-      response = await raceWithDeadline(run, c.deadlineMs);
+      const p = awaitToolOrTurnEnd((async () => fn(call, ac.signal))(), ac.signal);
+      const q = p.finally(() => c.aborts.delete(id));
+      response = await raceWithDeadline(q, c.deadlineMs);
     } catch (err: unknown) {
       if (err instanceof LiveTimeoutError) throw err;
       response = { error: err instanceof Error ? err.message : String(err) };
     }
-    return this._isCallInactive(call.id, c) ? null : { name: call.name, id: call.id, response };
+    return response && !dead() ? { name, id, response } : null;
   }
   private async _respondToToolCall(toolCall: LiveServerToolCall, c: LiveTurnContext) {
     const handler = this.onToolCall;
@@ -356,11 +350,11 @@ export class GeminiLiveProvider {
       const res = await this._runToolCall(handler, call, c);
       if (res) results.push(res);
     }
+    const out = results.filter((r) => !r.id || !c.cancelledIds.has(r.id));
     const active = !c.state.error && !c.state.closed;
-    if (results.length > 0 && active) c.session.sendToolResponse({ functionResponses: results });
+    if (out.length > 0 && active) c.session.sendToolResponse({ functionResponses: out });
   }
   private async _consumeTurnMessage(m: LiveServerMessage, audio: string[], c: LiveTurnContext) {
-    for (const id of m.toolCallCancellation?.ids ?? []) c.cancelledIds.add(id);
     const parts = m.serverContent?.modelTurn?.parts;
     const chunk = parts ? collectTurnParts(parts, audio) : '';
     if (m.toolCall && this.onToolCall) await this._respondToToolCall(m.toolCall, c);
@@ -388,10 +382,11 @@ export class GeminiLiveProvider {
       if (context.state.error) throw context.state.error;
       const message = context.queue.shift();
       if (!message) {
-        if (context.state.closed) {
-          throw new Error('[GeminiLive] Session fermée avant la fin du tour');
-        }
-        await waitForSignal(context.state, context.deadlineMs);
+        const st = context.state;
+        if (st.closed) throw new Error('[GeminiLive] Session fermée avant la fin du tour');
+        const setW = (fn: (() => void) | null) => Object.assign(st, { wakeup: fn });
+        const p = new Promise<void>((r) => setW(r));
+        await raceWithDeadline(p, context.deadlineMs).finally(() => setW(null));
         continue;
       }
       const step = await this._consumeTurnMessage(message, audioParts, context);

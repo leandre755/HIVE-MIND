@@ -32,32 +32,28 @@ type EvCb = (arg?: Error) => void;
 type EvFn = (ev: string, cb: EvCb) => unknown;
 type PdfDoc = InstanceType<typeof PdfKitDocument>;
 type PdfStream = ReturnType<typeof safeCreateWriteStream>;
-type OnceFn = (e: string, f: () => void) => unknown;
-type EmitterLike = { off?: EvFn; removeListener?: EvFn; once?: OnceFn };
+type EmitterLike = Partial<Record<'off' | 'removeListener' | 'once', EvFn>>;
 function createPdfFinishPromise(doc: PdfDoc, stream: PdfStream): Promise<void> {
-  const off = (t: unknown, event: string, cb: EvCb) => {
-    const e = t as EmitterLike;
-    (e?.off ?? e?.removeListener)?.call(e, event, cb);
-  };
+  const off = (t: unknown, ev: string, cb: EvCb) =>
+    ((t as EmitterLike)?.off ?? (t as EmitterLike)?.removeListener)?.call(t, ev, cb);
   const p = new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const finish = () => settle();
-    const close = () => settle(new Error('PDF write stream closed before finish'));
+    const flags = new Set<'f' | 's'>();
     const onErr = (err?: Error) => settle(err ?? new Error('PDF stream error'), true);
-    const settle = (err?: Error, destroyStream = false) => {
-      if (settled) return;
-      settled = true;
-      off(stream, 'finish', finish);
-      off(stream, 'close', close);
-      off(stream, 'error', onErr);
+    const finish = () => flags.add('f');
+    const close = () => {
+      evs.forEach(([k, h]) => off(stream, k, h));
       off(doc, 'error', onErr);
-      if (destroyStream && typeof stream.destroy === 'function') stream.destroy();
+      settle(flags.has('f') ? undefined : new Error('PDF write stream closed before finish'));
+    };
+    const evs = Object.entries<EvCb>({ error: onErr, finish, close });
+    const settle = (err?: Error, destroyStream = false) => {
+      if (flags.has('s')) return;
+      flags.add('s');
+      if (destroyStream) stream?.destroy?.();
       if (err) reject(err);
       else resolve();
     };
-    stream.on('finish', finish);
-    stream.on('close', close);
-    stream.on('error', onErr);
+    evs.forEach(([k, h]) => stream.on(k, h));
     if (typeof doc.on === 'function') doc.on('error', onErr);
   });
   p.catch(() => {});
@@ -71,13 +67,12 @@ function cleanupFailedPdf(stream: PdfStream | undefined, filePath: string | unde
       /* ignore cleanup error */
     }
   };
-  if (stream && typeof stream.destroy === 'function') stream.destroy();
+  stream?.destroy?.();
   unlink();
-  const once = (stream as unknown as EmitterLike)?.once;
-  if (filePath && typeof once === 'function') once.call(stream, 'close', unlink);
+  if (filePath) (stream as unknown as EmitterLike)?.once?.('close', unlink);
 }
 function writePdfSections(doc: PdfDoc, sections?: PdfSection[]) {
-  if (!sections || !Array.isArray(sections)) return;
+  if (!Array.isArray(sections)) return;
   doc.moveDown();
   for (const s of sections) {
     if (s.heading) {
@@ -89,7 +84,6 @@ function writePdfSections(doc: PdfDoc, sections?: PdfSection[]) {
       doc.font('Helvetica').fontSize(12).text(s.text, { align: 'justify', paragraphGap: 5 });
   }
 }
-
 interface PdfSection {
   heading?: string;
   text?: string;
@@ -122,25 +116,18 @@ export const plugin = {
       type: 'function' as const,
       function: {
         name: 'generate_pdf_report',
-        description:
-          'Generates a professional PDF report with title, formatted content, and metadata. Useful for summarizing research or long analyses.',
+        description: 'Generates a formatted PDF report with title, body content, and metadata.',
         parameters: {
           type: 'object',
           properties: {
             title: { type: 'string', description: 'The main title of the report' },
             content: { type: 'string', description: 'The body text. Supports newlines (\\n).' },
-            filename: {
-              type: 'string',
-              description: 'Filename without extension (e.g. research_report)',
-            },
+            filename: { type: 'string', description: 'Filename without extension' },
             sections: {
               type: 'array',
               items: {
                 type: 'object',
-                properties: {
-                  heading: { type: 'string' },
-                  text: { type: 'string' },
-                },
+                properties: { heading: { type: 'string' }, text: { type: 'string' } },
               },
               description: 'Optional: Structured sections for better formatting',
             },
@@ -183,13 +170,8 @@ export const plugin = {
     let stream: ReturnType<typeof safeCreateWriteStream> | undefined;
     let filePath: string | undefined;
     try {
-      const cleanName = (filename || 'report')
-        .replace(/[^a-z0-9]/gi, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '')
-        .toLowerCase()
-        .slice(0, 64);
-      const safeFilename = cleanName || 'report';
+      const trimmed = (filename || 'report').replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
+      const safeFilename = trimmed.toLowerCase().slice(0, 64) || 'report';
       const tempDir = path.resolve(process.cwd(), 'temp');
       if (!safeExistsSync(tempDir)) safeMkdirSync(tempDir, { recursive: true });
 
@@ -239,11 +221,8 @@ export const plugin = {
 
       // Send the document
       const sendFile = transport.sendFile.bind(transport);
-      const cleanTitle = title
-        .replace(/[\\/:*?"<>|\r\n]+/g, '_')
-        .trim()
-        .slice(0, 100);
-      const stem = cleanTitle || safeFilename;
+      const rawStem = title.replace(/[\\/:*?"<>|\r\n]+/g, '_').trim();
+      const stem = rawStem.slice(0, 100) || safeFilename;
       const caption = `📄 Here is the requested report: *${title}*`;
       await sendFile(chatId, filePath, `${stem}.pdf`, caption);
 

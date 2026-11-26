@@ -1,5 +1,52 @@
 # Test Execution Log
 
+## 📅 Date: 2026-11-26 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 10 : remédiation unifiée Greptile `45883165` [2 P1 + 1 P2] + Codex `6065724031` [P2])
+
+### Contexte & Défauts détectés puis corrigés avant validation finale Round 10
+- Retour Greptile `45883165` (`Confidence Score: 3/5`) + Codex `6065724031` sur commit `2872c8e` (`4` fils non résolus) :
+  1. `PRRT_kwDOT0y8pM68WCy5` (Greptile P1, `visual_reporter/index.ts:54`) : conservation de l'écouteur `error` jusqu'à `'close'` (`flags = new Set<'f' | 's'>()`, `finish = () => flags.add('f')`, rejet `EIO close` post-`finish`, détachement complet sur `'close'`).
+  2. `PRRT_kwDOT0y8pM68WCy-` (Greptile P1, `geminiLive.ts:360`) & `PRRT_kwDOT0y8pM68IY_q` (Codex P2, `geminiLive.ts:347`) : filtrage `results.filter((r) => !r.id || !c.cancelledIds.has(r.id))` dans `_respondToToolCall`, `AbortController` par appel dans `_runToolCall` / `awaitToolOrTurnEnd(fnP, ac.signal)`.
+  3. `PRRT_kwDOT0y8pM68WCzB` (Greptile P2, `geminiLive.test.ts:45` et autres suites) : découpage en blocs `it(...)` ciblés et isolés (`5` dans `geminiLive.test.ts`, `3` dans `mcpClient.test.ts`, `3` scindés sur les `7` totaux de `visualReporterPlugin.test.ts`).
+- Incidents rencontrés & résolus pendant le Round 10 :
+  - Premier essai `task-2852.log` : `TOTAL_PR_CODE_LOC=2503` (`> 2500`) et `TS2322` à `geminiLive.test.ts:48` (`beforeEach(() => jest.clearAllMocks())` retournant `Jest`). Corrigés via bloc `beforeEach(() => { jest.clearAllMocks(); })`, restauration ligne vide `geminiLive.ts:125`, `flags` dans `visual_reporter/index.ts`, `setW` dans `geminiLive.ts:387`, `putS`/`runS` dans `visualReporterPlugin.test.ts:153-154`, et compaction d'alias test.
+
+### Résultats d'exécution Round 10 post-édition (sorties brutes)
+- **Portée, Budget LoC & Statique complet (`task-2896.log` / `steps/2896/output.txt`, exit `0`)** :
+  - `TOTAL_PR_CODE_LOC=2494` (`<= 2500` : `package-lock.json` `1207`, `package.json` `57`, `schedulerHandler.ts` `24`, `visual_reporter/index.ts` `180`, `adapters/geminiLive.ts` `51`, `geminiLive.ts` `356`, `cleanup.ts` `30`, `mcpClient.ts` `138`, `schedulerCron.test.ts` `41`, `visualReporterPlugin.test.ts` `157`, `geminiLive.test.ts` `158`, `mcpClient.test.ts` `95`).
+  - `git diff --name-only origin/master` : strictement les `12` fichiers Scope A + `3` `.GCC/*.md`.
+  - `npm run build` (`tsc --noEmit`) exit `0` ; `oxlint --deny-warnings src/` `Found 0 warnings and 0 errors.` (`375 files`, `96 rules`) ; `depcruise --validate .dependency-cruiser.cjs src` `1 dependency violations (0 errors, 1 warnings)` (`433 modules, 1304 dependencies`, cycle préexistant) ; `npx eslint --max-warnings 0` (`10` fichiers `.ts` PR #192) `ESLINT_ALL_10_PR_TS_FILES_EXIT=0` ; `npm run format:check` `All matched files use Prettier code style!`.
+- **Tests ciblés & LCOV (`steps/2904/output.txt`, exit `0`)** :
+  - `TZ=America/New_York ... npx jest --coverage --runInBand` (`4` suites) : `Test Suites: 4 passed, 4 total` / `Tests: 16 passed, 16 total` (`Time: 6.97 s`) ; `TARGETED_UNCOVERED_PATCH_LINES= 0 []` (`315/315` lignes exécutables ajoutées couvertes).
+- **Suite unitaire complète & intersection `lcov.info` (`TZ=America/New_York npm run test:unit -- --coverage --runInBand`, `task-2907.log` / `steps/2907/output.txt`, exit `0`)** :
+  - `Test Suites: 111 passed, 111 total` / `Tests: 1113 passed, 1113 total` / `Snapshots: 0 total` / `Time: 59.093 s`.
+  - Intersection `coverage/lcov.info` vs `git diff -U0 origin/master -- src/` : `schedulerHandler.ts` `6/6`, `visual_reporter/index.ts` `77/77`, `adapters/geminiLive.ts` `19/19`, `geminiLive.ts` `132/132`, `cleanup.ts` `13/13`, `mcpClient.ts` `68/68` -> `TOTAL_UNCOVERED_PATCH_LINES= 0 []`.
+  - Non exécutés localement : `npm run test:integration`, `npm run test:e2e`, et la passe CI GitHub Actions Node `22` / bots après push.
+- **Double audit indépendant `antibug` Round 10** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`Critical: 0 | High: 0 | Medium: 0`)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`Critical: 0 | High: 0 | Medium: 0`)
+
+## 📅 Date: 2026-11-26 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 8–9 : remédiation Codex P2 `PRRT_kwDOT0y8pM68IY_q` & double validation ANTIBUG)
+
+### Contexte & Défauts détectés puis corrigés avant Round 9
+- Revue Codex sur commit `2872c8e` (review `6065724031`, comment `PRRC_kwDOT0y8pM8AAAABGDsi-A`, fil `PRRT_kwDOT0y8pM68IY_q` non résolu sur `src/providers/geminiLive.ts:347`) : propagation d'annulation manquante vers les callbacks d'outils en cours lors de `toolCallCancellation`.
+- Problèmes découverts puis corrigés au fil des itérations locales Round 8 -> Round 9 :
+  1. `geminiLive.test.ts:138` (`task-2418`) : `cl.mock.calls` enregistre deux `/t.wav` avant `/t.ogg` car `finally { cleanupTempFiles(result.filePath); }` s'exécute aussi lors du premier échec `ffmpeg fail` -> assertion alignée sur `[['/t.wav'], ['/t.wav'], ['/t.ogg']]`.
+  2. `geminiLive.test.ts:125` (`task-2543`) : `finally { c.aborts.delete(id); }` supprimait `slow1` avant `wake(true)` lors du `LiveTimeoutError` -> déplacement vers `p.finally(() => c.aborts.delete(id))`.
+  3. Audit double `antibug` Round 8 (`eab1bbe4` HIGH+MEDIUM, `b598b32c` 2x HIGH) : (a) `awaitToolOrTurnEnd` écoutait `c.turnSig` au lieu de `ac.signal` (blocage d'un handler non coopératif sur `toolCallCancellation`) ; (b) absence de garde synchrone `if (sig.aborted)` avant `addEventListener` ; (c) absence de filtrage `c.cancelledIds` sur les résultats antérieurs déjà accumulés dans `_respondToToolCall` -> corrigés en Round 9 avec tests déterministes (`sync` non-settling + `cc`, `expP`, `clsP`, lot mixte `[b1:fast, b2:hang, b3:late]` avec annulation microtask `cc(['b1', 'b2'])`) et compaction `visualReporterPlugin.test.ts:147-148`.
+
+### Résultats d'exécution Round 9 post-édition (sorties brutes)
+- **Portée, Budget LoC & Statique complet (`task-2618.log` / `steps/2618/output.txt`)** :
+  - `TOTAL_PR_CODE_LOC = 2497 <= 2500` (`package-lock.json`: `1207`, `package.json`: `57`, `schedulerHandler.ts`: `24`, `visual_reporter/index.ts`: `197`, `adapters/geminiLive.ts`: `59`, `geminiLive.ts`: `370`, `cleanup.ts`: `32`, `mcpClient.ts`: `139`, `schedulerCron.test.ts`: `41`, `visualReporterPlugin.test.ts`: `137`, `geminiLive.test.ts`: `148`, `mcpClient.test.ts`: `86`).
+  - `npm run build` (`tsc --noEmit`) exit `0` ; `oxlint --deny-warnings src/` `Found 0 warnings and 0 errors.` (`375 files`) ; `depcruise --validate .dependency-cruiser.cjs src` `0 errors, 1 warnings` (`433 modules, 1304 dependencies`, cycle préexistant) ; `npx eslint --max-warnings 0` (10 fichiers TS PR #192) `ESLINT_ALL_10_PR_TS_FILES_EXIT=0` ; `npm run format:check` `All matched files use Prettier code style!`.
+- **Tests ciblés & LCOV (`task-2630.log`)** :
+  - `Test Suites: 4 passed, 4 total` / `Tests: 8 passed, 8 total` (`19.177 s`) / `TARGETED_UNCOVERED_PATCH_LINES = 0 []`.
+- **Suite unitaire complète & intersection `lcov.info` (`TZ=America/New_York npm run test:unit -- --coverage --runInBand`, `task-2635.log`)** :
+  - `Test Suites: 111 passed, 111 total` / `Tests: 1105 passed, 1105 total` / `Snapshots: 0 total` / `Time: 220.696 s`.
+  - `TOTAL_UNCOVERED_PATCH_LINES = 0 []` (0 ligne ajoutée non couverte sur les 6 fichiers `src/` modifiés). (`test:integration` et `test:e2e` non exécutés ; exécution CI Node `22` en attente du push.)
+- **Double audit indépendant `antibug` Round 9** :
+  - `Specific Fix-Verifier` (`eab1bbe4`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`Critical: 0 | High: 0 | Medium: 0`)
+  - `Global System Critic` (`b598b32c`) : `VERDICT: 100% PRODUCTION-GRADE / IMPRESSED` (`Critical: 0 | High: 0 | Medium: 0`)
+
 ## 📅 Date: 2026-11-25 (PR #192 `chore/deps-npm-production-and-gemini-live` — Round 7 : couverture patch 100% Codecov + nettoyage `mcpClient`)
 
 ### Contexte & Diagnostic sur commit `669167b`

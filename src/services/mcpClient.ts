@@ -44,9 +44,8 @@ function extractErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 function buildSseTransport(name: string, def: Record<string, unknown>): SSEClientTransport {
   const rawUrl = typeof def.url === 'string' ? def.url.trim() : '';
   if (!rawUrl) throw new Error(`[MCP] Server ${name} (sse) missing required url`);
@@ -126,16 +125,16 @@ class McpClientService {
       let client: Client | undefined;
       try {
         transport = buildTransport(name, serverDef);
-        client = new Client({ name: 'hive-mind', version: '1.0.0' }, { capabilities: {} });
+        const c = new Client({ name: 'hive-mind', version: '1.0.0' }, { capabilities: {} });
+        client = c;
         let closed = false;
-        const cRef = client;
-        client.onclose = () => {
+        c.onclose = () => {
           closed = true;
-          if (this.clients.get(name) === cRef) this.clients.delete(name);
+          if (this.clients.get(name) === c) this.clients.delete(name);
         };
-        await client.connect(transport);
+        await c.connect(transport);
         if (closed) throw new Error('MCP transport closed during connect');
-        this.clients.set(name, client);
+        this.clients.set(name, c);
         console.log(`[MCP] ✅ Connected to server: ${name}`);
       } catch (error: unknown) {
         await closeAll(client, transport);
